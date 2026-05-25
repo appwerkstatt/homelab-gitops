@@ -12,7 +12,7 @@ services:
       FORGEJO__server__DOMAIN: git.appsfab.org
       FORGEJO__server__ROOT_URL: https://git.appsfab.org/
       FORGEJO__server__SSH_DOMAIN: git.appsfab.org    # in den Klon-URLs angezeigter Host
-      FORGEJO__server__SSH_PORT: "2222"               # in Klon-URLs angezeigter Port (extern via Traefik)
+      FORGEJO__server__SSH_PORT: "22"                 # Standard-SSH-Port (.48:22 via Traefik) -> keine :2222 in Klon-URLs
       # kein SSH_LISTEN_PORT: das normale Forgejo-Image nutzt den Container-OpenSSH auf Port 22
       # OIDC-Login gegen Keycloak später in der UI (oder via FORGEJO__oauth2_client__*).
     volumes:

@@ -29,7 +29,7 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
-      - --entrypoints.ssh.address=:2222          # Git-over-SSH (TCP-Passthrough) -> Forgejo
+      - --entrypoints.ssh.address=:22            # Git-over-SSH (.48:22 via TCP-Passthrough; kein Konflikt mit NAS-sshd auf .50)
       - --certificatesresolvers.le.acme.dnschallenge=true
       - --certificatesresolvers.le.acme.dnschallenge.provider=cloudflare
       # Netz macht DNS-Interception (CGU/Split-Horizon) -> lokalen Propagations-Check abschalten;

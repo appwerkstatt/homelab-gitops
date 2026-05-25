@@ -18,14 +18,19 @@ services:
     volumes:
       - /mnt/fast/appdata/forgejo:/data       # enthält gitea.db + data/git + jwt/private.pem (migriert)
       - /etc/localtime:/etc/localtime:ro
-    ports:
-      - "2222:2222"                            # Git over SSH (Host:Container durchgängig 2222)
+    # kein Host-Port-Mapping mehr — SSH läuft über Traefik (.48:2222), nicht über den NAS-Host (.50)
     labels:
       - traefik.enable=true
+      # HTTPS (Web-UI + Git-over-HTTPS):
       - traefik.http.routers.forgejo.rule=Host(`git.appsfab.org`)
       - traefik.http.routers.forgejo.entrypoints=websecure
       - traefik.http.routers.forgejo.tls.certresolver=le
       - traefik.http.services.forgejo.loadbalancer.server.port=3000
+      # Git-over-SSH (TCP-Passthrough über Traefik-Entrypoint ssh = .48:2222):
+      - traefik.tcp.routers.forgejo-ssh.rule=HostSNI(`*`)
+      - traefik.tcp.routers.forgejo-ssh.entrypoints=ssh
+      - traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh
+      - traefik.tcp.services.forgejo-ssh.loadbalancer.server.port=2222
     networks: [edge]
     mem_limit: 1g
     restart: unless-stopped

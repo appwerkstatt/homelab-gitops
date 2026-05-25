@@ -12,8 +12,8 @@ services:
       FORGEJO__server__DOMAIN: git.appsfab.org
       FORGEJO__server__ROOT_URL: https://git.appsfab.org/
       FORGEJO__server__SSH_DOMAIN: git.appsfab.org    # in den Klon-URLs angezeigter Host
-      FORGEJO__server__SSH_PORT: "2222"               # in Klon-URLs angezeigter Port
-      FORGEJO__server__SSH_LISTEN_PORT: "2222"        # Port, auf dem der Server IM Container lauscht
+      FORGEJO__server__SSH_PORT: "2222"               # in Klon-URLs angezeigter Port (extern via Traefik)
+      # kein SSH_LISTEN_PORT: das normale Forgejo-Image nutzt den Container-OpenSSH auf Port 22
       # OIDC-Login gegen Keycloak später in der UI (oder via FORGEJO__oauth2_client__*).
     volumes:
       - /mnt/fast/appdata/forgejo:/data       # enthält gitea.db + data/git + jwt/private.pem (migriert)
@@ -30,7 +30,7 @@ services:
       - traefik.tcp.routers.forgejo-ssh.rule=HostSNI(`*`)
       - traefik.tcp.routers.forgejo-ssh.entrypoints=ssh
       - traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh
-      - traefik.tcp.services.forgejo-ssh.loadbalancer.server.port=2222
+      - traefik.tcp.services.forgejo-ssh.loadbalancer.server.port=22   # Container-OpenSSH lauscht auf 22
     networks: [edge]
     mem_limit: 1g
     restart: unless-stopped

@@ -1,0 +1,15 @@
+{
+  "storage": { "rootDirectory": "/var/lib/registry" },
+  "http": { "address": "0.0.0.0", "port": "5000" },
+  "log": { "level": "info" },
+  "extensions": {
+    "search": {
+      "enable": true,
+      "cve": {
+        "updateInterval": "24h",
+        "trivy": { "dbRepository": "ghcr.io/project-zot/trivy-db" }
+      }
+    },
+    "scrub": { "enable": true, "interval": "24h" }
+  }
+}

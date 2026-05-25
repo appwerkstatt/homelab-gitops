@@ -1,0 +1,57 @@
+# 02-keycloak — IAM/SSO (Keycloak 26 + Postgres 17). DB-Dump aus Phase 3 einspielen.
+name: keycloak
+
+services:
+  keycloak-db:
+    image: postgres:17.8-alpine          # Major 17 wie im Altsystem (Migration!)
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${KC_DB_USER}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+    volumes:
+      - /mnt/fast/appdata/keycloak/db:/var/lib/postgresql/data
+    networks: [kc-internal]
+    mem_limit: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.4
+    command:
+      - start
+      - --hostname=https://auth.${LAB_DOMAIN}
+      - --proxy-headers=xforwarded
+      - --http-enabled=true
+      - --import-realm           # importiert realm/AppsFab-realm.json NUR falls Realm fehlt
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KC_DB_USER}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+    volumes:
+      # Realm-as-Code: greift nur bei frischem Start (DR/Neuaufbau ohne DB-Migration).
+      # Nach erfolgreicher Phase-3-DB-Migration ist der Realm bereits da → Import wird übersprungen.
+      - ./realm:/opt/keycloak/data/import:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.keycloak.rule=Host(`auth.${LAB_DOMAIN}`)
+      - traefik.http.routers.keycloak.entrypoints=websecure
+      - traefik.http.routers.keycloak.tls.certresolver=le
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+    networks: [edge, kc-internal]
+    mem_limit: 1g
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true
+  kc-internal:

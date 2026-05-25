@@ -1,0 +1,14 @@
+# VictoriaMetrics promscrape-Config (Prometheus-Format). Scrapt lokale Exporter.
+# Cluster-Metriken kommen zusätzlich per remote_write an :8428/api/v1/write.
+global:
+  scrape_interval: 30s
+scrape_configs:
+  - job_name: victoriametrics
+    static_configs:
+      - targets: ["localhost:8428"]
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]

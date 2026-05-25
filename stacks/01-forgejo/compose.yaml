@@ -1,0 +1,35 @@
+# 01-forgejo — Git-Hosting (SQLite, wie im Altsystem). Daten + Repos aus Phase 3.
+name: forgejo
+
+services:
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:14.0.2
+    environment:
+      USER_UID: ${PUID}
+      USER_GID: ${PGID}
+      TZ: ${TZ}
+      FORGEJO__database__DB_TYPE: sqlite3
+      FORGEJO__server__DOMAIN: git.appsfab.org
+      FORGEJO__server__ROOT_URL: https://git.appsfab.org/
+      FORGEJO__server__SSH_DOMAIN: git.appsfab.org    # in den Klon-URLs angezeigter Host
+      FORGEJO__server__SSH_PORT: "2222"               # in Klon-URLs angezeigter Port
+      FORGEJO__server__SSH_LISTEN_PORT: "2222"        # Port, auf dem der Server IM Container lauscht
+      # OIDC-Login gegen Keycloak später in der UI (oder via FORGEJO__oauth2_client__*).
+    volumes:
+      - /mnt/fast/appdata/forgejo:/data       # enthält gitea.db + data/git + jwt/private.pem (migriert)
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "2222:2222"                            # Git over SSH (Host:Container durchgängig 2222)
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.forgejo.rule=Host(`git.appsfab.org`)
+      - traefik.http.routers.forgejo.entrypoints=websecure
+      - traefik.http.routers.forgejo.tls.certresolver=le
+      - traefik.http.services.forgejo.loadbalancer.server.port=3000
+    networks: [edge]
+    mem_limit: 1g
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true

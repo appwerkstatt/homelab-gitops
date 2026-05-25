@@ -1,0 +1,21 @@
+# Cloudflared Tunnel — locally-managed (credentials.json aus der Migration).
+# SICHERHEIT: NUR explizit gelistete Hosts sind von außen erreichbar; alles andere -> 404.
+# Tunnel-ID/Name aus credentials.json übernehmen.
+tunnel: appsfab-homelab
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # --- explizit veröffentlichte Dienste (nur was WIRKLICH öffentlich sein muss) ---
+  - hostname: git.appsfab.org
+    service: https://traefik:443
+    originRequest:
+      originServerName: git.appsfab.org      # SNI, damit Traefik das richtige Cert liefert
+
+  # Weitere Hosts NUR bei echtem Bedarf freischalten (Beispiel, bewusst auskommentiert):
+  # - hostname: docs.appsfab.org
+  #   service: https://traefik:443
+  #   originRequest:
+  #     originServerName: docs.lab.appsfab.org
+
+  # --- Pflicht: Catch-all lehnt alles Nicht-Gelistete ab ---
+  - service: http_status:404

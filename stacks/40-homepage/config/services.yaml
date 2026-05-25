@@ -1,0 +1,53 @@
+- Identity & Git:
+    - Keycloak:
+        href: https://auth.lab.appsfab.org
+        description: IAM / SSO (Passkeys)
+        icon: keycloak.png
+    - Forgejo:
+        href: https://git.appsfab.org
+        description: Git + Actions
+        icon: forgejo.png
+
+- Dokumente:
+    - Paperless:
+        href: https://docs.lab.appsfab.org
+        description: Dokumentenarchiv
+        icon: paperless-ngx.png
+    - Paperless-AI:
+        href: https://docs-ai.lab.appsfab.org
+        description: Auto-Tagging & RAG (Ollama)
+        icon: mdi-robot
+
+- Observability:
+    - Grafana:
+        href: https://grafana.lab.appsfab.org
+        description: Dashboards (VictoriaMetrics + Loki)
+        icon: grafana.png
+
+- Infrastruktur:
+    - Traefik:
+        href: https://traefik.lab.appsfab.org
+        description: Reverse Proxy
+        icon: traefik.png
+    - MinIO:
+        href: https://s3-console.lab.appsfab.org
+        description: S3 Object Store
+        icon: minio.png
+    - Registry:
+        href: https://registry.lab.appsfab.org
+        description: Container-Registry
+        icon: mdi-package-variant-closed
+    - Netboot:
+        href: https://netboot.lab.appsfab.org
+        description: Pi-5-Provisionierung
+        icon: mdi-server-network
+
+- Cluster:
+    - ArgoCD:
+        href: https://argocd.k8s.cluster
+        description: GitOps (Pi-k3s)
+        icon: argocd.png
+    - Longhorn:
+        href: https://longhorn.k8s.cluster
+        description: Cluster-Storage
+        icon: longhorn.png

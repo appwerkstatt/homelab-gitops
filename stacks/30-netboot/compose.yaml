@@ -1,0 +1,63 @@
+# 30-netboot — CUSTOM-APP: Pi-5-Netboot-Provisionierung.
+# dnsmasq (Proxy-DHCP+TFTP, eigene IP .49 via macvlan) + nginx (Seeds/Images) + Go-Konsole.
+# Daten bleiben auf data/provisioning (kein Re-Build). NFS-Exporte (nfsroot/control) aus Phase 1.5.
+name: netboot
+
+services:
+  dnsmasq:
+    image: dockurr/dnsmasq:2.91      # gepinnt (war :latest = Update-Risiko); Version vor Deploy prüfen
+    cap_add: [NET_ADMIN]
+    volumes:
+      - /mnt/data/provisioning/dnsmasq.conf:/etc/dnsmasq.conf:ro
+      - /mnt/data/provisioning/tftpboot:/var/tftp
+    networks:
+      netboot-macvlan:
+        ipv4_address: 192.168.80.49      # eigene MAC/IP, kollidiert nicht mit dem NAS-Mgmt
+    mem_limit: 64m
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine          # gepinnt (war :alpine = floating)
+    volumes:
+      - /mnt/data/provisioning/nginx-seed.conf:/etc/nginx/conf.d/default.conf:ro
+      - /mnt/data/provisioning/seed:/srv/seed:ro       # cloud-init-Seeds (per $remote_addr)
+      - /mnt/data/provisioning/http:/srv/http:ro       # Pi-5-Golden-Images
+    ports:
+      - "8080:80"                                       # von den Pi-Nodes im VLAN erreichbar
+    networks: [netboot-internal]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  console:
+    # Go-Management-Konsole (Quellcode im Cluster-Repo: provisioning/console/).
+    # Image wird vom Forgejo-Runner auf dem Mac Studio gebaut & nach Harbor gepusht (Phase 5).
+    image: registry.${LAB_DOMAIN}/library/netboot-console:v1   # festen Tag/Git-SHA pinnen (kein :latest)
+    environment:
+      OIDC_ISSUER: https://auth.${LAB_DOMAIN}/realms/AppsFab
+      CONTROL_DIR: /control
+      SEED_DIR: /seed
+    volumes:
+      - /mnt/data/provisioning/control:/control        # nodes.yaml, arm.d, provision.log (k3s-token NICHT ausliefern!)
+      - /mnt/data/provisioning/seed:/seed
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.netboot.rule=Host(`netboot.${LAB_DOMAIN}`)
+      - traefik.http.routers.netboot.entrypoints=websecure
+      - traefik.http.routers.netboot.tls.certresolver=le
+      - traefik.http.services.netboot.loadbalancer.server.port=8090
+    networks: [edge, netboot-internal]
+    mem_limit: 128m
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true
+  netboot-internal:
+  netboot-macvlan:
+    driver: macvlan
+    driver_opts:
+      parent: bond0          # nach dem LACP-Bond (Phase 1.4); vor dem Bond: enp3s0
+    ipam:
+      config:
+        - subnet: 192.168.80.0/24
+          gateway: 192.168.80.1

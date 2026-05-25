@@ -1,0 +1,85 @@
+# 11-paperless — Dokumentenarchiv (Paperless-ngx + Postgres 17 + Redis) + paperless-ai (RAG via Ollama)
+# DB-Dump aus Phase 3; Medien liegen auf data/paperless.
+name: paperless
+
+services:
+  paperless-db:
+    image: postgres:17.8-alpine
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: ${PAPERLESS_DB_USER}
+      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD}
+    volumes:
+      - /mnt/fast/appdata/paperless/db:/var/lib/postgresql/data
+    networks: [pl-internal]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PAPERLESS_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  paperless-redis:
+    image: redis:7.4.7-alpine
+    volumes:
+      - /mnt/fast/appdata/paperless/redis:/data
+    networks: [pl-internal]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:2.20.7
+    environment:
+      PAPERLESS_REDIS: redis://paperless-redis:6379
+      PAPERLESS_DBHOST: paperless-db
+      PAPERLESS_DBUSER: ${PAPERLESS_DB_USER}
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD}
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+      PAPERLESS_URL: https://docs.${LAB_DOMAIN}
+      PAPERLESS_TIME_ZONE: ${TZ}
+      USERMAP_UID: ${PUID}
+      USERMAP_GID: ${PGID}
+    volumes:
+      - /mnt/data/paperless/media:/usr/src/paperless/media       # Dokumente (bleiben auf data)
+      - /mnt/data/paperless/consume:/usr/src/paperless/consume   # SMB-Eingang
+      - /mnt/data/paperless/export:/usr/src/paperless/export
+      - /mnt/fast/appdata/paperless/data:/usr/src/paperless/data
+    depends_on: [paperless-db, paperless-redis]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.paperless.rule=Host(`docs.${LAB_DOMAIN}`)
+      - traefik.http.routers.paperless.entrypoints=websecure
+      - traefik.http.routers.paperless.tls.certresolver=le
+      - traefik.http.services.paperless.loadbalancer.server.port=8000
+    networks: [edge, pl-internal]
+    mem_limit: 1g
+    restart: unless-stopped
+
+  paperless-ai:
+    image: clusterzx/paperless-ai:3.0.9
+    environment:
+      PAPERLESS_API_URL: http://paperless:8000/api
+      PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_KEY}   # in Paperless erzeugen
+      # LLM = Ollama auf dem Mac Studio (Phase 5), via Traefik/Bearer:
+      AI_PROVIDER: ollama
+      OLLAMA_API_URL: https://llm.${LAB_DOMAIN}
+      OLLAMA_MODEL: qwen2.5:14b
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+    volumes:
+      - /mnt/fast/appdata/paperless-ai:/app/data       # ChromaDB + documents.db (migriert)
+    depends_on: [paperless]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.paperless-ai.rule=Host(`docs-ai.${LAB_DOMAIN}`)
+      - traefik.http.routers.paperless-ai.entrypoints=websecure
+      - traefik.http.routers.paperless-ai.tls.certresolver=le
+      - traefik.http.services.paperless-ai.loadbalancer.server.port=3000
+    networks: [edge, pl-internal]
+    mem_limit: 512m
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true
+  pl-internal:

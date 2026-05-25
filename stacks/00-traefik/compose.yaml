@@ -1,0 +1,63 @@
+# 00-traefik — Reverse Proxy + Wildcard-TLS (DNS-01) + erstellt das Netz "edge".
+# Härtung: Traefik spricht NICHT direkt mit dem Docker-Socket, sondern über einen
+# read-only socket-proxy (kein Host-Root-Risiko). Dashboard hinter SSO.
+name: traefik
+
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.4.2
+    environment:
+      CONTAINERS: 1          # nur lesen, was Traefik braucht
+      NETWORKS: 1
+      SERVICES: 1
+      TASKS: 1
+      POST: 0                # KEINE schreibenden Docker-API-Calls
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [socket]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v3.6.8
+    command:
+      - --providers.docker=true
+      - --providers.docker.endpoint=tcp://socket-proxy:2375    # statt direktem Socket
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=edge
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.dnschallenge=true
+      - --certificatesresolvers.le.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/data/acme.json
+      - --api.dashboard=true
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /mnt/fast/appdata/traefik:/data        # nur acme.json — KEIN docker.sock mehr
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard.rule=Host(`traefik.${LAB_DOMAIN}`)
+      - traefik.http.routers.dashboard.entrypoints=websecure
+      - traefik.http.routers.dashboard.tls.certresolver=le
+      - traefik.http.routers.dashboard.tls.domains[0].main=${LAB_DOMAIN}
+      - traefik.http.routers.dashboard.tls.domains[0].sans=*.${LAB_DOMAIN}
+      - traefik.http.routers.dashboard.service=api@internal
+      - traefik.http.routers.dashboard.middlewares=sso@docker   # Dashboard hinter Keycloak-Login (Stack 03)
+    networks:
+      edge:
+        aliases: [traefik]      # cross-stack erreichbar (z.B. cloudflared -> https://traefik:443)
+      socket: {}
+    mem_limit: 256m
+    restart: unless-stopped
+
+networks:
+  edge:
+    name: edge          # erstellt das externe Netz; andere Stacks nutzen es als external
+  socket:               # privates Netz nur zwischen Traefik und socket-proxy

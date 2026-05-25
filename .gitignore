@@ -1,0 +1,20 @@
+# Niemals Klartext-Secrets ins Repo
+.env
+*.env
+!.env.example
+secrets.env
+*.key
+*.pem
+credentials.json
+age.key
+*.agekey
+
+# erlaubt: SOPS-verschlüsselte Secrets
+!secrets.enc.env
+!*.enc.env
+!*.enc.yaml
+
+# lokales/temporäres
+.DS_Store
+*.bak
+*.tmp

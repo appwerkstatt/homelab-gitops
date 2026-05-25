@@ -1,0 +1,154 @@
+{
+  "realm": "AppsFab",
+  "enabled": true,
+  "displayName": "AppsFab Homelab",
+  "loginWithEmailAllowed": true,
+  "registrationAllowed": false,
+  "sslRequired": "external",
+
+  "browserFlow": "browser-passkey",
+
+  "webAuthnPolicyPasswordlessRpEntityName": "AppsFab Homelab",
+  "webAuthnPolicyPasswordlessRpId": "",
+  "webAuthnPolicyPasswordlessSignatureAlgorithms": ["ES256", "RS256"],
+  "webAuthnPolicyPasswordlessAttestationConveyancePreference": "not specified",
+  "webAuthnPolicyPasswordlessAuthenticatorAttachment": "not specified",
+  "webAuthnPolicyPasswordlessRequireResidentKey": "Yes",
+  "webAuthnPolicyPasswordlessUserVerificationRequirement": "preferred",
+  "webAuthnPolicyPasswordlessCreateTimeout": 0,
+  "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister": false,
+  "webAuthnPolicyPasswordlessAcceptableAaguids": [],
+
+  "roles": {
+    "realm": [
+      { "name": "lab-admin", "description": "Voller Zugriff auf Lab-Dienste" },
+      { "name": "lab-user", "description": "Standard-Zugriff" }
+    ]
+  },
+  "groups": [
+    { "name": "lab-admins", "realmRoles": ["lab-admin"] },
+    { "name": "lab-users", "realmRoles": ["lab-user"] }
+  ],
+
+  "requiredActions": [
+    {
+      "alias": "webauthn-register-passwordless",
+      "name": "Webauthn Register Passwordless",
+      "providerId": "webauthn-register-passwordless",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 80,
+      "config": {}
+    }
+  ],
+
+  "authenticationFlows": [
+    {
+      "alias": "browser-passkey",
+      "description": "Browser-Flow: Passkey bevorzugt, Passwort als Fallback",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-cookie", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 10, "userSetupAllowed": false },
+        { "authenticator": "identity-provider-redirector", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 20, "userSetupAllowed": false },
+        { "authenticatorFlow": true, "flowAlias": "browser-passkey-forms", "requirement": "ALTERNATIVE", "priority": 30, "userSetupAllowed": false }
+      ]
+    },
+    {
+      "alias": "browser-passkey-forms",
+      "description": "Username, dann Passkey oder Passwort",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "auth-username-form", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
+        { "authenticatorFlow": true, "flowAlias": "browser-passkey-auth", "requirement": "REQUIRED", "priority": 20, "userSetupAllowed": false }
+      ]
+    },
+    {
+      "alias": "browser-passkey-auth",
+      "description": "Passkey (passwordless) ALTERNATIVE zu Passwort-Fallback",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "webauthn-authenticator-passwordless", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 10, "userSetupAllowed": false },
+        { "authenticator": "auth-password-form", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 20, "userSetupAllowed": false }
+      ]
+    }
+  ],
+
+  "clientScopes": [
+    {
+      "name": "groups",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+
+  "clients": [
+    {
+      "clientId": "grafana",
+      "name": "Grafana",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "CHANGE_ME_grafana",
+      "redirectUris": ["https://grafana.lab.appsfab.org/login/generic_oauth"],
+      "webOrigins": ["https://grafana.lab.appsfab.org"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
+    },
+    {
+      "clientId": "forgejo",
+      "name": "Forgejo",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "CHANGE_ME_forgejo",
+      "redirectUris": ["https://git.appsfab.org/user/oauth2/keycloak/callback"],
+      "webOrigins": ["https://git.appsfab.org"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
+    },
+    {
+      "clientId": "netboot-console",
+      "name": "Netboot-Konsole",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "CHANGE_ME_netboot",
+      "redirectUris": ["https://netboot.lab.appsfab.org/oidc/callback"],
+      "webOrigins": ["https://netboot.lab.appsfab.org"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
+    },
+    {
+      "clientId": "oauth2-proxy",
+      "name": "Traefik ForwardAuth (oauth2-proxy)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "CHANGE_ME_oauth2proxy",
+      "redirectUris": ["https://*.lab.appsfab.org/oauth2/callback"],
+      "webOrigins": ["https://*.lab.appsfab.org"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
+    }
+  ]
+}

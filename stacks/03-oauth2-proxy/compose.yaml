@@ -1,0 +1,48 @@
+# 03-oauth2-proxy — Traefik-ForwardAuth gegen Keycloak.
+# Schützt Dienste OHNE eigenes OIDC (z.B. Traefik-Dashboard, MinIO-Console, Netboot-Konsole)
+# mit einem Keycloak-Login. Nutzt den Realm-Client "oauth2-proxy" (AppsFab-realm.json).
+name: oauth2-proxy
+
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1   # vor Deploy aktuelle Version prüfen
+    command:
+      - --http-address=0.0.0.0:4180
+      - --reverse-proxy=true
+      - --provider=keycloak-oidc
+      - --oidc-issuer-url=https://auth.${LAB_DOMAIN}/realms/AppsFab
+      - --client-id=oauth2-proxy
+      - --client-secret=${OAUTH2_PROXY_CLIENT_SECRET}
+      - --cookie-secret=${OAUTH2_PROXY_COOKIE_SECRET}    # openssl rand -base64 32
+      - --cookie-domain=.${LAB_DOMAIN}
+      - --whitelist-domain=.${LAB_DOMAIN}
+      - --email-domain=*
+      - --oidc-groups-claim=groups
+      - --allowed-group=lab-users         # RBAC: nur Mitglieder dieser Keycloak-Gruppe dürfen durch
+      - --cookie-secure=true
+      - --cookie-samesite=lax
+      - --set-xauthrequest=true
+      - --pass-access-token=true
+      - --upstream=static://202
+    labels:
+      - traefik.enable=true
+      # /oauth2/* auf allen Lab-Hosts zum Proxy routen (Login-/Callback-Endpunkte):
+      - traefik.http.routers.oauth2-proxy.rule=Host(`auth-proxy.${LAB_DOMAIN}`) || PathPrefix(`/oauth2`)
+      - traefik.http.routers.oauth2-proxy.entrypoints=websecure
+      - traefik.http.routers.oauth2-proxy.tls.certresolver=le
+      - traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180
+      # Wiederverwendbare Middleware "sso" — an geschützten Routern referenzieren:
+      - traefik.http.middlewares.sso.forwardauth.address=http://oauth2-proxy:4180/oauth2/auth
+      - traefik.http.middlewares.sso.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.sso.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
+    networks: [edge]
+    mem_limit: 128m
+    restart: unless-stopped
+
+# Anwenden auf einen Dienst (Beispiel): am jeweiligen Router das Label setzen
+#   traefik.http.routers.<dienst>.middlewares=sso@docker
+# z.B. Traefik-Dashboard (00-traefik), MinIO-Console (21-minio), Netboot-Konsole (30-netboot).
+
+networks:
+  edge:
+    external: true

@@ -1,0 +1,18 @@
+# 12-cloudflared — Cloudflare-Tunnel für gezielt nach außen veröffentlichte Dienste.
+# credentials.json aus dem Altsystem migrieren (fast/appdata/cloudflared/).
+name: cloudflared
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.2.0
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - /mnt/fast/appdata/cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+      - ./config.yml:/etc/cloudflared/config.yml:ro       # explizite Ingress-Regeln (Repo)
+    networks: [edge]
+    mem_limit: 128m
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true

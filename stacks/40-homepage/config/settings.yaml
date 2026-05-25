@@ -1,0 +1,20 @@
+title: AppsFab Homelab
+theme: dark
+color: slate
+headerStyle: clean
+layout:
+  Identity & Git:
+    style: row
+    columns: 2
+  Dokumente:
+    style: row
+    columns: 2
+  Observability:
+    style: row
+    columns: 2
+  Infrastruktur:
+    style: row
+    columns: 4
+  Cluster:
+    style: row
+    columns: 2

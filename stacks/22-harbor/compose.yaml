@@ -1,0 +1,22 @@
+# 22-harbor — schlanke Sofort-Variante: Zot (OCI-Registry). Harbor via Installer siehe README.md.
+name: registry
+
+services:
+  zot:
+    image: ghcr.io/project-zot/zot:v2.1.2      # vor Deploy aktuelle Version prüfen
+    volumes:
+      - /mnt/data/harbor/zot:/var/lib/registry
+      - ./config/zot.json:/etc/zot/config.json:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.registry.rule=Host(`registry.${LAB_DOMAIN}`)
+      - traefik.http.routers.registry.entrypoints=websecure
+      - traefik.http.routers.registry.tls.certresolver=le
+      - traefik.http.services.registry.loadbalancer.server.port=5000
+    networks: [edge]
+    mem_limit: 256m
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true

@@ -1,0 +1,19 @@
+# SOPS-Konfiguration (Secret-Verschlüsselung mit age)
+#
+# Setup (einmalig):
+#   age-keygen -o age.key                 # erzeugt den Key (NICHT committen!)
+#   #   -> Public Key (age1...) unten bei "age:" eintragen
+#   #   -> age.key sicher ablegen: auf dem NAS + in 1Password
+#
+# Verschlüsseln (IN-PLACE — SOPS prüft die Regel gegen den Dateinamen der Eingabe,
+# darum muss die Datei beim Verschlüsseln bereits "*.enc.env" heißen):
+#   cp secrets.env secrets.enc.env && sops -e -i secrets.enc.env   # secrets.enc.env DARF ins Repo
+#   rm -f secrets.env                                              # Klartext nie committen
+# Entschlüsseln (auf dem NAS, mit age.key):
+#   SOPS_AGE_KEY_FILE=/mnt/fast/appdata/_secrets/age.key sops --decrypt secrets.enc.env
+#
+# Nur die *.enc.* -Dateien landen verschlüsselt im Git; der age-Private-Key niemals.
+
+creation_rules:
+  - path_regex: \.enc\.(env|ya?ml)$
+    age: "age1aq3krvaqnu8e723ll0nmkhneknnkgdha9qhv97lsw650z8wwxals3cjw59"

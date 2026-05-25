@@ -5,7 +5,7 @@ name: oauth2-proxy
 
 services:
   oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1   # vor Deploy aktuelle Version prüfen
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.2   # akt. Stand 2026-04; behebt Auth-Bypass + Session-Fixation (CVE-Fixes ggü. 7.7.x)
     command:
       - --http-address=0.0.0.0:4180
       - --reverse-proxy=true

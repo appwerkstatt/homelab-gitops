@@ -36,11 +36,10 @@ services:
       - --api.dashboard=true
     environment:
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
-    ports:
-      - "80:80"
-      - "443:443"
+    # KEIN ports:-Mapping — Traefik hört auf 80/443 seiner EIGENEN macvlan-IP (.48),
+    # damit kein Konflikt mit der TrueNAS-Web-UI auf .50:80/443.
     volumes:
-      - /mnt/fast/appdata/traefik:/data        # nur acme.json — KEIN docker.sock mehr
+      - /mnt/fast/appdata/traefik:/data        # nur acme.json
     labels:
       - traefik.enable=true
       - traefik.http.routers.dashboard.rule=Host(`traefik.${LAB_DOMAIN}`)
@@ -51,8 +50,10 @@ services:
       - traefik.http.routers.dashboard.service=api@internal
       - traefik.http.routers.dashboard.middlewares=sso@docker   # Dashboard hinter Keycloak-Login (Stack 03)
     networks:
+      vlan80:
+        ipv4_address: 192.168.80.48   # eigene VLAN-IP; *.lab.appsfab.org zeigt hierauf
       edge:
-        aliases: [traefik]      # cross-stack erreichbar (z.B. cloudflared -> https://traefik:443)
+        aliases: [traefik]            # cross-stack erreichbar (cloudflared, Backends)
       socket: {}
     mem_limit: 256m
     restart: unless-stopped
@@ -61,3 +62,12 @@ networks:
   edge:
     name: edge          # erstellt das externe Netz; andere Stacks nutzen es als external
   socket:               # privates Netz nur zwischen Traefik und socket-proxy
+  vlan80:
+    name: vlan80        # macvlan; andere Stacks (z.B. Netboot) nutzen es als external
+    driver: macvlan
+    driver_opts:
+      parent: enp3s0    # aktives 2,5-G-Interface; bei späterem LACP-Bond -> bond0
+    ipam:
+      config:
+        - subnet: 192.168.80.0/24
+          gateway: 192.168.80.1

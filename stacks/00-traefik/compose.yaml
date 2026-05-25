@@ -58,7 +58,15 @@ services:
       vlan80:
         ipv4_address: 192.168.80.48   # eigene VLAN-IP; *.lab.appsfab.org zeigt hierauf
       edge:
-        aliases: [traefik]            # cross-stack erreichbar (cloudflared, Backends)
+        # cross-stack erreichbar (cloudflared, Backends). Die FQDN-Aliase loesen das
+        # macvlan-Hairpin-Problem: serverseitige Container-Calls (OIDC-Discovery/Token/JWKS)
+        # an die oeffentliche FQDN wuerden sonst auf .48 zeigen und scheitern (no route to host,
+        # Host<->macvlan-Kind ist gesperrt). Ueber den Alias bleibt der Verkehr im edge-Bridge-Netz:
+        # Docker-DNS -> Traefik-Bridge-IP -> SNI bleibt auth.* (Wildcard-Cert) -> Host-Routing an Keycloak.
+        # Weitere intern serverseitig aufgerufene Hosts hier nachtragen (i.d.R. nur Keycloak noetig).
+        aliases:
+          - traefik
+          - auth.${LAB_DOMAIN}
       socket: {}
     mem_limit: 256m
     restart: unless-stopped

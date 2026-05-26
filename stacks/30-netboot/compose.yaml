@@ -9,7 +9,7 @@ services:
     cap_add: [NET_ADMIN]
     volumes:
       - /mnt/data/provisioning/dnsmasq.conf:/etc/dnsmasq.conf:ro
-      - /mnt/data/provisioning/tftpboot:/var/tftp
+      - /mnt/data/provisioning/tftpboot:/tftpboot        # muss zu tftp-root in dnsmasq.conf passen (/tftpboot)
     networks:
       vlan80:
         ipv4_address: 192.168.80.49      # eigene MAC/IP auf dem geteilten vlan80-macvlan (aus 00-traefik, parent enp3s0)

@@ -29,10 +29,10 @@
         href: https://traefik.lab.appsfab.org
         description: Reverse Proxy
         icon: traefik.png
-    - MinIO:
-        href: https://s3-console.lab.appsfab.org
-        description: S3 Object Store
-        icon: minio.png
+    - Garage:
+        href: https://s3.lab.appsfab.org
+        description: S3 Object Store (CLI-verwaltet, keine Web-Console)
+        icon: mdi-bucket-outline
     - Registry:
         href: https://registry.lab.appsfab.org
         description: Container-Registry

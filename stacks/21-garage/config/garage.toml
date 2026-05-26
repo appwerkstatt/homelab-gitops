@@ -1,0 +1,25 @@
+# Garage S3 — Single-Node Object Store (Backend fuer Loki-Chunks, Velero, Artefakte).
+# WICHTIG: Hier stehen KEINE Secrets. rpc_secret/admin_token/metrics_token kommen per
+# ENV (GARAGE_RPC_SECRET / GARAGE_ADMIN_TOKEN / GARAGE_METRICS_TOKEN) aus der Arcane-.env,
+# damit nichts im Klartext in Git landet.
+
+metadata_dir = "/var/lib/garage/meta"   # gemountet auf /mnt/fast/appdata/garage/meta (NVMe)
+data_dir     = "/var/lib/garage/data"   # gemountet auf /mnt/data/garage/data (Mirror)
+db_engine    = "lmdb"                    # empfohlener Default (schnell, eingebettet)
+
+replication_factor = 1                   # Single-Node: keine Replikation
+
+rpc_bind_addr   = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"       # Single-Node spricht mit sich selbst
+# rpc_secret -> via GARAGE_RPC_SECRET (ENV)
+
+[s3_api]
+s3_region    = "garage"                  # Clients (Loki/Velero) muessen dieselbe Region setzen
+api_bind_addr = "[::]:3900"
+# kein root_domain gesetzt -> Clients nutzen path-style (s3.lab.appsfab.org/<bucket>);
+# bei Bedarf vhost-style nachruesten (root_domain + Wildcard-Router/-DNS).
+
+[admin]
+api_bind_addr = "[::]:3903"              # /metrics + Health; spaeter von VictoriaMetrics scrapebar
+# admin_token   -> via GARAGE_ADMIN_TOKEN (ENV)
+# metrics_token -> via GARAGE_METRICS_TOKEN (ENV)

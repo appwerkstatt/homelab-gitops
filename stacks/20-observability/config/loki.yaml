@@ -1,4 +1,4 @@
-# Loki SingleBinary, filesystem-Backend (Lernwert-Upgrade: MinIO-S3-Backend via 21-minio).
+# Loki SingleBinary, filesystem-Backend (Lernwert-Upgrade: Garage-S3-Backend via 21-garage).
 auth_enabled: false
 server:
   http_listen_port: 3100

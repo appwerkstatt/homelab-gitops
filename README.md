@@ -22,7 +22,7 @@ GitHub (dieses Repo)
          └─> 00-traefik         (legt das externe Netz "edge" an, TLS via DNS-01)
                └─> 01-forgejo + 02-keycloak   (Identity/Infra-Fundament)
                      └─> Rest:  11-paperless · 12-cloudflared · 20-observability
-                                03-oauth2-proxy · 21-minio · 22-harbor · 30-netboot · 40-homepage
+                                03-oauth2-proxy · 21-garage · 22-harbor · 30-netboot · 40-homepage
 ```
 
 1. **Arcane** als TrueNAS-App installieren (App-Pool = `fast`), dieses Repo als GitOps-Quelle hinterlegen.
@@ -41,7 +41,7 @@ GitHub (dieses Repo)
 | `11-paperless` | Paperless-ngx 2.20.7 + Postgres 17.8 + Redis + paperless-ai 3.0.9 | `fast/appdata/paperless`, `data/paperless` |
 | `12-cloudflared` | Cloudflared 2026.2.0 (Tunnel) | `fast/appdata/cloudflared` |
 | `20-observability` | VictoriaMetrics + Loki + Grafana 12.3.3 + node-exporter + cadvisor + alertmanager + otel-collector | `fast/appdata/{vm,loki,grafana}` |
-| `21-minio` | MinIO (S3: loki, velero, artifacts) | `data/minio` |
+| `21-garage` | Garage v2.3.0 (S3: loki, velero, artifacts) — schlank, aktiv gepflegt | `fast/appdata/garage/meta`, `data/garage/data` |
 | `22-harbor` | Harbor (Registry + Trivy) — via offiziellem Installer | `data/harbor` |
 | `30-netboot` | dnsmasq (macvlan `.49`) + nginx + Go-Konsole — **Custom-App** | `data/provisioning` |
 | `40-homepage` | Homepage-Dashboard (Config-as-Code, zentrale Einstiegsseite) | – (Config im Repo) |

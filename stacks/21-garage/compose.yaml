@@ -1,0 +1,37 @@
+# 21-garage — S3-kompatibler Object Store (Backend fuer Loki-Chunks, Velero, Artefakte).
+# Garage statt MinIO: aktiv gepflegt (Deuxfleurs), schlank, kein EOL. Single-Node, replication_factor=1.
+# Secrets via ENV (GARAGE_*) aus der Arcane-.env, NICHT in garage.toml/Git.
+name: garage
+
+services:
+  garage:
+    image: dxflrs/garage:v2.3.0          # aktueller Stable-Tag (Stand 2026-05); --single-node legt das Layout selbst an
+    command: ["/garage", "server", "--single-node"]
+    environment:
+      RUST_LOG: garage=info
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}        # openssl rand -hex 32   (64 Hex-Zeichen)
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}      # openssl rand -base64 32
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN}  # openssl rand -base64 32
+    volumes:
+      - ./config/garage.toml:/etc/garage.toml:ro
+      - /mnt/fast/appdata/garage/meta:/var/lib/garage/meta   # Metadaten (lmdb) -> NVMe (klein, schnell)
+      - /mnt/data/garage/data:/var/lib/garage/data           # Objekt-Daten -> data-Pool (Mirror)
+    labels:
+      - traefik.enable=true
+      # S3-API (path-style: https://s3.lab.appsfab.org/<bucket>):
+      - traefik.http.routers.garage-s3.rule=Host(`s3.${LAB_DOMAIN}`)
+      - traefik.http.routers.garage-s3.entrypoints=websecure
+      - traefik.http.routers.garage-s3.tls.certresolver=le
+      - traefik.http.services.garage-s3.loadbalancer.server.port=3900
+    networks: [edge]
+    mem_limit: 512m
+    restart: unless-stopped
+
+# Garage hat keine Web-Console (anders als MinIO). Verwaltung per CLI:
+#   docker exec garage-garage-1 /garage status
+# Einmalig nach dem ersten Start Buckets + Keys anlegen (siehe README / Antwort im Chat):
+#   loki, velero, artifacts  +  je ein Key mit read/write.
+
+networks:
+  edge:
+    external: true

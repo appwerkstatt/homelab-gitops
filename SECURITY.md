@@ -17,7 +17,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | 8 | Forgejo-SSH Port-Mismatch (`SSH_LISTEN_PORT` vs. Mapping) | 🟡 | durchgängig `2222`, `SSH_LISTEN_PORT` explizit |
 | 9 | NFS `no_root_squash` auf ganzem VLAN | 🟡 | Runbook 1.5: auf Node-IPs `.41–.54` eingeschränkt |
 | 10 | Cloudflared exponierte unkontrolliert | 🟡 | explizite `ingress`-Regeln + Catch-all `404` (`config.yml`) |
-| 11 | Velero sprach MinIO über `http` | 🟢 | auf `https://s3.lab.appsfab.org` (Traefik-TLS) umgestellt |
+| 11 | Velero sprach S3 über `http` | 🟢 | auf `https://s3.lab.appsfab.org` (Traefik-TLS, Garage-Backend) umgestellt |
 | 12 | Keine kontrollierte Update-Strategie | 🟢 | **Renovate** (`renovate.json`): Major nur nach Freigabe |
 | 13 | Registry ohne Vuln-Scanning | 🟢 | Zot **Trivy-CVE-Scanning** + scrub aktiviert (`zot.json`) |
 | 14 | Entschlüsselte Secrets-Datei ungeschützt | 🟡 | README: eigenes Dataset `fast/appdata/_secrets`, `chmod 600`, aus Backups ausschließen |
@@ -28,10 +28,10 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 |---|-------|:-------:|--------|
 | A | **Realm-Client-Secrets** `CHANGE_ME_*` | 🟡 | **beim Deploy**: nach Keycloak-Import in der UI neu generieren, dann in SOPS/Arcane (dokumentiert in README + Realm/PASSKEYS) |
 | B | **Laufzeit-Semantik** (oauth2-proxy-Group-Claim, Grafana-JMESPath, Flow-IDs) | 🟡 | **beim ersten Deploy verifizieren** — YAML/Logik stimmt, finale Bestätigung nur am laufenden System |
-| C | Loki↔MinIO intern über `http` (gleicher Host) | 🟢 | akzeptiert (VLAN-intern); optional auf `https` heben |
+| C | Loki↔Garage intern über `http` (`http://garage:3900`, gleicher Host) | 🟢 | akzeptiert (VLAN-intern); optional auf `https` heben |
 | D | democratic-csi `allowInsecure: true` (selbstsigniertes TrueNAS-Cert) | 🟢 | akzeptiert intern; optional interne CA + Pinning |
 | E | `backup`-Pool ohne Redundanz (Single-Disk) | 🟢 | bekannt; keine Live-RWX-Daten drauf (Phase 4 verschiebt k8s-NFS auf `data`) |
-| F | Version-Pins von VictoriaMetrics/MinIO/Zot/dnsmasq | 🟢 | „vor Deploy aktuelle Version prüfen"-Kommentare gesetzt; Renovate hält sie danach aktuell |
+| F | Version-Pins von VictoriaMetrics/Garage/Zot/dnsmasq | 🟢 | „vor Deploy aktuelle Version prüfen"-Kommentare gesetzt; Renovate hält sie danach aktuell |
 
 ## Grundsätzlich gut (bestätigt)
 

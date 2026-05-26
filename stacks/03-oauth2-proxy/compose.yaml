@@ -1,5 +1,5 @@
 # 03-oauth2-proxy — Traefik-ForwardAuth gegen Keycloak.
-# Schützt Dienste OHNE eigenes OIDC (z.B. Traefik-Dashboard, MinIO-Console, Netboot-Konsole)
+# Schützt Dienste OHNE eigenes OIDC (z.B. Traefik-Dashboard, Netboot-Konsole, S3-Browser-UIs)
 # mit einem Keycloak-Login. Nutzt den Realm-Client "oauth2-proxy" (AppsFab-realm.json).
 name: oauth2-proxy
 
@@ -47,7 +47,7 @@ services:
 
 # Anwenden auf einen Dienst (Beispiel): am jeweiligen Router das Label setzen
 #   traefik.http.routers.<dienst>.middlewares=sso@docker
-# z.B. Traefik-Dashboard (00-traefik), MinIO-Console (21-minio), Netboot-Konsole (30-netboot).
+# z.B. Traefik-Dashboard (00-traefik), Netboot-Konsole (30-netboot), optionales S3-Browser-UI.
 
 networks:
   edge:

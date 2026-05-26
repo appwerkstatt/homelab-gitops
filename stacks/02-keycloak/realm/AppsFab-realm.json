@@ -79,11 +79,20 @@
     }
   ],
 
-  "clientScopes": [
+  "comment_clientScopes": "Absichtlich NICHT gesetzt: ohne clientScopes-Array legt Keycloak die Standard-Scopes (profile, email, roles, web-origins, acr, basic, offline_access ...) automatisch an. Der groups-Claim kommt per Protocol-Mapper direkt am Client (siehe unten), damit er scope-unabhaengig immer im Token landet.",
+
+  "clients": [
     {
-      "name": "groups",
+      "clientId": "grafana",
+      "name": "Grafana",
+      "enabled": true,
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" },
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "CHANGE_ME_grafana",
+      "redirectUris": ["https://grafana.lab.appsfab.org/login/generic_oauth"],
+      "webOrigins": ["https://grafana.lab.appsfab.org"],
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [
         {
           "name": "groups",
@@ -98,21 +107,6 @@
           }
         }
       ]
-    }
-  ],
-
-  "clients": [
-    {
-      "clientId": "grafana",
-      "name": "Grafana",
-      "enabled": true,
-      "protocol": "openid-connect",
-      "publicClient": false,
-      "standardFlowEnabled": true,
-      "secret": "CHANGE_ME_grafana",
-      "redirectUris": ["https://grafana.lab.appsfab.org/login/generic_oauth"],
-      "webOrigins": ["https://grafana.lab.appsfab.org"],
-      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
     },
     {
       "clientId": "forgejo",
@@ -124,7 +118,21 @@
       "secret": "CHANGE_ME_forgejo",
       "redirectUris": ["https://git.appsfab.org/user/oauth2/keycloak/callback"],
       "webOrigins": ["https://git.appsfab.org"],
-      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "netboot-console",
@@ -136,7 +144,21 @@
       "secret": "CHANGE_ME_netboot",
       "redirectUris": ["https://netboot.lab.appsfab.org/oidc/callback"],
       "webOrigins": ["https://netboot.lab.appsfab.org"],
-      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "oauth2-proxy",
@@ -148,7 +170,21 @@
       "secret": "CHANGE_ME_oauth2proxy",
       "redirectUris": ["https://*.lab.appsfab.org/oauth2/callback"],
       "webOrigins": ["https://*.lab.appsfab.org"],
-      "defaultClientScopes": ["openid", "profile", "email", "roles", "groups"]
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ]
 }

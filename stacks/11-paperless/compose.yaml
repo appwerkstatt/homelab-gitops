@@ -56,31 +56,27 @@ services:
     mem_limit: 1g
     restart: unless-stopped
 
-  # --- VORERST DEAKTIVIERT: braucht Ollama (Mac Studio, Phase 5) + einen Paperless-API-Token
-  # (erst nach dem ersten Paperless-Start erzeugbar). Reaktivieren in Phase 5:
-  # Tag clusterzx/paperless-ai:3.0.9 vor Deploy prüfen, PAPERLESS_AI_API_KEY in .env setzen.
-  #
-  # paperless-ai:
-  #   image: clusterzx/paperless-ai:3.0.9
-  #   environment:
-  #     PAPERLESS_API_URL: http://paperless:8000/api
-  #     PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_KEY}   # in Paperless erzeugen
-  #     AI_PROVIDER: ollama
-  #     OLLAMA_API_URL: https://llm.${LAB_DOMAIN}
-  #     OLLAMA_MODEL: qwen2.5:14b
-  #     OLLAMA_EMBED_MODEL: nomic-embed-text
-  #   volumes:
-  #     - /mnt/fast/appdata/paperless-ai:/app/data       # ChromaDB + documents.db (migriert)
-  #   depends_on: [paperless]
-  #   labels:
-  #     - traefik.enable=true
-  #     - traefik.http.routers.paperless-ai.rule=Host(`docs-ai.${LAB_DOMAIN}`)
-  #     - traefik.http.routers.paperless-ai.entrypoints=websecure
-  #     - traefik.http.routers.paperless-ai.tls.certresolver=le
-  #     - traefik.http.services.paperless-ai.loadbalancer.server.port=3000
-  #   networks: [edge, pl-internal]
-  #   mem_limit: 512m
-  #   restart: unless-stopped
+  paperless-ai:
+    image: clusterzx/paperless-ai:3.0.9       # bestätigt (Docker Hub); aktuelle Stable
+    environment:
+      PAPERLESS_API_URL: http://paperless:8000/api
+      PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_KEY}   # in Paperless erzeugen (Profil -> API-Token)
+      AI_PROVIDER: ollama
+      OLLAMA_API_URL: http://192.168.80.30:11434     # Ollama auf dem Mac Studio, direkt im .80-VLAN (Fremd-Host -> kein Hairpin)
+      OLLAMA_MODEL: qwen2.5:14b
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+    volumes:
+      - /mnt/fast/appdata/paperless-ai:/app/data       # ChromaDB + documents.db (migriert)
+    depends_on: [paperless]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.paperless-ai.rule=Host(`docs-ai.${LAB_DOMAIN}`)
+      - traefik.http.routers.paperless-ai.entrypoints=websecure
+      - traefik.http.routers.paperless-ai.tls.certresolver=le
+      - traefik.http.services.paperless-ai.loadbalancer.server.port=3000
+    networks: [edge, pl-internal]
+    mem_limit: 512m
+    restart: unless-stopped
 
 networks:
   edge:

@@ -79,8 +79,6 @@
     }
   ],
 
-  "comment_clientScopes": "Absichtlich NICHT gesetzt: ohne clientScopes-Array legt Keycloak die Standard-Scopes (profile, email, roles, web-origins, acr, basic, offline_access ...) automatisch an. Der groups-Claim kommt per Protocol-Mapper direkt am Client (siehe unten), damit er scope-unabhaengig immer im Token landet.",
-
   "clients": [
     {
       "clientId": "grafana",

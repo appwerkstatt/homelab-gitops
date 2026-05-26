@@ -3,7 +3,7 @@ name: registry
 
 services:
   zot:
-    image: ghcr.io/project-zot/zot:v2.1.2      # vor Deploy aktuelle Version prüfen
+    image: ghcr.io/project-zot/zot:v2.1.16     # neuester Patch der v2.1.x-Linie (Stand 2026-03)
     volumes:
       - /mnt/data/harbor/zot:/var/lib/registry
       - ./config/zot.json:/etc/zot/config.json:ro

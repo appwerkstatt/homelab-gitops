@@ -12,6 +12,7 @@ services:
     volumes:
       - /mnt/data/harbor/zot:/var/lib/registry
       - ./config/zot.json:/etc/zot/config.json:ro
+      - /mnt/fast/appdata/registry/htpasswd:/etc/zot/htpasswd:ro   # bcrypt-htpasswd (ci-Robot); Secret bleibt auf dem NAS, nicht in Git
     labels:
       - traefik.enable=true
       - traefik.http.routers.registry.rule=Host(`registry.${LAB_DOMAIN}`)

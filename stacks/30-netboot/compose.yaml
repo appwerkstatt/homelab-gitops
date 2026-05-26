@@ -20,11 +20,13 @@ services:
     image: nginx:1.27-alpine          # gepinnt (war :alpine = floating)
     volumes:
       - /mnt/data/provisioning/nginx-seed.conf:/etc/nginx/conf.d/default.conf:ro
-      - /mnt/data/provisioning/seed:/srv/seed:ro       # cloud-init-Seeds (per $remote_addr)
-      - /mnt/data/provisioning/http:/srv/http:ro       # Pi-5-Golden-Images
-    ports:
-      - "8080:80"                                       # von den Pi-Nodes im VLAN erreichbar
-    networks: [netboot-internal]
+      - /mnt/data/provisioning/http:/usr/share/nginx/html:ro   # /images/ -> /usr/share/nginx/html/images/ (Golden-Images)
+      - /mnt/data/provisioning/seed:/srv/seed:ro               # /seed/ per anfragender Node-IP
+    networks:
+      # eigene macvlan-IP statt Host-Publish: nginx sieht die ECHTE Pi-Quell-IP,
+      # nötig für den Per-Node-Seed (nginx-seed.conf mappt $remote_addr -> $cinode).
+      vlan80:
+        ipv4_address: 192.168.80.47
     mem_limit: 64m
     restart: unless-stopped
 

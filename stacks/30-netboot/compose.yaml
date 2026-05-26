@@ -28,28 +28,38 @@ services:
     mem_limit: 64m
     restart: unless-stopped
 
-  # --- VORERST DEAKTIVIERT: Image existiert noch nicht. Wird vom Forgejo-Runner (Mac Studio,
-  # Phase 5) aus provisioning/console/ gebaut & in die Registry gepusht. Dann reaktivieren
-  # (fester Tag/Git-SHA) — und vorher htpasswd-Auth an der Registry setzen.
-  #
-  # console:
-  #   image: registry.${LAB_DOMAIN}/library/netboot-console:v1
-  #   environment:
-  #     OIDC_ISSUER: https://auth.${LAB_DOMAIN}/realms/AppsFab
-  #     CONTROL_DIR: /control
-  #     SEED_DIR: /seed
-  #   volumes:
-  #     - /mnt/data/provisioning/control:/control        # nodes.yaml, arm.d, provision.log (k3s-token NICHT ausliefern!)
-  #     - /mnt/data/provisioning/seed:/seed
-  #   labels:
-  #     - traefik.enable=true
-  #     - traefik.http.routers.netboot.rule=Host(`netboot.${LAB_DOMAIN}`)
-  #     - traefik.http.routers.netboot.entrypoints=websecure
-  #     - traefik.http.routers.netboot.tls.certresolver=le
-  #     - traefik.http.services.netboot.loadbalancer.server.port=8090
-  #   networks: [edge, netboot-internal]
-  #   mem_limit: 128m
-  #   restart: unless-stopped
+  console:
+    # NAS-lokaler Pull-Pfad (127.0.0.1:5000 = Zot, siehe 22-harbor) — der NAS-Host erreicht
+    # registry.lab.appsfab.org (.48/Traefik) wegen macvlan-Hairpin nicht.
+    image: 127.0.0.1:5000/library/netboot-console:v1
+    environment:
+      LISTEN_ADDR: ":8081"
+      # --- OIDC gegen Keycloak (Client netboot-console) ---
+      OIDC_ISSUER: https://auth.${LAB_DOMAIN}/realms/AppsFab
+      OIDC_CLIENT_ID: netboot-console
+      OIDC_CLIENT_SECRET: ${NETBOOT_OIDC_CLIENT_SECRET}      # in Keycloak regenerieren
+      OIDC_REDIRECT_URL: https://netboot.${LAB_DOMAIN}/auth/callback   # App-Route ist /auth/callback (main.go)
+      OIDC_SCOPES: openid,profile,email                      # KEIN groups (Claim kommt per Mapper)
+      ARM_GROUPS: lab-admins                                 # nur diese Keycloak-Gruppe darf "armen"
+      COOKIE_SECURE: "true"                                  # hinter Traefik-TLS
+      # --- Pfade ---
+      CONTROL_DIR: /control
+      SEED_DIR: /seed
+      CLOUDINIT_DIR: /opt/console/cloud-init                 # ins Image kopiert
+      IMAGE_DIR: /images                                     # Golden-Images für den nodes.yaml-Editor (ro)
+    volumes:
+      - /mnt/data/provisioning/control:/control              # nodes.yaml, arm.d, provision.log (k3s-token NICHT ausliefern!)
+      - /mnt/data/provisioning/seed:/seed
+      - /mnt/data/provisioning/http/images:/images:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.netboot.rule=Host(`netboot.${LAB_DOMAIN}`)
+      - traefik.http.routers.netboot.entrypoints=websecure
+      - traefik.http.routers.netboot.tls.certresolver=le
+      - traefik.http.services.netboot.loadbalancer.server.port=8081   # App lauscht auf 8081 (war fälschlich 8090)
+    networks: [edge, netboot-internal]
+    mem_limit: 128m
+    restart: unless-stopped
 
 networks:
   edge:

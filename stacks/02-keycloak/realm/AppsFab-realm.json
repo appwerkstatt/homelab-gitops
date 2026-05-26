@@ -140,7 +140,7 @@
       "publicClient": false,
       "standardFlowEnabled": true,
       "secret": "CHANGE_ME_netboot",
-      "redirectUris": ["https://netboot.lab.appsfab.org/oidc/callback"],
+      "redirectUris": ["https://netboot.lab.appsfab.org/auth/callback"],
       "webOrigins": ["https://netboot.lab.appsfab.org"],
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [

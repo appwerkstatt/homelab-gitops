@@ -12,6 +12,8 @@ services:
       - --trusted-proxy-ip=172.16.0.0/12   # X-Forwarded-* nur von Docker-internen Proxy-IPs (Traefik im edge-Netz) akzeptieren
       - --skip-provider-button=true        # ohne Zwischenseite direkt zu Keycloak; unauth. Request -> 302 (fail-closed)
       - --provider=keycloak-oidc
+      - --scope=openid email profile        # explizit ohne "groups": der keycloak-oidc-Provider haengt sonst "groups" an,
+                                             # das ist aber kein anforderbarer Scope (groups-Claim kommt per Client-Mapper im Realm) -> sonst invalid_scope
       - --oidc-issuer-url=https://auth.${LAB_DOMAIN}/realms/AppsFab
       - --client-id=oauth2-proxy
       - --client-secret=${OAUTH2_PROXY_CLIENT_SECRET}

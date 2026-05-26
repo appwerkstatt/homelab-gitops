@@ -10,6 +10,7 @@ services:
       - -storageDataPath=/storage
       - -retentionPeriod=12                # Monate
       - -promscrape.config=/etc/vm/scrape.yml
+      - -promscrape.maxScrapeSize=32MiB    # Sicherheitsnetz: cadvisor-/metrics kann >16MiB sein
       - -httpListenAddr=:8428              # remote_write-Ziel + PromQL-API für Grafana & Cluster
     volumes:
       - /mnt/fast/appdata/vm:/storage
@@ -48,6 +49,7 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - /mnt/fast/appdata/grafana:/var/lib/grafana    # grafana.db = migrierte Dashboards
+      - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro   # VM + Loki deklarativ
     mem_limit: 512m
     depends_on: [victoriametrics, loki]
     labels:
@@ -69,6 +71,13 @@ services:
 
   cadvisor:
     image: ghcr.io/google/cadvisor:0.56.2
+    command:
+      - -logtostderr
+      - -docker_only=true                # nur Container, keine rohen cgroups
+      - -store_container_labels=false     # Container-Labels nicht als Metric-Labels (Kardinalität)
+      - -housekeeping_interval=30s        # passt zum scrape_interval
+      # verbose/selten genutzte Collectors aus -> /metrics deutlich kleiner:
+      - -disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp,percpu
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro

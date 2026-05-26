@@ -1,0 +1,23 @@
+# Grafana-Datasource-Provisioning (deklarativ, GitOps).
+# Wird beim Start aus /etc/grafana/provisioning/datasources/ geladen.
+apiVersion: 1
+
+datasources:
+  # VictoriaMetrics spricht die Prometheus-/PromQL-API -> Typ "prometheus".
+  - name: VictoriaMetrics
+    uid: victoriametrics
+    type: prometheus
+    access: proxy
+    url: http://victoriametrics:8428
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 30s        # entspricht scrape_interval
+    editable: true
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true

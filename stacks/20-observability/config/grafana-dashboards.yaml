@@ -1,0 +1,17 @@
+# Grafana-Dashboard-Provisioning (deklarativ, GitOps).
+# Lädt alle *.json aus /etc/dashboards in den Ordner "Standard".
+# allowUiUpdates:false + disableDeletion:true -> Dashboards sind in der UI read-only;
+# Änderungen laufen über Git (JSON in config/dashboards/), nicht über die UI.
+apiVersion: 1
+
+providers:
+  - name: IaC
+    orgId: 1
+    folder: Standard
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/dashboards
+      foldersFromFilesStructure: false

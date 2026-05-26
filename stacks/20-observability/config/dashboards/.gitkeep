@@ -1,0 +1,2 @@
+# Dashboard-JSONs liegen hier (per fetch-dashboards.sh erzeugt, dann committen).
+# Wird read-only nach /etc/dashboards gemountet und von Grafana provisioniert.

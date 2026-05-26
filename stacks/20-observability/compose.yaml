@@ -50,6 +50,8 @@ services:
     volumes:
       - /mnt/fast/appdata/grafana:/var/lib/grafana    # grafana.db = migrierte Dashboards
       - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro   # VM + Loki deklarativ
+      - ./config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/provider.yaml:ro        # Dashboard-Provider (IaC)
+      - ./config/dashboards:/etc/dashboards:ro                                                        # Dashboard-JSONs (IaC)
     mem_limit: 512m
     depends_on: [victoriametrics, loki]
     labels:

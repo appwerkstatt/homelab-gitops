@@ -4,7 +4,7 @@ name: observability
 
 services:
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.136.9   # aktueller LTS (Stand 2026-05)
+    image: victoriametrics/victoria-metrics:v1.136.4   # neuester Patch der LTS-Linie v1.136.x (Stand 2026-05); Community-Tag ohne -lts-Suffix
     command:
       - -storageDataPath=/storage
       - -retentionPeriod=12                # Monate
@@ -59,7 +59,7 @@ services:
     restart: unless-stopped
 
   node-exporter:
-    image: prom/node-exporter:v1.10.2
+    image: prom/node-exporter:v1.11.1   # neuester Stand (07.04.2026)
     command: [--path.rootfs=/host]
     volumes: ["/:/host:ro,rslave"]
     networks: [obs]

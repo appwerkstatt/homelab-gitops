@@ -4,7 +4,7 @@ name: observability
 
 services:
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.111.0   # vor Deploy aktuelle Version prüfen
+    image: victoriametrics/victoria-metrics:v1.136.9   # aktueller LTS (Stand 2026-05)
     command:
       - -storageDataPath=/storage
       - -retentionPeriod=12                # Monate
@@ -77,22 +77,27 @@ services:
     mem_limit: 256m
     restart: unless-stopped
 
-  alertmanager:
-    image: prom/alertmanager:v0.31.1
-    volumes:
-      - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro   # aus Altsystem übernehmen
-    networks: [obs]
-    mem_limit: 128m
-    restart: unless-stopped
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.146.0
-    command: [--config=/etc/otel/config.yaml]
-    volumes:
-      - ./config/otel.yaml:/etc/otel/config.yaml:ro   # aus Altsystem übernehmen
-    networks: [obs, edge]
-    mem_limit: 256m
-    restart: unless-stopped
+  # --- VORERST DEAKTIVIERT: Configs fehlen (waren "aus Altsystem übernehmen") ---
+  # Wieder aktivieren, sobald config/alertmanager.yml bzw. config/otel.yaml vorliegen
+  # (aus Phase-0-Backup zurückholen oder frisch schreiben). Beide sind fürs
+  # Kern-Monitoring (Metriken/Logs/Dashboards/OIDC) NICHT erforderlich.
+  #
+  # alertmanager:
+  #   image: prom/alertmanager:v0.31.1
+  #   volumes:
+  #     - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+  #   networks: [obs]
+  #   mem_limit: 128m
+  #   restart: unless-stopped
+  #
+  # otel-collector:
+  #   image: otel/opentelemetry-collector-contrib:0.146.0
+  #   command: [--config=/etc/otel/config.yaml]
+  #   volumes:
+  #     - ./config/otel.yaml:/etc/otel/config.yaml:ro
+  #   networks: [obs, edge]
+  #   mem_limit: 256m
+  #   restart: unless-stopped
 
 networks:
   edge:

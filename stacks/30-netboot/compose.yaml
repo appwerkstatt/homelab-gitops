@@ -91,11 +91,17 @@ services:
       FORGEJO_WORKFLOW: build-pi5-image.yml
       FORGEJO_REF: main
       # --- Phase 3b: Cluster-Operations ---
+      # KUBECONFIG zeigt auf die restricted-kubeconfig die ein Operator-Step
+      # aus dem ServiceAccount-Token in console-rbac.yaml zusammenbaut (siehe
+      # die Apply-Anleitung im Commit der diese Section eingeführt hat).
+      # Default in der Console wäre /etc/kubeconfig — wir setzen explizit auf
+      # /control/console-kubeconfig damit die Datei im existierenden control-
+      # bind-mount liegt und nicht neben den Admin-kubeconfig auf TrueNAS
+      # auftaucht. Wenn die Datei nicht existiert, antworten /api/k8s/*-
+      # Endpoints mit 503 — kein hard-fail beim Start.
+      KUBECONFIG: /control/console-kubeconfig
       # VIP_ADDRESS füllt das VIP-Banner in der Cluster-Section. Ohne Env-Var
-      # bleibt der Banner leer (Default ""), auch wenn die kube-vip-Lease
-      # gelesen werden kann. kubeconfig wird default /control/kubeconfig
-      # gelesen — wenn die Datei existiert, sind die /api/k8s/* Endpoints
-      # aktiv, sonst antworten sie 503.
+      # bleibt der Banner leer (Default "").
       VIP_ADDRESS: "192.168.80.40"
     volumes:
       - /mnt/data/provisioning/control:/control              # nodes.yaml, arm.d, provision.log (k3s-token NICHT ausliefern!)

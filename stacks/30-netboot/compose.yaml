@@ -40,7 +40,7 @@ services:
   console:
     # NAS-lokaler Pull-Pfad (127.0.0.1:5000 = Zot, siehe 22-harbor) — der NAS-Host erreicht
     # registry.lab.appsfab.org (.48/Traefik) wegen macvlan-Hairpin nicht.
-    image: 127.0.0.1:5000/library/netboot-console:f64e0c7182b1   # CI-gebaut (Git-SHA, immutable) — Phase 3a: k3s-Config-Rendering aus Inventory
+    image: 127.0.0.1:5000/library/netboot-console:0960f3c2478e   # CI-gebaut (Git-SHA, immutable) — Phase 3b: Cluster-Operations (cordon/uncordon/drain + VIP-banner)
     environment:
       LISTEN_ADDR: ":8081"
       # --- OIDC gegen Keycloak (Client netboot-console) ---
@@ -90,6 +90,13 @@ services:
       # Image-Build-Button nutzt FORGEJO_TOKEN ohnehin schon (Phase 1) — gleiche Var.
       FORGEJO_WORKFLOW: build-pi5-image.yml
       FORGEJO_REF: main
+      # --- Phase 3b: Cluster-Operations ---
+      # VIP_ADDRESS füllt das VIP-Banner in der Cluster-Section. Ohne Env-Var
+      # bleibt der Banner leer (Default ""), auch wenn die kube-vip-Lease
+      # gelesen werden kann. kubeconfig wird default /control/kubeconfig
+      # gelesen — wenn die Datei existiert, sind die /api/k8s/* Endpoints
+      # aktiv, sonst antworten sie 503.
+      VIP_ADDRESS: "192.168.80.40"
     volumes:
       - /mnt/data/provisioning/control:/control              # nodes.yaml, arm.d, provision.log (k3s-token NICHT ausliefern!)
       - /mnt/data/provisioning/seed:/seed

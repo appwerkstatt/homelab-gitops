@@ -1,0 +1,39 @@
+# console-rbac.yaml — RBAC für die netboot-console gegen den k3s-Cluster.
+#
+# Console läuft auf TrueNAS (NICHT im Cluster), authentifiziert sich mit dem
+# kubeconfig-Token aus /control/kubeconfig. Phase 3b erweitert die Verbs um:
+#   - patch nodes (cordon/uncordon)
+#   - delete pods (drain)
+#   - get/list leases (kube-vip VIP-owner status)
+#
+# WICHTIG: Der subjects[].name muss mit dem CN des Console-kubeconfig-Tokens
+# matchen. Operator-Step: `kubectl --kubeconfig /control/kubeconfig auth
+# whoami` aus dem Console-Container ausführen → daraus den User-Namen
+# ablesen und unten ersetzen falls != 'netboot-console'.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: netboot-console
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: netboot-console
+subjects:
+  - kind: User
+    name: netboot-console   # ggf. anpassen — siehe Header-Kommentar
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: netboot-console
+  apiGroup: rbac.authorization.k8s.io

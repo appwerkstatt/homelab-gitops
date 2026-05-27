@@ -67,6 +67,12 @@ services:
       CONSOLE_GIT_AUTHOR_NAME: pi-console
       CONSOLE_GIT_AUTHOR_EMAIL: console@cluster.local
       INVENTORY_RETRY_TICK_SECONDS: "30"                      # Background-Retry der Push-Queue
+      # --- Phase 2c: tftpboot-Symlink-Verwaltung ---
+      # Nach jedem erfolgreichen inventory-push synct die Console
+      # <TFTPBOOT_DIR>/<short-serial> -> installer-boot für alle Hosts
+      # (REPLACE-Hosts werden geskippt). Bind-mount unten.
+      TFTPBOOT_DIR: /tftpboot
+      TFTPBOOT_LINK_TARGET: installer-boot
       # Image-Build-Button nutzt FORGEJO_TOKEN ohnehin schon (Phase 1) — gleiche Var.
       FORGEJO_WORKFLOW: build-pi5-image.yml
       FORGEJO_REF: main
@@ -75,6 +81,7 @@ services:
       - /mnt/data/provisioning/seed:/seed
       - /mnt/data/provisioning/http/images:/images:ro
       - /mnt/data/provisioning/repo:/opt/console/repo:rw     # Phase 2b: Working-Tree (entrypoint klont initial wenn .git fehlt)
+      - /mnt/data/provisioning/tftpboot:/tftpboot:rw         # Phase 2c: Console synct <short-serial>-Symlinks nach jedem commit
     labels:
       - traefik.enable=true
       - traefik.http.routers.netboot.rule=Host(`netboot.${LAB_DOMAIN}`)

@@ -73,6 +73,13 @@ services:
       # (REPLACE-Hosts werden geskippt). Bind-mount unten.
       TFTPBOOT_DIR: /tftpboot
       TFTPBOOT_LINK_TARGET: installer-boot
+      # --- Phase 2g: Wipe-via-SSH ---
+      # Private-Key liegt als bind-gemountete Datei im Container (unten).
+      # User auf den Pis ist 'christian' (default), darf via forced-command
+      # nur pi-wipe-self.sh aufrufen + dd/reboot via NOPASSWD-sudo.
+      CONSOLE_WIPE_SSH_KEY: /etc/console/wipe-ssh.key
+      CONSOLE_WIPE_SSH_USER: christian
+      CONSOLE_WIPE_SSH_TIMEOUT_SECONDS: "10"
       # Image-Build-Button nutzt FORGEJO_TOKEN ohnehin schon (Phase 1) — gleiche Var.
       FORGEJO_WORKFLOW: build-pi5-image.yml
       FORGEJO_REF: main
@@ -82,6 +89,7 @@ services:
       - /mnt/data/provisioning/http/images:/images:ro
       - /mnt/data/provisioning/repo:/opt/console/repo:rw     # Phase 2b: Working-Tree (entrypoint klont initial wenn .git fehlt)
       - /mnt/data/provisioning/tftpboot:/tftpboot:rw         # Phase 2c: Console synct <short-serial>-Symlinks nach jedem commit
+      - /mnt/fast/appdata/netboot-console/wipe-ssh.key:/etc/console/wipe-ssh.key:ro  # Phase 2g: SSH-Private-Key
     labels:
       - traefik.enable=true
       - traefik.http.routers.netboot.rule=Host(`netboot.${LAB_DOMAIN}`)

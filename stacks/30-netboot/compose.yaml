@@ -19,12 +19,17 @@ services:
   nginx:
     image: nginx:1.27-alpine          # gepinnt (war :alpine = floating)
     volumes:
-      - /mnt/data/provisioning/nginx-seed.conf:/etc/nginx/conf.d/default.conf:ro
+      # Phase 2 Hygiene: nginx-seed.conf wird jetzt aus dem GitOps-Repo bind-
+      # gemountet (vorher /mnt/data/provisioning/nginx-seed.conf manuell scp'd).
+      # Arcane synct + Container-Recreate beim sync picks change up automatisch.
+      - ./nginx-seed.conf:/etc/nginx/conf.d/default.conf:ro
       - /mnt/data/provisioning/http:/usr/share/nginx/html:ro   # /images/ -> /usr/share/nginx/html/images/ (Golden-Images)
-      - /mnt/data/provisioning/seed:/srv/seed:ro               # /seed/ per anfragender Node-IP
+      - /mnt/data/provisioning/seed:/srv/seed:ro               # /seed/<host>/ per Hostname (Phase 2f)
     networks:
-      # eigene macvlan-IP statt Host-Publish: nginx sieht die ECHTE Pi-Quell-IP,
-      # nötig für den Per-Node-Seed (nginx-seed.conf mappt $remote_addr -> $cinode).
+      # eigene macvlan-IP statt Host-Publish: nginx sieht die ECHTE Pi-Quell-IP.
+      # (Pre-Phase-2f wurde $remote_addr für die seed-Route genutzt; seit 2f
+      # kommt der Hostname aus dem URL-Pfad — Macvlan-IP ist trotzdem nützlich
+      # für saubere Logs/Stats und um den Hairpin nicht via Host-NAT zu nehmen.)
       vlan80:
         ipv4_address: 192.168.80.47
     mem_limit: 64m

@@ -33,7 +33,7 @@ services:
   console:
     # NAS-lokaler Pull-Pfad (127.0.0.1:5000 = Zot, siehe 22-harbor) — der NAS-Host erreicht
     # registry.lab.appsfab.org (.48/Traefik) wegen macvlan-Hairpin nicht.
-    image: 127.0.0.1:5000/library/netboot-console:dde50ea91b84   # CI-gebaut (Git-SHA, immutable)
+    image: 127.0.0.1:5000/library/netboot-console:541c74dc4824   # CI-gebaut (Git-SHA, immutable) — Phase 2b: inventory-write + retry-queue
     environment:
       LISTEN_ADDR: ":8081"
       # --- OIDC gegen Keycloak (Client netboot-console) ---
@@ -49,10 +49,32 @@ services:
       SEED_DIR: /seed
       CLOUDINIT_DIR: /opt/console/cloud-init                 # ins Image kopiert
       IMAGE_DIR: /images                                     # Golden-Images für den nodes.yaml-Editor (ro)
+      # --- Phase 2b: Inventory-Write-Pfad (PUT/render/commit/push) ---
+      # Repo-Working-Tree liegt unter /opt/console/repo (bind-mount unten). Beim
+      # ersten Start klont der entrypoint von FORGEJO_CLONE_URL (docker-internes
+      # http://forgejo:3000/... — forgejo+console teilen das edge-Netz, also
+      # geht Docker-DNS und der macvlan-Hairpin auf TrueNAS spielt keine Rolle).
+      # Token kommt aus den SOPS-Secrets (siehe secrets.enc.env) und wird NICHT
+      # in der gespeicherten remote-URL persistiert — repo-lokaler credential-
+      # helper liefert es zur Laufzeit aus der Env-Variable.
+      GIT_REPO_DIR: /opt/console/repo
+      GIT_REMOTE: origin
+      GIT_BRANCH: main
+      FORGEJO_BASE_URL: https://git.${LAB_DOMAIN}              # für UI-Commit-Links (extern, fürs Browser-Click-Through)
+      FORGEJO_REPO: christian/cluster
+      FORGEJO_CLONE_URL: http://forgejo:3000/christian/cluster.git   # docker-internal: clone+push gehen hier durch
+      FORGEJO_TOKEN: ${FORGEJO_TOKEN}                         # Forgejo-PAT mit write-Recht auf christian/cluster — neuer Eintrag in secrets.enc.env
+      CONSOLE_GIT_AUTHOR_NAME: pi-console
+      CONSOLE_GIT_AUTHOR_EMAIL: console@cluster.local
+      INVENTORY_RETRY_TICK_SECONDS: "30"                      # Background-Retry der Push-Queue
+      # Image-Build-Button nutzt FORGEJO_TOKEN ohnehin schon (Phase 1) — gleiche Var.
+      FORGEJO_WORKFLOW: build-pi5-image.yml
+      FORGEJO_REF: main
     volumes:
       - /mnt/data/provisioning/control:/control              # nodes.yaml, arm.d, provision.log (k3s-token NICHT ausliefern!)
       - /mnt/data/provisioning/seed:/seed
       - /mnt/data/provisioning/http/images:/images:ro
+      - /mnt/data/provisioning/repo:/opt/console/repo:rw     # Phase 2b: Working-Tree (entrypoint klont initial wenn .git fehlt)
     labels:
       - traefik.enable=true
       - traefik.http.routers.netboot.rule=Host(`netboot.${LAB_DOMAIN}`)

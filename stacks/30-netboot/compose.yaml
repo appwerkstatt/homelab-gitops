@@ -8,7 +8,9 @@ services:
     image: dockurr/dnsmasq:2.92      # gepinnt (war :latest = Update-Risiko)
     cap_add: [NET_ADMIN]
     volumes:
-      - /mnt/data/provisioning/dnsmasq.conf:/etc/dnsmasq.conf:ro
+      # Phase 2 Hygiene: dnsmasq.conf wird (analog zu nginx-seed.conf) aus dem
+      # GitOps-Repo bind-gemountet. Arcane synct, Container-Restart picks up.
+      - ./dnsmasq.conf:/etc/dnsmasq.conf:ro
       - /mnt/data/provisioning/tftpboot:/tftpboot        # muss zu tftp-root in dnsmasq.conf passen (/tftpboot)
     networks:
       vlan80:

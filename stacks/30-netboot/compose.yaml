@@ -40,7 +40,7 @@ services:
   console:
     # NAS-lokaler Pull-Pfad (127.0.0.1:5000 = Zot, siehe 22-harbor) — der NAS-Host erreicht
     # registry.lab.appsfab.org (.48/Traefik) wegen macvlan-Hairpin nicht.
-    image: 127.0.0.1:5000/library/netboot-console:f5790602f268   # CI-gebaut (Git-SHA, immutable)
+    image: 127.0.0.1:5000/library/netboot-console:87fda0d146c0   # CI-gebaut (Git-SHA, immutable)
     environment:
       LISTEN_ADDR: ":8081"
       # --- OIDC gegen Keycloak (Client netboot-console) ---

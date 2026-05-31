@@ -103,6 +103,12 @@ services:
       # VIP_ADDRESS füllt das VIP-Banner in der Cluster-Section. Ohne Env-Var
       # bleibt der Banner leer (Default "").
       VIP_ADDRESS: "192.168.80.40"
+      # --- Worst-day-ops Feature-Flags (Default off bis alle Server reprovisioniert) ---
+      # Werte kommen aus der Arcane-Env (.env.example -> secrets.env); :-0 = Feature
+      # bleibt aus wenn die Var fehlt. Auf 1 setzen + Arcane Recreate aktiviert es.
+      CONSOLE_SNAPSHOT_ENABLED:    ${CONSOLE_SNAPSHOT_ENABLED:-0}     # etcd-Snapshot-Verb
+      CONSOLE_ETCD_HEALTH_ENABLED: ${CONSOLE_ETCD_HEALTH_ENABLED:-0}  # etcd MEMBER-Health-Prober
+      CONSOLE_HW_HEALTH_ENABLED:   ${CONSOLE_HW_HEALTH_ENABLED:-0}    # Pi-Hardware-Signale
     volumes:
       - /mnt/data/provisioning/control:/control              # nodes.yaml, arm.d, provision.log (k3s-token NICHT ausliefern!)
       - /mnt/data/provisioning/seed:/seed

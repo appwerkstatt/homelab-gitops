@@ -49,6 +49,14 @@ those apps' logins.
    `KCC_CLIENT_SECRET` from the service-account section above.) Then redeploy the stack so kcc
    picks them up.
 
+> **Every client the realm gains needs its `$(env:VAR)` set in this Arcane env**, or kcc
+> reconciles that client's secret to empty and breaks its login. The **cluster (M4a)** clients
+> `argocd-k8s` / `grafana-k8s` / `oauth2-proxy-k8s` add three more:
+> `ARGOCD_OIDC_CLIENT_SECRET`, `GRAFANA_K8S_OIDC_CLIENT_SECRET`,
+> `OAUTH2_PROXY_K8S_OIDC_CLIENT_SECRET` — values come from the 1Password vault `AppsFab` items
+> `argocd-oidc` (field `clientSecret`), `grafana-oidc` (`client_secret`), `oauth2-proxy-k8s`
+> (`client-secret`), which are canonical on the cluster side.
+
 > **Forgejo wrinkle:** Forgejo's OIDC secret is **not** read from env at runtime — it was applied
 > once via `forgejo admin auth add-oauth ... --secret '<value>'` and lives in `gitea.db`. Use the
 > **same** `FORGEJO_OIDC_CLIENT_SECRET` value there. To rotate it later, update both the Arcane

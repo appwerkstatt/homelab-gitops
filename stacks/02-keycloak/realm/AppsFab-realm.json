@@ -183,6 +183,87 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "argocd-k8s",
+      "name": "ArgoCD (cluster)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "$(env:ARGOCD_OIDC_CLIENT_SECRET)",
+      "redirectUris": [
+        "https://argocd.k8s.appsfab.org/auth/callback",
+        "http://localhost:8085/auth/callback"
+      ],
+      "webOrigins": ["https://argocd.k8s.appsfab.org"],
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "grafana-k8s",
+      "name": "Grafana (cluster)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "$(env:GRAFANA_K8S_OIDC_CLIENT_SECRET)",
+      "redirectUris": ["https://grafana.k8s.appsfab.org/login/generic_oauth"],
+      "webOrigins": ["https://grafana.k8s.appsfab.org"],
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "oauth2-proxy-k8s",
+      "name": "oauth2-proxy (cluster ForwardAuth)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "$(env:OAUTH2_PROXY_K8S_OIDC_CLIENT_SECRET)",
+      "redirectUris": ["https://*.k8s.appsfab.org/oauth2/callback"],
+      "webOrigins": ["https://*.k8s.appsfab.org"],
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ]
 }

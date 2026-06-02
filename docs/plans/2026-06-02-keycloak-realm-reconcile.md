@@ -233,7 +233,7 @@ Run:
 ```bash
 cd ~/Workspace/appsfab/NAS/homelab-gitops
 for v in GRAFANA_OIDC_CLIENT_SECRET FORGEJO_OIDC_CLIENT_SECRET NETBOOT_OIDC_CLIENT_SECRET OAUTH2_PROXY_CLIENT_SECRET; do
-  grep -q "\$(env:$v)" stacks/02-keycloak/realm/AppsFab-realm.json \
+  grep -qF "env:$v)" stacks/02-keycloak/realm/AppsFab-realm.json \
     && grep -qE "^$v=" .env.example \
     && echo "OK: $v matches in realm + .env.example" \
     || echo "MISMATCH: $v"
@@ -287,7 +287,7 @@ services.
       KEYCLOAK_USER: ${KC_BOOTSTRAP_ADMIN_USERNAME}
       KEYCLOAK_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
       KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"     # poll Keycloak until ready before importing
-      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 120s
+      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: "120s"
       IMPORT_FILES_LOCATIONS: /config/AppsFab-realm.json
       IMPORT_VARSUBSTITUTION_ENABLED: "true"         # enable $(env:VAR) substitution (default prefix/suffix)
       # Bump on every realm/ change. A changed env value forces Compose to recreate this
@@ -303,7 +303,7 @@ services.
       - ./realm:/config:ro
     networks: [kc-internal]
     restart: "no"
-    mem_limit: 256m
+    mem_limit: 512m            # headroom for kcc's Spring Boot JVM (default -Xmx256m would fill 256m exactly)
 ```
 
 > **Note on `KCC_REALM_REV`:** kcc ignores this variable — it exists purely to make realm

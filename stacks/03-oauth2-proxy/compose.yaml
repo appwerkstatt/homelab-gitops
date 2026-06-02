@@ -48,6 +48,11 @@ services:
 # Anwenden auf einen Dienst (Beispiel): am jeweiligen Router das Label setzen
 #   traefik.http.routers.<dienst>.middlewares=sso@docker
 # z.B. Traefik-Dashboard (00-traefik), Netboot-Konsole (30-netboot), optionales S3-Browser-UI.
+#
+# WICHTIG: oauth2-proxy leitet pro Host auf https://<host>.lab.appsfab.org/oauth2/callback um.
+# Keycloak matcht KEINEN Host-Wildcard in redirect_uri → für JEDEN neu hinter sso gehängten
+# Dienst dessen Callback explizit beim Client "oauth2-proxy" eintragen
+# (02-keycloak/realm/AppsFab-realm.json, redirectUris+webOrigins) und KCC_REALM_REV bumpen.
 
 networks:
   edge:

@@ -32,6 +32,7 @@ empty value and break those apps' logins.
    ```bash
    cp secrets.env secrets.enc.env && sops -e -i secrets.enc.env && rm -f secrets.env
    ```
+   (Encrypting needs the age key on hand — `export SOPS_AGE_KEY_FILE=/mnt/fast/appdata/_secrets/age.key`; see `.sops.yaml`.)
    (If you instead manage these in Arcane's environment, set them there with the same names.)
 
 > **Forgejo wrinkle:** Forgejo's OIDC secret is **not** read from env at runtime — it was applied

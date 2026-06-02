@@ -8,9 +8,15 @@ service still seeds an **empty** DB (disaster recovery); kcc owns every change a
 ## One-time migration (do this once, before the first kcc run)
 
 The four client secrets used to be `CHANGE_ME_*` placeholders rotated by hand in the Keycloak
-UI. The live values must be captured into `secrets.env` so kcc reconciles to the **same**
-secret each downstream app already uses — otherwise kcc would overwrite the live secret with an
-empty value and break those apps' logins.
+UI. The live values must be set in the **Arcane environment** for this stack (the source of
+truth for env vars — `compose.yaml`'s `${...}` interpolation, including kcc's secret
+pass-throughs, resolves from it) so kcc reconciles to the **same** secret each downstream app
+already uses — otherwise kcc would overwrite the live secret with an empty value and break
+those apps' logins.
+
+> The committed `secrets.enc.env` (SOPS) is **legacy/unused** — env is managed in Arcane, not
+> from that file. Ignore it here; it still carries dead `KC_CLIENT_SECRET_*` and is slated for
+> separate cleanup.
 
 1. Read each current client secret from the running Keycloak (on the NAS):
    ```bash
@@ -26,21 +32,17 @@ empty value and break those apps' logins.
        -r AppsFab --fields value --format csv --noquotes
    done
    ```
-2. Put those four values into `secrets.env` under the canonical names
-   (`GRAFANA_OIDC_CLIENT_SECRET`, `FORGEJO_OIDC_CLIENT_SECRET`, `NETBOOT_OIDC_CLIENT_SECRET`,
-   `OAUTH2_PROXY_CLIENT_SECRET`). The current `secrets.enc.env` has only `GRAFANA_*` and
-   `OAUTH2_PROXY_*`, so **add `FORGEJO_OIDC_CLIENT_SECRET` and `NETBOOT_OIDC_CLIENT_SECRET`**,
-   and **delete the dead `KC_CLIENT_SECRET_GRAFANA/FORGEJO/NETBOOT` lines**. Then re-encrypt:
-   ```bash
-   cp secrets.env secrets.enc.env && sops -e -i secrets.enc.env && rm -f secrets.env
-   ```
-   (Encrypting needs the age key on hand — `export SOPS_AGE_KEY_FILE=/mnt/fast/appdata/_secrets/age.key`; see `.sops.yaml`.)
-   (If you instead manage these in Arcane's environment, set them there with the same names.)
+2. In **Arcane → the `keycloak` stack → Environment**, set the four canonical vars to those
+   values: `GRAFANA_OIDC_CLIENT_SECRET`, `FORGEJO_OIDC_CLIENT_SECRET`,
+   `NETBOOT_OIDC_CLIENT_SECRET`, `OAUTH2_PROXY_CLIENT_SECRET`. `GRAFANA_*` and `OAUTH2_PROXY_*`
+   are likely already set (the existing Grafana/oauth2-proxy stacks use them), so the new ones
+   to **add** are `FORGEJO_OIDC_CLIENT_SECRET` and `NETBOOT_OIDC_CLIENT_SECRET`. Then redeploy
+   the stack so kcc picks them up.
 
 > **Forgejo wrinkle:** Forgejo's OIDC secret is **not** read from env at runtime — it was applied
 > once via `forgejo admin auth add-oauth ... --secret '<value>'` and lives in `gitea.db`. Use the
-> **same** `FORGEJO_OIDC_CLIENT_SECRET` value there. To rotate it later, update both `secrets.env`
-> (for kcc → realm) **and** re-run Forgejo's `update-oauth` with the new value.
+> **same** `FORGEJO_OIDC_CLIENT_SECRET` value there. To rotate it later, update both the Arcane
+> env (for kcc → realm) **and** re-run Forgejo's `update-oauth` with the new value.
 
 ## How a change reconciles
 
@@ -76,7 +78,7 @@ docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh config credentials \
 # G1 reconcile: change displayName in the JSON + bump KCC_REALM_REV, redeploy, then:
 docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh get realms/AppsFab --fields displayName
 
-# G2 no placeholders: each client's live secret equals secrets.env (spot-check grafana)
+# G2 no placeholders: each client's live secret equals the Arcane env value (spot-check grafana)
 gid=$(docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh get clients -r AppsFab \
         -q clientId=grafana --fields id --format csv --noquotes)
 docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh get clients/$gid/client-secret \

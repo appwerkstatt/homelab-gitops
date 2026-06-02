@@ -67,5 +67,5 @@ unbeabsichtigt in B2/Backups landen.
 
 Aus dem alten System zu übernehmen (in 1Password, dann neu setzen): Forgejo `jwt/private.pem`,
 `cloudflared/credentials.json`, `paperless-ai/.env`, DB-Passwörter. **Realm-Client-Secrets**
-(`*_OIDC_CLIENT_SECRET`) einmalig erzeugen und in SOPS/`secrets.env` setzen — `keycloak-config-cli`
+(`*_OIDC_CLIENT_SECRET`) einmalig erzeugen und in der Arcane-Env setzen — `keycloak-config-cli`
 substituiert sie beim Reconcile in den Realm (`$(env:...)`), kein UI-Schritt. Siehe `stacks/02-keycloak/RECONCILE.md`.

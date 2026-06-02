@@ -26,7 +26,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 
 | # | Punkt | Schwere | Status |
 |---|-------|:-------:|--------|
-| A | **Realm-Client-Secrets** `CHANGE_ME_*` | 🟡 | **beim Deploy**: nach Keycloak-Import in der UI neu generieren, dann in SOPS/Arcane (dokumentiert in README + Realm/PASSKEYS) |
+| A | **Realm-Client-Secrets** (`*_OIDC_CLIENT_SECRET`) | 🟡 | **beim Deploy**: einmalig erzeugen, in SOPS/`secrets.env` setzen; `keycloak-config-cli` substituiert sie in den Realm (`$(env:...)`). Einmal-Migration: `stacks/02-keycloak/RECONCILE.md` |
 | B | **Laufzeit-Semantik** (oauth2-proxy-Group-Claim, Grafana-JMESPath, Flow-IDs) | 🟡 | **beim ersten Deploy verifizieren** — YAML/Logik stimmt, finale Bestätigung nur am laufenden System |
 | C | Loki↔Garage intern über `http` (`http://garage:3900`, gleicher Host) | 🟢 | akzeptiert (VLAN-intern); optional auf `https` heben |
 | D | democratic-csi `allowInsecure: true` (selbstsigniertes TrueNAS-Cert) | 🟢 | akzeptiert intern; optional interne CA + Pinning |

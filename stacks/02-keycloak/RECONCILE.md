@@ -28,7 +28,9 @@ empty value and break those apps' logins.
    ```
 2. Put those four values into `secrets.env` under the canonical names
    (`GRAFANA_OIDC_CLIENT_SECRET`, `FORGEJO_OIDC_CLIENT_SECRET`, `NETBOOT_OIDC_CLIENT_SECRET`,
-   `OAUTH2_PROXY_CLIENT_SECRET`), then re-encrypt:
+   `OAUTH2_PROXY_CLIENT_SECRET`). The current `secrets.enc.env` has only `GRAFANA_*` and
+   `OAUTH2_PROXY_*`, so **add `FORGEJO_OIDC_CLIENT_SECRET` and `NETBOOT_OIDC_CLIENT_SECRET`**,
+   and **delete the dead `KC_CLIENT_SECRET_GRAFANA/FORGEJO/NETBOOT` lines**. Then re-encrypt:
    ```bash
    cp secrets.env secrets.enc.env && sops -e -i secrets.enc.env && rm -f secrets.env
    ```

@@ -68,8 +68,15 @@ services:
         condition: service_started
     environment:
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_USER: ${KC_BOOTSTRAP_ADMIN_USERNAME}
-      KEYCLOAK_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      # Auth as a dedicated master-realm service account (client_credentials), NOT a human
+      # login or the bootstrap admin. Create the client once in the master realm:
+      # client `keycloak-config-cli`, client authentication ON, service accounts ON,
+      # assign the master realm-role `admin`. Put its secret in the Arcane env as
+      # KCC_CLIENT_SECRET. See RECONCILE.md → "kcc service account".
+      KEYCLOAK_LOGINREALM: master
+      KEYCLOAK_GRANTTYPE: client_credentials
+      KEYCLOAK_CLIENTID: keycloak-config-cli
+      KEYCLOAK_CLIENTSECRET: ${KCC_CLIENT_SECRET}
       KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"     # poll Keycloak until ready before importing
       KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: "120s"
       IMPORT_FILES_LOCATIONS: /config/AppsFab-realm.json

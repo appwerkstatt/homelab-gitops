@@ -5,6 +5,25 @@
 stack. This is what makes the realm genuine config-as-code. `--import-realm` on the `keycloak`
 service still seeds an **empty** DB (disaster recovery); kcc owns every change after that.
 
+## kcc service account (one-time, before the first deploy)
+
+kcc authenticates to Keycloak as a dedicated **master-realm service account** (client-credentials
+grant) — not a human login, not the bootstrap admin (the `KC_BOOTSTRAP_ADMIN_*` vars name a user
+that doesn't exist in the migrated DB). Create it once, logged into the admin console as the
+master admin (`christian`):
+
+1. Realm **master** → **Clients → Create client**: Client ID `keycloak-config-cli`, type OpenID
+   Connect; **Client authentication ON**, **Service account roles ON** (Standard flow / Direct
+   access grants can be OFF).
+2. The new client → **Service account roles → Assign role** → "Filter by realm roles" → assign
+   **`admin`** (master super-admin role; lets kcc manage the AppsFab realm).
+3. **Credentials** tab → copy the **Client secret**.
+4. In **Arcane → `keycloak` stack → Environment**, set `KCC_CLIENT_SECRET` to that value.
+
+Compose wires this via `KEYCLOAK_GRANTTYPE=client_credentials`,
+`KEYCLOAK_CLIENTID=keycloak-config-cli`, `KEYCLOAK_CLIENTSECRET=${KCC_CLIENT_SECRET}`,
+`KEYCLOAK_LOGINREALM=master`.
+
 ## One-time migration (do this once, before the first kcc run)
 
 The four client secrets used to be `CHANGE_ME_*` placeholders rotated by hand in the Keycloak
@@ -18,26 +37,17 @@ those apps' logins.
 > from that file. Ignore it here; it still carries dead `KC_CLIENT_SECRET_*` and is slated for
 > separate cleanup.
 
-1. Read each current client secret from the running Keycloak (on the NAS):
-   ```bash
-   docker exec keycloak-keycloak-1 \
-     /opt/keycloak/bin/kcadm.sh config credentials \
-     --server http://localhost:8080 --realm master \
-     --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"
-   for c in grafana forgejo netboot-console oauth2-proxy; do
-     id=$(docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh get clients -r AppsFab \
-            -q clientId=$c --fields id --format csv --noquotes)
-     echo -n "$c: "
-     docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh get clients/$id/client-secret \
-       -r AppsFab --fields value --format csv --noquotes
-   done
-   ```
+1. Read each client's current secret. Easiest from the admin console: realm **AppsFab** →
+   **Clients** → *client* → **Credentials** tab → **Client secret**, for `grafana`, `forgejo`,
+   `netboot-console`, `oauth2-proxy`. (Or via kcadm using the service account from above — see the
+   gate-tests block for the `config credentials --client … --secret …` form, then `get clients`.)
 2. In **Arcane → the `keycloak` stack → Environment**, set the four canonical vars to those
    values: `GRAFANA_OIDC_CLIENT_SECRET`, `FORGEJO_OIDC_CLIENT_SECRET`,
    `NETBOOT_OIDC_CLIENT_SECRET`, `OAUTH2_PROXY_CLIENT_SECRET`. `GRAFANA_*` and `OAUTH2_PROXY_*`
    are likely already set (the existing Grafana/oauth2-proxy stacks use them), so the new ones
-   to **add** are `FORGEJO_OIDC_CLIENT_SECRET` and `NETBOOT_OIDC_CLIENT_SECRET`. Then redeploy
-   the stack so kcc picks them up.
+   to **add** are `FORGEJO_OIDC_CLIENT_SECRET` and `NETBOOT_OIDC_CLIENT_SECRET`. (Plus
+   `KCC_CLIENT_SECRET` from the service-account section above.) Then redeploy the stack so kcc
+   picks them up.
 
 > **Forgejo wrinkle:** Forgejo's OIDC secret is **not** read from env at runtime — it was applied
 > once via `forgejo admin auth add-oauth ... --secret '<value>'` and lives in `gitea.db`. Use the
@@ -70,10 +80,10 @@ committed to avoid drift.
 ## Gate tests (run on the NAS after deploy)
 
 ```bash
-# kcadm login (reused below)
+# kcadm login as the kcc service account (reused below); <KCC_CLIENT_SECRET> = the Arcane value
 docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh config credentials \
   --server http://localhost:8080 --realm master \
-  --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"
+  --client keycloak-config-cli --secret '<KCC_CLIENT_SECRET>'
 
 # G1 reconcile: change displayName in the JSON + bump KCC_REALM_REV, redeploy, then:
 docker exec keycloak-keycloak-1 /opt/keycloak/bin/kcadm.sh get realms/AppsFab --fields displayName

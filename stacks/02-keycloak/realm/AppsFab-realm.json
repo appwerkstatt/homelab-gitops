@@ -1,7 +1,7 @@
 {
   "realm": "AppsFab",
   "enabled": true,
-  "displayName": "AppsFab Homelab",
+  "displayName": "AppsFab Homelab ·",
   "loginWithEmailAllowed": true,
   "registrationAllowed": false,
   "sslRequired": "external",

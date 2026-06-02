@@ -28,6 +28,7 @@ GitHub (dieses Repo)
 1. **Arcane** als TrueNAS-App installieren (App-Pool = `fast`), dieses Repo als GitOps-Quelle hinterlegen.
 2. **00-traefik** zuerst — erstellt das gemeinsame Docker-Netz `edge` und holt das Wildcard-Zertifikat.
 3. **01-forgejo** + **02-keycloak** — danach kann GitHub optional nach Forgejo gespiegelt werden (GitHub bleibt die Wahrheit).
+   - Realm-Änderungen reconcilen über `keycloak-config-cli` bei jedem Redeploy — siehe `stacks/02-keycloak/RECONCILE.md` (inkl. einmaliger Secret-Migration).
 4. Restliche Stacks. Daten vorher gemäß Runbook Phase 3 migrieren (Keycloak/Paperless = PG 17, Forgejo/Grafana/paperless-ai = Dateien/SQLite).
 
 ## Stacks
@@ -36,7 +37,7 @@ GitHub (dieses Repo)
 |-------|---------|---------------|
 | `00-traefik` | Traefik 3.6.8 (Reverse Proxy, ACME DNS-01) | `fast/appdata/traefik` |
 | `01-forgejo` | Forgejo 14.0.2 (SQLite) | `fast/appdata/forgejo` |
-| `02-keycloak` | Keycloak 26.5.4 + Postgres 17.8 (Realm-as-Code, Passkeys) | `fast/appdata/keycloak` |
+| `02-keycloak` | Keycloak 26.5.4 + Postgres 17.8 (Realm-as-Code via keycloak-config-cli, Passkeys) | `fast/appdata/keycloak` |
 | `03-oauth2-proxy` | oauth2-proxy — Traefik-ForwardAuth gegen Keycloak | – (zustandslos) |
 | `11-paperless` | Paperless-ngx 2.20.7 + Postgres 17.8 + Redis + paperless-ai 3.0.9 | `fast/appdata/paperless`, `data/paperless` |
 | `12-cloudflared` | Cloudflared 2026.2.0 (Tunnel) | `fast/appdata/cloudflared` |
@@ -66,4 +67,5 @@ unbeabsichtigt in B2/Backups landen.
 
 Aus dem alten System zu übernehmen (in 1Password, dann neu setzen): Forgejo `jwt/private.pem`,
 `cloudflared/credentials.json`, `paperless-ai/.env`, DB-Passwörter. **Realm-Client-Secrets**
-(`CHANGE_ME_*`) nach dem Keycloak-Import in der UI neu generieren — die Platzhalter nie produktiv lassen.
+(`*_OIDC_CLIENT_SECRET`) einmalig erzeugen und in der Arcane-Env setzen — `keycloak-config-cli`
+substituiert sie beim Reconcile in den Realm (`$(env:...)`), kein UI-Schritt. Siehe `stacks/02-keycloak/RECONCILE.md`.

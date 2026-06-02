@@ -51,6 +51,44 @@ services:
     mem_limit: 1g
     restart: unless-stopped
 
+  # Realm-Reconcile: applies realm/AppsFab-realm.json to the running Keycloak on every
+  # (re)deploy, then exits. Complements --import-realm (which only seeds an empty DB).
+  # One-shot: restart "no". Waits for Keycloak via kcc's own availability check, so the
+  # keycloak service needs no healthcheck (its image is distroless — no curl/wget).
+  #
+  # Realm placeholders use kcc's DEFAULT substitution syntax $(env:VAR) — prefix "$(",
+  # suffix ")" — which deliberately avoids Keycloak's own ${...} placeholders. We rely on
+  # the default (the image tag is pinned, so the default is fixed) rather than setting
+  # IMPORT_VARSUBSTITUTION_PREFIX/SUFFIX here, because "$(" in a compose value would be
+  # mangled by Compose's own $-interpolation.
+  keycloak-config-cli:
+    image: adorsys/keycloak-config-cli:6.5.0-26.5.4   # tag = {kcc-version}-{keycloak-version}; Renovate-tracked
+    depends_on:
+      keycloak:
+        condition: service_started
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_USER: ${KC_BOOTSTRAP_ADMIN_USERNAME}
+      KEYCLOAK_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"     # poll Keycloak until ready before importing
+      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 120s
+      IMPORT_FILES_LOCATIONS: /config/AppsFab-realm.json
+      IMPORT_VARSUBSTITUTION_ENABLED: "true"         # enable $(env:VAR) substitution (default prefix/suffix)
+      # Bump on every realm/ change. A changed env value forces Compose to recreate this
+      # one-shot (so it re-runs), AND touching compose.yaml guarantees Arcane redeploys the
+      # stack (a realm-only file edit alone may not trigger either). See RECONCILE.md.
+      KCC_REALM_REV: "1"
+      # OIDC client secrets — resolved into the realm by $(env:...). Same vars the consumers read.
+      GRAFANA_OIDC_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
+      FORGEJO_OIDC_CLIENT_SECRET: ${FORGEJO_OIDC_CLIENT_SECRET}
+      NETBOOT_OIDC_CLIENT_SECRET: ${NETBOOT_OIDC_CLIENT_SECRET}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET}
+    volumes:
+      - ./realm:/config:ro
+    networks: [kc-internal]
+    restart: "no"
+    mem_limit: 256m
+
 networks:
   edge:
     external: true

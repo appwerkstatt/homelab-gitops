@@ -84,7 +84,7 @@ services:
       # Bump on every realm/ change. A changed env value forces Compose to recreate this
       # one-shot (so it re-runs), AND touching compose.yaml guarantees Arcane redeploys the
       # stack (a realm-only file edit alone may not trigger either). See RECONCILE.md.
-      KCC_REALM_REV: "5"
+      KCC_REALM_REV: "6"
       # OIDC client secrets — resolved into the realm by $(env:...). Same vars the consumers read.
       GRAFANA_OIDC_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
       FORGEJO_OIDC_CLIENT_SECRET: ${FORGEJO_OIDC_CLIENT_SECRET}

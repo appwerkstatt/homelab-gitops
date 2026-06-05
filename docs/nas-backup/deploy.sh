@@ -9,10 +9,16 @@ SELF="$(cd "$(dirname "$0")" && pwd)"
 INSTALL=/mnt/backup/scripts/nas-backup
 CRON_DESC="NAS backup: nightly TrueNAS config export"
 
-# 1) install the export script to a persistent path (survives an OS reinstall on boot-pool)
+# 1) install the export script to a persistent path (survives an OS reinstall on boot-pool).
+#    Skip the copy when deploy.sh is already running from the install dir (e.g. scp'd
+#    straight there) — install/cp abort on a same-file copy.
 mkdir -p "$INSTALL"
-install -m 755 "$SELF/config-export.sh" "$INSTALL/config-export.sh"
-echo "installed $INSTALL/config-export.sh"
+if [ "$SELF/config-export.sh" -ef "$INSTALL/config-export.sh" ]; then
+  echo "config-export.sh already in place at $INSTALL"
+else
+  install -m 755 "$SELF/config-export.sh" "$INSTALL/config-export.sh"
+  echo "installed $INSTALL/config-export.sh"
+fi
 
 # 2) register the nightly cron (02:30) if not already present.
 #    Capture explicitly so a query failure (e.g. middleware still warming up during a

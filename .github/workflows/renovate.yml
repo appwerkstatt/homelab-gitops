@@ -1,0 +1,48 @@
+# renovate.yml — self-hosted Renovate auf GitHub-hosted Runner, authentifiziert als org-eigene
+# GitHub App (kurzlebiges Installation-Token, kein PAT). Renovate klont das Repo selbst via
+# GitHub-API -> kein actions/checkout nötig. Image-Tag :43 == Validator-Version in validate.yml
+# (kein Version-Skew, vgl. cluster-M5). PRs erscheinen als <app-slug>[bot].
+name: renovate
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC ≈ 04–05 Uhr Berlin, im "after 2am and before 6am"-Fenster (DST-sicher)
+  workflow_dispatch: {}
+
+permissions: {}   # Job nutzt ausschließlich den App-Token unten, nicht GITHUB_TOKEN
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint GitHub App installation token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - name: Resolve App bot identity (git author)
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          uid=$(gh api "/users/${APP_SLUG}[bot]" --jq '.id')
+          echo "author=${APP_SLUG}[bot] <${uid}+${APP_SLUG}[bot]@users.noreply.github.com>" >> "$GITHUB_OUTPUT"
+
+      - name: Run Renovate
+        env:
+          RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}
+          RENOVATE_GIT_AUTHOR: ${{ steps.bot.outputs.author }}
+        run: |
+          docker run --rm \
+            -e RENOVATE_TOKEN \
+            -e RENOVATE_GIT_AUTHOR \
+            -e RENOVATE_PLATFORM=github \
+            -e RENOVATE_AUTODISCOVER=false \
+            -e RENOVATE_REPOSITORIES='["appwerkstatt/homelab-gitops"]' \
+            -e RENOVATE_ONBOARDING=false \
+            -e RENOVATE_REQUIRE_CONFIG=optional \
+            -e LOG_LEVEL=info \
+            ghcr.io/renovatebot/renovate:43

@@ -1,101 +1,102 @@
-# Registry Pull-Through Cache — Redesign als SEPARATE Instanz — Design
+# Registry Pull-Through Cache — SEPARATE Instanz (registry:2, docker.io) — Design
 
 > Stand: 2026-06-06 · Repo: **homelab-gitops** (TrueNAS, Arcane-driven GitOps)
-> Goal: eine **eigenständige** Pull-Through-Cache für die vier öffentlichen Registries
-> (docker.io, ghcr.io, quay.io, registry.k8s.io), **getrennt** von der privaten Registry
-> (`registryzot`). Erstes Pull zieht einmal extern + cached auf dem NAS; jedes weitere Pull
-> kommt mit LAN-Speed. Authentifiziert gegen Docker Hub → höheres Pull-Budget.
+> Goal: eine **eigenständige** Pull-Through-Cache für **Docker Hub** (docker.io), **getrennt** von
+> der privaten Registry (`registryzot`), gegen Docker Hub authentifiziert → höheres Pull-Budget +
+> LAN-Speed-Re-Pulls. Engine: **`registry:2` im `proxy`-Modus** (die Referenz-Docker-Hub-Mirror).
+> ghcr.io/quay.io/registry.k8s.io = **validierte Folge-Specs**, je eigener Endpoint.
 
 ---
 
-## 0. Warum (und warum NEU, nicht der alte Ansatz)
+## 0. Warum (und warum registry:2 statt Zot-sync)
 
-Die 100-Mbit-Uplink + das **docker.io Anon-Pull-Budget** (100 Pulls / 6h / IP) sind ein
-wiederkehrender Schmerz: der Mac-Forgejo-Runner ist daran schon verhungert ("Error obtaining
-docker token", [[forgejo-mac-runner-dood]]), und der k3s-Cluster zieht bei jedem Rollout/Reboot
-dieselben Public-Images neu.
+Die 100-Mbit-Uplink + das **docker.io Anon-Pull-Budget** (100 Pulls / 6h / IP) sind der
+wiederkehrende Schmerz: der Mac-Forgejo-Runner ist daran verhungert ("Error obtaining docker
+token", [[forgejo-mac-runner-dood]]). docker.io ist **der** Schmerz und der **einzige** Upstream,
+den der Docker-Daemon transparent spiegeln kann.
 
-**Der erste Versuch (2026-06-05, PR #26/#27) wurde revertiert.** Er hatte die `sync`-Extension
-in den **bestehenden, load-bearing** Zot (`registryzot`, serviert `registry.lab.appsfab.org` +
-netboot-console + `lab-status`) eingebaut. Probleme: (a) **keine Docker-Hub-Credentials** → als
-Cache funktionslos; (b) `prefix: "**"` über die Private-Repos → bei jedem Private-Pull ein
-nutzloser Upstream-Sync-Versuch (Log-Noise + Latenz); (c) Retention musste die Private-Repos
-mühsam per Protect-Policy ausnehmen. **Lehre: die Cache gehört in eine SEPARATE Instanz, nie
-in die private Registry gemischt.** Diese Spec setzt genau das um.
-
-**Engine: ein einzelner cache-only Zot.** Dieselbe Engine, die wir ohnehin betreiben (Zot
-v2.1.x), aber als **neue, isolierte** App mit eigenem Datenverzeichnis. Multi-Upstream via
-`extensions.sync` (onDemand). Kein Harbor (Overkill: ~2–3 GB RAM, Multi-Container — für reines
-Caching unnötig).
+**Pivot dokumentiert (2026-06-06, Spike-getrieben):** Der erste Redesign-Entwurf war *ein*
+cache-only Zot mit `extensions.sync` (onDemand) für alle 4 Upstreams, Host-namespaced
+(`mirror/ghcr.io/…`). **Der Spike hat das widerlegt:** Zot-onDemand-sync **honoriert kein
+Host-Namespacing** — es probiert den *wörtlichen* Repo-Pfad gegen jeden Upstream der Reihe nach
+(Logs zeigten Prefix-Doppelung `quay.io/quay.io/quay.io/…` und einen
+`registry-1.docker.io/quay.io/…`-Versuch). Funktioniert nur, wenn ein Name auf genau einem
+Upstream existiert (docker.io am Root ✓), aber **nicht** sauber pro-Registry steuerbar. Damit
+fällt jede *einzelne* Multi-Upstream-Instanz (auch der frühere C-Fallback mit geteiltem Zot). Das
+robuste Modell ist **ein Cache-Endpoint pro Upstream** — und das Referenz-Werkzeug dafür ist
+**`registry:2` im `proxy`-Modus** (genau ein Upstream pro Instanz, transparenter Root-Pfad,
+`proxy.username/password` für die Hub-Auth). **Spike bestätigt** (registry:2 v2.8.3, NAS, echtes
+Token): Cold-Pull über den Proxy ✓, zweiter Pull aus dem lokalen Cache (~5 ms, Scheduler-TTL
+168h) ✓, **keine** Auth-Fehler. Harbor (one-instance, proxy-cache-Projekte) wurde erwogen, aber
+**verworfen**: ~1–3 GB RAM **und** als path-namespaced KEIN transparenter docker.io-Daemon-Mirror.
 
 ## 1. Scope
 
-Das Gesamtfeature zerfällt weiterhin in **drei** Teile. **Diese Spec = Teil 1: die Cache-Instanz.**
+**In scope (diese Spec — homelab-gitops):**
+- Neuer Stack `stacks/23-registry-cache/` (nur `compose.yaml`, kein Config-File) als **eigene
+  Arcane-Gitsync-App**: ein `registry:2`-Service im `proxy`-Modus für **docker.io**.
+- Auth gegen Docker Hub via **Arcane-ENV** (`REGISTRY_PROXY_USERNAME`/`PASSWORD`) — Repo-Secret-Modell.
+- Eigenes Datenverzeichnis `/mnt/data/registry-cache`, Loopback `127.0.0.1:5001`, Traefik-Host
+  `mirror.lab.appsfab.org`.
 
-**In scope (Teil 1 — homelab-gitops):**
-- Neuer Stack `stacks/23-registry-cache/` (compose.yaml + config/zot.json) als **eigene
-  Arcane-Gitsync-App**, eigenes Datenverzeichnis, eigener Loopback-Port, eigener Traefik-Host.
-- `extensions.sync` (onDemand) für docker.io (Root) + ghcr.io / quay.io / registry.k8s.io
-  (Host-namespaced), authentifiziert gegen Docker Hub.
-- `storage.retention` + GC, damit `/mnt/data/registry-cache` den data-Pool nicht vollläuft.
+**Out of scope (eigene Folge-Specs):**
+- **ghcr.io / quay.io** — je ein weiterer `registry:2`-proxy-Service (eigener Port/Host); normale
+  Registries, proxy funktioniert. Lower priority (kein vergleichbares Ratelimit).
+- **registry.k8s.io** — **eigener Spike nötig**: redirect-lastig (Blobs von umgeleiteten CDNs),
+  notorisch zickig für Pull-Through-Caches; ggf. nicht sauber cachebar.
+- **Teil 2 (cluster-Repo):** containerd `registries.yaml` — pro Upstream ein Mirror-Endpoint.
+- **Teil 3 (Host-Config):** Docker-Clients (Mac-Runner + NAS-Host) `daemon.json` `registry-mirrors`
+  (docker.io → `mirror.lab.appsfab.org`).
 
-**Out of scope (eigene Folge-Specs, Teil 2/3):**
-- **Teil 2 (cluster-Repo):** `/etc/rancher/k3s/registries.yaml` — containerd-Mirrors auf den
-  k3s-Nodes (alle vier Upstreams, Host-namespaced gegen diese Cache).
-- **Teil 3 (Host-Config):** Docker-Clients (Mac-Forgejo-Runner + NAS-Host-Daemon) —
-  `registry-mirrors` in `daemon.json`, **nur docker.io** (Docker-Daemon-Limit; ghcr/quay/k8s
-  gehen dort nicht transparent). docker.io ist genau der Ratelimit-Schmerz → deckt den realen Fall ab.
-
-## 2. Architektur / Platzierung
+## 2. Architektur / Datenfluss
 
 ```
-  Docker-Daemon-Client (Mac-Runner, NAS-Host)        k3s containerd (alle 4 Upstreams)
-        │ registry-mirrors: nur docker.io                  │ registries.yaml: pro Upstream ein
-        │ → Root-Pfad  /v2/library/nginx/...               │   Mirror-Endpoint, Host im Pfad
-        ▼                                                   ▼  /v2/ghcr.io/owner/img/...
-        └──────────────►  mirror.lab.appsfab.org  ◄─────────┘
-                          (= cache-only Zot, anonymous read,
-                           127.0.0.1:5001 lokal)
-                                │
-                  ┌─────────────┴───────────── Cache-Hit? ── ja ──► aus /mnt/data/registry-cache (LAN)
-                  │
-                  └─ nein ──► sync onDemand pullt EINMAL vom passenden Upstream
-                              (Docker Hub authentifiziert), cached lokal, serviert danach lokal
+  Docker-Daemon-Client (Mac-Runner, NAS-Host)          k3s containerd (Teil 2)
+      │ registry-mirrors: https://mirror.lab.appsfab.org    │ registries.yaml: docker.io ->
+      │ → Root-Pfad /v2/library/nginx/…  (transparent!)     │   mirror.lab.appsfab.org
+      ▼                                                      ▼
+      └──────────────►  mirror.lab.appsfab.org  ◄────────────┘
+                        (= registry:2 proxy, docker.io,
+                         anonymous read, 127.0.0.1:5001 lokal)
+                              │
+                ┌─────────────┴──── Cache-Hit? ── ja ──► aus /mnt/data/registry-cache (LAN, ~ms)
+                │
+                └─ nein ──► proxy pullt EINMAL von registry-1.docker.io (Hub-authentifiziert),
+                            cached lokal (Scheduler-TTL), serviert danach lokal
 ```
 
-- **Neuer Stack / eigene Arcane-App.** Damit das Compose-Projekt eine eigene Identität hat,
-  **getrennt** von `registryzot`. Wegen [[nas-homelab-gitops]] (Arcane setzt den Projektnamen per
-  `-p <slug>`, überschreibt `name:`): compose `name: registry-cache` setzen **und die
-  Arcane-Gitsync-App gleich benennen** (Slug `registry-cache`), damit Live-Projekt == `name:`.
-- **Netz `edge`** (bridge), wie die übrigen web-exponierten Stacks.
-- **Traefik-Host `mirror.lab.appsfab.org`** (Split-Horizon → `192.168.80.50`), TLS über den
-  bestehenden Wildcard-Resolver `le` (`*.lab.appsfab.org` deckt den Host ab — kein neues Zert).
-- **Loopback `127.0.0.1:5001`** (5000 ist `registryzot`). Für NAS-lokale Pulls + den
-  NAS-Host-Docker-Daemon-Mirror. Docker behandelt loopback automatisch als insecure.
-- **Storage `/mnt/data/registry-cache`** (data-Pool, HDD-Mirror — Cache-Blobs sind groß).
-  Vollständig getrennt von `registryzot`s `/mnt/data/harbor/zot`.
-- **Isolation:** eigener Container, eigenes Datenverzeichnis, eigener Port/Host → `registryzot`
-  wird nicht angefasst (Regression-Sicherheit).
+- **registry:2 `proxy`-Modus** serviert docker.io am **Root** (`/v2/library/nginx`) → der
+  Docker-Daemon-`registry-mirrors`-Pfad ist **transparent** (kein Ref-Rewrite in CI nötig).
+- **Eigene Identität:** neue Arcane-App, eigener Container/Port/Datenpfad → `registryzot`
+  unberührt (Regression-Sicherheit).
+- **Netz `edge`**, Traefik-Host via Wildcard-Cert `le` (`*.lab.appsfab.org` deckt `mirror` ab).
+- **Loopback `127.0.0.1:5001`** (5000 = `registryzot`) für NAS-lokal + NAS-Host-Daemon.
 
-## 3. Komponenten / Änderungen (Teil 1)
+## 3. Komponenten / Änderungen
 
 ### 3.1 `stacks/23-registry-cache/compose.yaml`
 
 ```yaml
-# 23-registry-cache — Pull-Through-Cache fuer oeffentliche Registries (docker.io/ghcr.io/quay.io/
-# registry.k8s.io). SEPARAT von der privaten Registry (registryzot) — niemals mischen.
-# Arcane-Gitsync-App ebenfalls "registry-cache" benennen (Slug ueberschreibt name:, s. README).
+# 23-registry-cache — Pull-Through-Cache fuer Docker Hub (docker.io). registry:2 im proxy-Modus.
+# SEPARAT von der privaten Registry (registryzot) — niemals mischen. Auth via Arcane-ENV
+# (DOCKERHUB_USERNAME/DOCKERHUB_TOKEN), NICHT in Git. Arcane-App ebenfalls "registry-cache" benennen
+# (Slug ueberschreibt name:, s. README Konventionen). Erweiterbar: ghcr/quay/k8s spaeter als eigene
+# registry:2-Services + Traefik-Hosts (Folge-Specs).
 name: registry-cache
 
 services:
-  zot:
-    image: ghcr.io/project-zot/zot:v2.1.17     # gleiche Linie wie die private Registry
+  dockerhub:
+    image: registry:2.8.3                      # Distribution registry, proxy/pull-through
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
+      REGISTRY_PROXY_USERNAME: ${DOCKERHUB_USERNAME}   # aus Arcane-ENV
+      REGISTRY_PROXY_PASSWORD: ${DOCKERHUB_TOKEN}      # Docker-Hub Access-Token, aus Arcane-ENV
+      REGISTRY_PROXY_TTL: 168h                         # Cache-Frische + Purge-Fenster (7 Tage)
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"          # Proxy-Scheduler darf abgelaufene Blobs purgen
     ports:
       - "127.0.0.1:5001:5000"                  # NAS-lokal + Docker-Daemon-Mirror; 5000 ist registryzot
     volumes:
-      - /mnt/data/registry-cache:/var/lib/registry            # Cache-Blobs -> data-Pool
-      - ./config/zot.json:/etc/zot/config.json:ro
-      - /mnt/fast/appdata/registry-cache/sync-credentials.json:/etc/zot/sync-credentials.json:ro  # Docker-Hub-Token, NICHT in Git
+      - /mnt/data/registry-cache:/var/lib/registry     # Cache-Blobs -> data-Pool
     labels:
       - traefik.enable=true
       - traefik.http.routers.regcache.rule=Host(`mirror.${LAB_DOMAIN}`)
@@ -103,7 +104,7 @@ services:
       - traefik.http.routers.regcache.tls.certresolver=le
       - traefik.http.services.regcache.loadbalancer.server.port=5000
     networks: [edge]
-    mem_limit: 512m
+    mem_limit: 256m
     restart: unless-stopped
 
 networks:
@@ -111,108 +112,49 @@ networks:
     external: true
 ```
 
-### 3.2 `stacks/23-registry-cache/config/zot.json`
+### 3.2 Secrets — Arcane-ENV (kein File)
 
-Kernpunkte (exakte `content`-Semantik wird im **Plan** gegen Zot v2.1.x verifiziert, nicht geraten):
+registry:2 liest die Upstream-Credentials aus der **Container-ENV** → passt exakt zum
+Repo-Secret-Modell ("Variablen in der Arcane-Env pro Stack", [[nas-homelab-gitops]]).
+- **Operator setzt in der Arcane-`registry-cache`-App-Env:** `DOCKERHUB_USERNAME` +
+  `DOCKERHUB_TOKEN` (freier Docker-Hub-Account, Access-Token Public-Read; in 1Password ablegen).
+- Die in Task 1 angelegte `/mnt/fast/appdata/registry-cache/sync-credentials.json` (Zot-Format)
+  ist damit **obsolet** und kann entfernt werden.
+- **anonymous read** für LAN-Clients: registry:2 proxy ist per Default ohne Client-Auth → Clients
+  pullen ohne Credentials (die Hub-Creds nutzt nur der Proxy upstream).
 
-```json
-{
-  "storage": {
-    "rootDirectory": "/var/lib/registry",
-    "gc": true,
-    "retention": {
-      "policies": [
-        {
-          "repositories": ["**"],
-          "deleteReferrers": true,
-          "keepTags": [{ "patterns": ["**"], "pulledWithin": "720h" }]
-        }
-      ]
-    }
-  },
-  "http": {
-    "address": "0.0.0.0",
-    "port": "5000",
-    "compat": ["docker2s2"],
-    "accessControl": {
-      "repositories": { "**": { "anonymousPolicy": ["read"] } }
-    }
-  },
-  "log": { "level": "info" },
-  "extensions": {
-    "sync": {
-      "enable": true,
-      "credentialsFile": "/etc/zot/sync-credentials.json",
-      "registries": [
-        { "urls": ["https://ghcr.io"],          "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "ghcr.io/**",         "stripPrefix": true, "destination": "/" }] },
-        { "urls": ["https://quay.io"],          "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "quay.io/**",         "stripPrefix": true, "destination": "/" }] },
-        { "urls": ["https://registry.k8s.io"],  "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "registry.k8s.io/**", "stripPrefix": true, "destination": "/" }] },
-        { "urls": ["https://registry-1.docker.io"], "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "**" }] }
-      ]
-    }
-  }
-}
-```
+### 3.3 Retention / Cache-Größe
 
-- **docker.io am Root** (`prefix: "**"`, als **letzter** Eintrag = Catch-all) → der
-  Docker-Daemon-`registry-mirrors`-Pfad (`/v2/library/nginx/...`) funktioniert transparent.
-- **ghcr/quay/k8s Host-namespaced** (`<host>/**`, `stripPrefix → upstream-Root`) → containerd
-  adressiert sie über `mirror.lab.appsfab.org/<host>/<repo>`, eindeutig auflösbar.
-- **`accessControl` anonymous read**, keine `htpasswd`, kein `ci`-User (reine Public-Cache; kein Push).
-- **UI/Trivy/scrub bewusst NICHT aktiviert** (YAGNI — die private Registry hat das; eine Cache
-  braucht weder CVE-Scan ihrer Wegwerf-Blobs noch UI).
+**Kein separates Retention-Regelwerk** (anders als Zot): registry:2 `proxy`-Modus hat einen
+**eingebauten TTL-Scheduler** — gecachte Manifeste/Blobs werden nach `REGISTRY_PROXY_TTL`
+(Startwert **168h = 7 Tage**) revalidiert bzw. gepurgt; `REGISTRY_STORAGE_DELETE_ENABLED=true`
+erlaubt das Löschen. Damit ist `/mnt/data/registry-cache` durch das TTL-Fenster begrenzt.
+TTL-Wert tunebar (längere TTL = höhere Hit-Rate, mehr Disk).
 
-### 3.3 Secrets — `sync-credentials.json` (off-git)
+## 4. Verifikation (Definition of Done)
 
-Zot liest Sync-Credentials aus einer **Datei** (nicht ENV). Analog zur htpasswd der privaten
-Registry liegt sie **auf dem NAS, nicht in Git**, read-only gemountet:
-
-`/mnt/fast/appdata/registry-cache/sync-credentials.json`:
-```json
-{ "registry-1.docker.io": { "username": "<dockerhub-user>", "password": "<dockerhub-access-token>" } }
-```
-- **Operator-Prerequisite:** freien Docker-Hub-Account + **Access-Token** (kein Passwort) anlegen,
-  Datei mit `chmod 600`, Owner `apps` ablegen. Token in 1Password hinterlegen.
-- ghcr/quay/k8s laufen **anonym** (kein Eintrag nötig) — nur docker.io ratelimitet.
-
-### 3.4 Retention / GC
-
-Reine Cache → **kein Protect-List** (anders als der alte gemischte Ansatz). `gc:true` +
-`retention` evictet Tags, die seit `pulledWithin` (Startwert **720h = 30 Tage**) nicht mehr
-gepullt wurden. **`dryRun` NICHT gesetzt** (= aktiv) — es gibt keine load-bearing Repos zu
-schützen. Konkrete Schwellen (Alter, ggf. Gesamtgröße) im Plan datengetrieben.
-
-## 4. Verifikation (Definition of Done, Teil 1)
-
-1. **Cold-Pull docker.io (Root):** auf dem NAS `docker pull 127.0.0.1:5001/library/hello-world`
-   (oder via `mirror.lab.appsfab.org`) → Erfolg; **zweites** Pull lokal serviert (Zot-Log: sync-hit,
-   kein externer Traffic).
-2. **Cold-Pull Host-namespaced:** `…/ghcr.io/<owner>/<img>` → Erfolg, zweites Pull lokal.
-   (Beweist die Prefix-Disambiguierung aus 3.2.)
-3. **Docker-Hub-Auth aktiv:** Sync-Pull nutzt Credentials (authentifiziertes Budget, nicht anon) —
-   Zot-Log / Docker-Hub-Rate-Header bestätigen.
-4. **Retention/GC greift:** ein abgelaufener Cache-Tag wird beim GC-Lauf entfernt.
-5. **Regression:** private `registryzot` unverändert pull-/pushbar (eigener Container/Daten —
-   wird nicht berührt). `127.0.0.1:5000` weiter durch registryzot bedient.
+1. **Container live:** `registry-cache-dockerhub-1` Up; `/v2/` (loopback 5001 **und**
+   `mirror.lab.appsfab.org`) → `200`. Live-Projektname == `name:` (keine Drift).
+2. **Cold-Pull über den Proxy:** `docker pull 127.0.0.1:5001/library/hello-world` → Erfolg.
+3. **Cache-Hit:** zweites Pull aus dem lokalen Cache (Log: schnelle 200er, kein erneuter
+   Upstream-Roundtrip; Scheduler-Entry mit TTL).
+4. **Hub-Auth aktiv:** keine 401/unauthorized im Log (authentifiziertes Budget, nicht anon).
+5. **Regression:** private `registryzot` (Port 5000) + `garages3` unverändert pull-/pushbar.
 
 ## 5. Risiken / offene Punkte
 
-- **Prefix-Präzedenz (Haupt-Risiko):** Zot muss einen Host-Pfad (`ghcr.io/x`) gegen die
-  **spezifische** Registry auflösen statt gegen das docker.io-`**`-Catch-all. Mitigation:
-  spezifische Hosts **vor** dem Catch-all listen (s. 3.2) und das Verhalten im Plan **gegen
-  v2.1.x verifizieren** (nicht raten). **Fallback, falls fragil:** docker.io auf einen
-  dedizierten `registry:2`-Proxy auslagern (Approach C) — bewahrt den kritischen
-  docker.io-am-Root-Pfad; ghcr/quay/k8s bleiben im Zot.
-- **Docker-Daemon-Mirror nur docker.io:** by-design (Daemon-Limit). ghcr/quay/k8s profitieren
-  nur über containerd (Teil 2). Daher docker.io-am-Root als nicht verhandelbarer Kernpfad.
-- **Cache-Wachstum** → Retention (3.4) ist Pflicht, nicht optional.
-- **Token-Rotation:** Docker-Hub-Access-Token läuft ggf. ab → in 1Password vermerken; Rotation =
-  Datei ersetzen + Container-Restart (Arcane recreate'd config-file-only-Änderungen NICHT von
-  allein, [[nas-registry-cache]]).
-- **Arcane-Projektname:** App-Slug == `name: registry-cache` benennen, sonst dieselbe Drift wie
-  garage→garages3 (harmlos, aber wir vermeiden sie diesmal von Anfang an).
+- **Token-Rotation:** Docker-Hub-Access-Token läuft ggf. ab → 1Password; Rotation = Arcane-ENV
+  aktualisieren + Container-Recreate (Arcane recreate'd ENV-Änderungen via compose-up).
+- **Cache-Größe:** durch TTL begrenzt; bei Bedarf TTL senken oder periodisch `registry
+  garbage-collect` (Distribution-GC) als Folge-Maßnahme.
+- **registry-mirrors-Reichweite:** Docker-Daemon spiegelt **nur** docker.io — by-design; ghcr/quay/k8s
+  nur über containerd (Teil 2) bzw. eigene Proxies (Folge-Specs).
+- **Arcane-Projektname:** App-Slug == `name: registry-cache`, sonst Drift wie garage→garages3
+  (harmlos, aber von Anfang an vermieden).
 
 ## 6. Folge-Specs (nicht hier umgesetzt)
 
-- **Teil 2:** cluster-Repo `registries.yaml` (containerd, alle 4 Upstreams, Host-namespaced gegen `mirror.lab.appsfab.org`).
-- **Teil 3:** Docker-Clients (Mac-Runner + NAS-Host) `daemon.json` `registry-mirrors` (docker.io → `mirror.lab.appsfab.org`).
+- **ghcr.io / quay.io Proxies:** je ein `registry:2`-Service (eigener Port + Traefik-Host).
+- **registry.k8s.io:** eigener Spike (redirect-lastig) → ggf. eigener Proxy oder Verzicht.
+- **Teil 2:** cluster-Repo `registries.yaml` (containerd, docker.io → `mirror.lab.appsfab.org`; weitere Upstreams sobald deren Proxies stehen).
+- **Teil 3:** Docker-Clients (Mac-Runner + NAS-Host) `daemon.json` `registry-mirrors` (docker.io).

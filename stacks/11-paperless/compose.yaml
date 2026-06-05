@@ -4,7 +4,7 @@ name: paperless
 
 services:
   paperless-db:
-    image: postgres:17.8-alpine
+    image: postgres:18.4-alpine
     environment:
       POSTGRES_DB: paperless
       POSTGRES_USER: ${PAPERLESS_DB_USER}
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   paperless-redis:
-    image: redis:7.4-alpine   # Minor-Tag bewusst: immer gültig + neuester 7.4-Patch; zustandsloser Celery-Broker
+    image: redis:8.8-alpine   # Minor-Tag bewusst: immer gültig + neuester 7.4-Patch; zustandsloser Celery-Broker
     volumes:
       - /mnt/fast/appdata/paperless/redis:/data
     networks: [pl-internal]

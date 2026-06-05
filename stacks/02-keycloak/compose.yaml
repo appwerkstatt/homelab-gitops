@@ -3,7 +3,7 @@ name: keycloak
 
 services:
   keycloak-db:
-    image: postgres:18.4-alpine          # Major 17 wie im Altsystem (Migration!)
+    image: postgres:17.8-alpine          # Major 17 wie im Altsystem (Migration!) — NICHT auf 18 bumpen: pg_upgrade nötig (Incident 2026-06-05)
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: ${KC_DB_USER}

@@ -53,6 +53,17 @@ GitHub (dieses Repo)
 - **Domain:** `*.lab.appsfab.org` (Split-Horizon → `192.168.80.50`), Wildcard-TLS via Cloudflare-DNS-01.
 - **SSO:** Keycloak-OIDC nativ, wo die App es kann; sonst Traefik-ForwardAuth (`auth.lab.appsfab.org`).
 - **Image-Versionen** sind gepinnt (kein `latest`) — Updates bewusst per PR/Commit (Renovate optional).
+- **Arcane setzt den Compose-Projektnamen, nicht `name:`.** Arcane startet jeden Stack als
+  `docker compose -p <slug> …`, wobei `<slug>` aus dem Anzeigenamen der Gitsync-App stammt
+  (z. B. „Garage S3" → `garages3`, „Registry ZOT" → `registryzot`). `-p` hat Vorrang vor dem
+  `name:`-Feld im `compose.yaml`, das damit unter Arcane rein kosmetisch ist. Dass die Live-Projekte
+  (Container `garages3-garage-1`, `registryzot-zot-1`) **nicht** zu `name: garage` bzw.
+  `name: registry` passen, ist deshalb **erwartet — kein Fehler**, sondern ein Artefakt der
+  Arcane-Projektbenennung. **Konsequenz:** Stacks niemals von Hand mit `docker compose up` **ohne**
+  `-p <slug>` starten. Sonst legt Compose ein zweites Projekt (Name aus `name:` bzw. dem
+  Verzeichnis-Basename) auf **denselben** Bind-Mounts an; bei zustandsbehafteten Stores
+  (Garage-LMDB unter `/mnt/data/garage`, Zot-Storage unter `/mnt/data/harbor/zot`) droht
+  Datenkorruption durch zwei Prozesse auf demselben Datenverzeichnis. Deployen läuft immer über Arcane.
 
 ## Secrets
 

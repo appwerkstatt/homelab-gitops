@@ -10,21 +10,11 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Patch-Updates der Kerndienste automatisch zusammenfassen",
-      "matchUpdateTypes": ["patch"],
-      "automerge": false,
-      "groupName": "patch-updates"
-    }
-  ],
-  "customManagers": [
-    {
-      "description": "Helm-Charts in _chart.yaml (cluster-integration)",
-      "customType": "regex",
-      "fileMatch": ["(^|/)_chart\\.yaml$"],
-      "matchStrings": [
-        "repoURL:\\s*(?<registryUrl>https?://[^\\s]+)\\s*\\nchart:\\s*(?<depName>[^\\s]+)\\s*\\nversion:\\s*(?<currentValue>[^\\s]+)"
-      ],
-      "datasourceTemplate": "helm"
+      "description": "Patch + Digest automatisch mergen nach grünem validate-Check (cluster-style; Minor/Major bleiben manuell)",
+      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
     }
   ]
 }

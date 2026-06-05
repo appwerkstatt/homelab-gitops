@@ -1,0 +1,40 @@
+# validate.yml — Required Check für Renovate-Automerge: prüft, dass renovate.json valide
+# bleibt und jede Compose-Stack-Datei syntaktisch parst. Läuft auf jedem PR (also auch auf
+# Renovate-PRs, weil die per GitHub-App-Token geöffnet werden -> NICHT GITHUB_TOKEN -> triggert
+# Folge-Workflows). Der Job-Name "validate" IST der Status-Context, der in der Branch-
+# Protection als Pflicht eingetragen wird.
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Redundante Läufe pro Ref abbrechen (spart Free-Tier-Minuten bei Renovate-PR-Schüben);
+# pro PR eigene Group -> bricht nur ältere Läufe DESSELBEN PR ab, blockt keinen Required Check.
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate renovate.json
+        run: npx --yes --package renovate@43 -- renovate-config-validator --strict
+
+      - name: Validate compose stacks
+        run: |
+          fail=0
+          for f in stacks/*/compose.yaml; do
+            echo "::group::$f"
+            docker compose -f "$f" config -q || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail

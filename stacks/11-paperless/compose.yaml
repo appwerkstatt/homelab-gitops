@@ -4,7 +4,7 @@ name: paperless
 
 services:
   paperless-db:
-    image: postgres:17.8-alpine
+    image: postgres:18.4-alpine
     environment:
       POSTGRES_DB: paperless
       POSTGRES_USER: ${PAPERLESS_DB_USER}

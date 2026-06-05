@@ -3,7 +3,7 @@ name: keycloak
 
 services:
   keycloak-db:
-    image: postgres:17.8-alpine          # Major 17 wie im Altsystem (Migration!)
+    image: postgres:18.4-alpine          # Major 17 wie im Altsystem (Migration!)
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: ${KC_DB_USER}

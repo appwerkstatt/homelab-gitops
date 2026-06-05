@@ -1,4 +1,5 @@
-# 22-harbor — schlanke Sofort-Variante: Zot (OCI-Registry). Harbor via Installer siehe README.md.
+# 22-harbor — Zot (OCI-Registry): Private-Registry (netboot-console, lab-status) UND
+# Public-Pull-Through-Cache (sync onDemand: docker.io/ghcr.io/quay.io/registry.k8s.io).
 name: registry
 
 services:
@@ -20,7 +21,7 @@ services:
       - traefik.http.routers.registry.tls.certresolver=le
       - traefik.http.services.registry.loadbalancer.server.port=5000
     networks: [edge]
-    mem_limit: 256m
+    mem_limit: 512m   # sync-Cache + UI/Trivy/scrub im selben Container
     restart: unless-stopped
 
 networks:

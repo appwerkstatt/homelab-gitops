@@ -1,5 +1,23 @@
 {
-  "storage": { "rootDirectory": "/var/lib/registry" },
+  "storage": {
+    "rootDirectory": "/var/lib/registry",
+    "retention": {
+      "dryRun": true,
+      "delay": "168h",
+      "policies": [
+        {
+          "repositories": ["library/netboot-console", "lab-status"],
+          "deleteUntagged": false,
+          "keepTags": [{ "patterns": [".*"] }]
+        },
+        {
+          "repositories": ["**"],
+          "deleteUntagged": true,
+          "keepTags": [{ "patterns": [".*"], "pulledWithin": "720h" }]
+        }
+      ]
+    }
+  },
   "http": {
     "address": "0.0.0.0",
     "port": "5000",
@@ -26,6 +44,15 @@
         "trivy": { "dbRepository": "ghcr.io/project-zot/trivy-db" }
       }
     },
-    "scrub": { "enable": true, "interval": "24h" }
+    "scrub": { "enable": true, "interval": "24h" },
+    "sync": {
+      "enable": true,
+      "registries": [
+        { "urls": ["https://registry-1.docker.io"], "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "**" }] },
+        { "urls": ["https://ghcr.io"],              "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "**" }] },
+        { "urls": ["https://quay.io"],              "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "**" }] },
+        { "urls": ["https://registry.k8s.io"],      "onDemand": true, "tlsVerify": true, "content": [{ "prefix": "**" }] }
+      ]
+    }
   }
 }

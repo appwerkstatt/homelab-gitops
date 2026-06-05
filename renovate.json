@@ -15,6 +15,13 @@
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": true
+    },
+    {
+      "description": "Stateful DBs: KEINE Major-Bumps via Renovate (brauchen pg_upgrade/Daten-Migration, kein Tag-Swap) — siehe postgres-18-Incident 2026-06-05",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["postgres", "redis"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ]
 }

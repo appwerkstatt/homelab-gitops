@@ -28,9 +28,10 @@ services:
     restart: unless-stopped
 
 # Garage hat keine Web-Console (anders als MinIO). Verwaltung per CLI:
-#   docker exec garage-garage-1 /garage status
-# Einmalig nach dem ersten Start Buckets + Keys anlegen (siehe README / Antwort im Chat):
-#   loki, velero, artifacts  +  je ein Key mit read/write.
+#   docker exec garages3-garage-1 /garage status   # ACHTUNG: Live-Projekt heisst "garages3", NICHT "garage"
+# Buckets bereits angelegt (2026-05): loki, velero, artifacts, k3s-etcd-backups, longhorn-backup
+# (je ein Key mit read/write). Garage ist der produktive S3-Store; MinIO (21-minio) wurde nie deployt
+# und 2026-06-05 aus Git entfernt.
 
 networks:
   edge:

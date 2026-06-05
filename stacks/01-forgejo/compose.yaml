@@ -3,7 +3,7 @@ name: forgejo
 
 services:
   forgejo:
-    image: codeberg.org/forgejo/forgejo:14.0.2
+    image: codeberg.org/forgejo/forgejo:15.0.2
     environment:
       USER_UID: ${PUID}
       USER_GID: ${PGID}

@@ -91,7 +91,7 @@ services:
       REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
       REGISTRY_PROXY_USERNAME: ${DOCKERHUB_USERNAME}   # aus Arcane-ENV
       REGISTRY_PROXY_PASSWORD: ${DOCKERHUB_TOKEN}      # Docker-Hub Access-Token, aus Arcane-ENV
-      REGISTRY_PROXY_TTL: 168h                         # Cache-Frische + Purge-Fenster (7 Tage)
+      # TTL = registry:2-Default 168h; REGISTRY_PROXY_TTL als ENV von 2.8.3 IGNORIERT (s. 3.3)
       REGISTRY_STORAGE_DELETE_ENABLED: "true"          # Proxy-Scheduler darf abgelaufene Blobs purgen
     ports:
       - "127.0.0.1:5001:5000"                  # NAS-lokal + Docker-Daemon-Mirror; 5000 ist registryzot
@@ -126,10 +126,14 @@ Repo-Secret-Modell ("Variablen in der Arcane-Env pro Stack", [[nas-homelab-gitop
 ### 3.3 Retention / Cache-Größe
 
 **Kein separates Retention-Regelwerk** (anders als Zot): registry:2 `proxy`-Modus hat einen
-**eingebauten TTL-Scheduler** — gecachte Manifeste/Blobs werden nach `REGISTRY_PROXY_TTL`
-(Startwert **168h = 7 Tage**) revalidiert bzw. gepurgt; `REGISTRY_STORAGE_DELETE_ENABLED=true`
+**eingebauten TTL-Scheduler** — gecachte Manifeste/Blobs werden nach der Proxy-TTL
+(**registry:2-Default 168h = 7 Tage**) revalidiert bzw. gepurgt; `REGISTRY_STORAGE_DELETE_ENABLED=true`
 erlaubt das Löschen. Damit ist `/mnt/data/registry-cache` durch das TTL-Fenster begrenzt.
-TTL-Wert tunebar (längere TTL = höhere Hit-Rate, mehr Disk).
+
+**Gotcha (live verifiziert 2026-06-06):** registry:2.8.3 **ignoriert `REGISTRY_PROXY_TTL` als ENV**
+("Ignoring unrecognized environment variable") — die TTL ist per ENV NICHT setzbar; der Default
+ist aber bereits 168h (Scheduler-Log bestätigt `ttl=167h59m…`). Für eine **abweichende** TTL ein
+`config.yml` mit `proxy.ttl` mounten. Da der Default passt: kein Override, ENV-Zeile entfernt.
 
 ## 4. Verifikation (Definition of Done)
 

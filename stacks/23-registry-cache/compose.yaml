@@ -12,7 +12,9 @@ services:
       REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
       REGISTRY_PROXY_USERNAME: ${DOCKERHUB_USERNAME}   # aus Arcane-ENV
       REGISTRY_PROXY_PASSWORD: ${DOCKERHUB_TOKEN}      # Docker-Hub Access-Token, aus Arcane-ENV
-      REGISTRY_PROXY_TTL: 168h                         # Cache-Frische + Purge-Fenster (7 Tage)
+      # Cache-TTL = registry:2-Default 168h (7 Tage). REGISTRY_PROXY_TTL wird von 2.8.3 als ENV
+      # IGNORIERT (live: "unrecognized environment variable") -> fuer abweichende TTL ein
+      # config.yml mit proxy.ttl mounten. Default passt, daher kein Override.
       REGISTRY_STORAGE_DELETE_ENABLED: "true"          # Proxy-Scheduler darf abgelaufene Blobs purgen
     ports:
       - "127.0.0.1:5001:5000"                  # NAS-lokal + Docker-Daemon-Mirror; 5000 ist registryzot

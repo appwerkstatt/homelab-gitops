@@ -1,0 +1,33 @@
+# 23-registry-cache — Pull-Through-Cache fuer Docker Hub (docker.io). registry:2 im proxy-Modus.
+# SEPARAT von der privaten Registry (registryzot) — niemals mischen. Auth via Arcane-ENV
+# (DOCKERHUB_USERNAME/DOCKERHUB_TOKEN), NICHT in Git. Arcane-App ebenfalls "registry-cache" benennen
+# (Slug ueberschreibt name:, s. README Konventionen). Erweiterbar: ghcr/quay/k8s spaeter als eigene
+# registry:2-Services + Traefik-Hosts (Folge-Specs).
+name: registry-cache
+
+services:
+  dockerhub:
+    image: registry:2.8.3                      # Distribution registry, proxy/pull-through
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
+      REGISTRY_PROXY_USERNAME: ${DOCKERHUB_USERNAME}   # aus Arcane-ENV
+      REGISTRY_PROXY_PASSWORD: ${DOCKERHUB_TOKEN}      # Docker-Hub Access-Token, aus Arcane-ENV
+      REGISTRY_PROXY_TTL: 168h                         # Cache-Frische + Purge-Fenster (7 Tage)
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"          # Proxy-Scheduler darf abgelaufene Blobs purgen
+    ports:
+      - "127.0.0.1:5001:5000"                  # NAS-lokal + Docker-Daemon-Mirror; 5000 ist registryzot
+    volumes:
+      - /mnt/data/registry-cache:/var/lib/registry     # Cache-Blobs -> data-Pool
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.regcache.rule=Host(`mirror.${LAB_DOMAIN}`)
+      - traefik.http.routers.regcache.entrypoints=websecure
+      - traefik.http.routers.regcache.tls.certresolver=le
+      - traefik.http.services.regcache.loadbalancer.server.port=5000
+    networks: [edge]
+    mem_limit: 256m
+    restart: unless-stopped
+
+networks:
+  edge:
+    external: true

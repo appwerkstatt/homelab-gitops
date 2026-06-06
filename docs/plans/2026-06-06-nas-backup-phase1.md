@@ -77,7 +77,10 @@ SPECS = [
 def midclt(method, *args):
     cmd = ["midclt", "call", method]
     cmd += [a if isinstance(a, str) else json.dumps(a) for a in args]
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        sys.exit(f"midclt {method} timed out (middleware wedged?)")
     if res.returncode != 0:
         sys.exit(f"midclt {method} failed: {res.stderr.strip()}")
     return json.loads(res.stdout) if res.stdout.strip() else None
@@ -85,6 +88,10 @@ def midclt(method, *args):
 
 def main():
     existing = midclt("pool.snapshottask.query")
+    # Idempotency key: (dataset, schedule.hour, schedule.dow). Relies on the middleware
+    # round-tripping the crontab strings verbatim (verified on this build) so a re-run
+    # cleanly skips existing tasks. If a task is later edited in the TrueNAS UI its stored
+    # hour string can diverge and a re-run could re-create it — re-check after manual edits.
     have = {(t["dataset"], t["schedule"]["hour"], t["schedule"]["dow"]) for t in existing}
     datasets = {d["id"] for d in midclt("pool.dataset.query", [], {"select": ["id"]})}
 
@@ -158,14 +165,20 @@ ts="$(date +%Y-%m-%d_%H-%M)"
 
 mkdir -p "$DEST"
 # /data/freenas-v1.db = config DB; /data/pwenc_secret = seed to decrypt stored secrets.
-if [ ! -f /data/freenas-v1.db ]; then
-  echo "ERROR: /data/freenas-v1.db not found — not a TrueNAS host?" >&2
-  exit 1
-fi
-tar -czf "$DEST/truenas-config-$ts.tar.gz" -C /data freenas-v1.db pwenc_secret
-chmod 600 "$DEST/truenas-config-$ts.tar.gz"
+for f in /data/freenas-v1.db /data/pwenc_secret; do
+  if [ ! -f "$f" ]; then
+    echo "ERROR: $f not found — not a TrueNAS host?" >&2
+    exit 1
+  fi
+done
+# write to a temp file then atomically move, so a killed run never leaves a truncated
+# tarball that a later restic sweep would treat as a valid backup.
+tmp="$DEST/.truenas-config-$ts.tar.gz.tmp"
+tar -czf "$tmp" -C /data freenas-v1.db pwenc_secret
+chmod 600 "$tmp"
+mv "$tmp" "$DEST/truenas-config-$ts.tar.gz"
 
-find "$DEST" -name 'truenas-config-*.tar.gz' -mtime +"$RETAIN_DAYS" -delete
+find "$DEST" -type f -name 'truenas-config-*.tar.gz' -mtime +"$RETAIN_DAYS" -delete
 echo "wrote $DEST/truenas-config-$ts.tar.gz"
 ```
 
@@ -207,13 +220,23 @@ SELF="$(cd "$(dirname "$0")" && pwd)"
 INSTALL=/mnt/backup/scripts/nas-backup
 CRON_DESC="NAS backup: nightly TrueNAS config export"
 
-# 1) install the export script to a persistent path (survives an OS reinstall on boot-pool)
+# 1) install the export script to a persistent path (survives an OS reinstall on boot-pool).
+#    Skip the copy when deploy.sh is already running from the install dir (e.g. scp'd
+#    straight there) — install/cp abort on a same-file copy.
 mkdir -p "$INSTALL"
-install -m 755 "$SELF/config-export.sh" "$INSTALL/config-export.sh"
-echo "installed $INSTALL/config-export.sh"
+if [ "$SELF/config-export.sh" -ef "$INSTALL/config-export.sh" ]; then
+  echo "config-export.sh already in place at $INSTALL"
+else
+  install -m 755 "$SELF/config-export.sh" "$INSTALL/config-export.sh"
+  echo "installed $INSTALL/config-export.sh"
+fi
 
-# 2) register the nightly cron (02:30) if not already present
-if [ "$(midclt call cronjob.query "[[\"description\",\"=\",\"$CRON_DESC\"]]")" = "[]" ]; then
+# 2) register the nightly cron (02:30) if not already present.
+#    Capture explicitly so a query failure (e.g. middleware still warming up during a
+#    fresh-NAS recovery) fails LOUD instead of silently skipping creation.
+existing="$(midclt call cronjob.query "[[\"description\",\"=\",\"$CRON_DESC\"]]")" \
+  || { echo "ERROR: cronjob.query failed (middleware not ready?)" >&2; exit 1; }
+if [ "$existing" = "[]" ]; then
   midclt call cronjob.create "{\"user\":\"root\",\"command\":\"$INSTALL/config-export.sh\",\"description\":\"$CRON_DESC\",\"schedule\":{\"minute\":\"30\",\"hour\":\"2\",\"dom\":\"*\",\"month\":\"*\",\"dow\":\"*\"},\"enabled\":true,\"stdout\":false,\"stderr\":true}" >/dev/null
   echo "created cron: $CRON_DESC"
 else

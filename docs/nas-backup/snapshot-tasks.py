@@ -18,8 +18,10 @@ SPECS = [
     ("data/homes",          True,  "0,12", (2, "WEEK"), (8, "WEEK")),
     ("backup/HomeFolders",  False, "0,12", (2, "WEEK"), (8, "WEEK")),
     ("backup/dumps",        True,  "0,12", (2, "WEEK"), (8, "WEEK")),
-    # Tier 2 — important/large: daily + weekly
-    ("fast/docker/appdata", True,  "3",    (1, "WEEK"), (4, "WEEK")),
+    # Tier 2 — important/large: daily + weekly. fast/appdata = the LIVE app data
+    # (keycloak/paperless/forgejo DBs, _secrets, …); NOT the stale pre-migration
+    # fast/docker/appdata, which is deliberately not backed up (cleanup pending).
+    ("fast/appdata",        True,  "3",    (1, "WEEK"), (4, "WEEK")),
     ("fast/ix-apps",        True,  "3",    (1, "WEEK"), (4, "WEEK")),
     ("data/makerlab",       True,  "3",    (1, "WEEK"), (4, "WEEK")),
     # Tier 3 — reproducible: daily only

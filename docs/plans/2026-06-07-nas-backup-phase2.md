@@ -4,7 +4,7 @@
 
 **Goal:** Give the irreplaceable data on the `fast`/`data` mirrors a second on-site copy on a **separate physical disk** (the 6 TB `backup` pool) via native TrueNAS **Replication Tasks** — the "2 copies / 2 media" of 3-2-1 (offsite B2 = Phase 3). Defined as re-runnable, idempotent `midclt`-as-code, consistent with Phase 1.
 
-**Architecture:** A new `docs/nas-backup/replication-tasks.py` creates one LOCAL PUSH replication task per Tier 1+2 source dataset (`data/paperless`, `data/homes`, `data/makerlab`, `fast/docker/appdata`) → `backup/replica/<source>`, replicating the Phase-1 `auto-%Y-%m-%d_%H-%M` snapshots daily at 04:00. `deploy.sh` gains a step that runs it. Idempotent against `replication.query`.
+**Architecture:** A new `docs/nas-backup/replication-tasks.py` creates one LOCAL PUSH replication task per Tier 1+2 source dataset (`data/paperless`, `data/homes`, `data/makerlab`, `fast/appdata`) → `backup/replica/<source>`, replicating the Phase-1 `auto-%Y-%m-%d_%H-%M` snapshots daily at 04:00. `deploy.sh` gains a step that runs it. Idempotent against `replication.query`.
 
 **Tech Stack:** TrueNAS SCALE 25.10 `replication` middleware (`midclt`), ZFS LOCAL replication, Python 3.
 
@@ -26,7 +26,7 @@ The exact `replication.create` payload was proven on the box against `data/maker
 | `data/paperless` | `backup/replica/data/paperless` |
 | `data/homes` | `backup/replica/data/homes` |
 | `data/makerlab` | `backup/replica/data/makerlab` *(done in spike)* |
-| `fast/docker/appdata` | `backup/replica/fast/docker/appdata` |
+| `fast/appdata` | `backup/replica/fast/appdata` |
 
 ---
 
@@ -77,7 +77,7 @@ SOURCES = [
     "data/paperless",
     "data/homes",
     "data/makerlab",
-    "fast/docker/appdata",
+    "fast/appdata",
 ]
 
 
@@ -259,7 +259,7 @@ sleep 45
 midclt call replication.query | python3 -c "import sys,json;[print(t[\"name\"], t[\"state\"][\"state\"], str(t[\"state\"].get(\"error\"))[:120]) for t in json.load(sys.stdin)]"
 '
 ```
-Expected: all four tasks `FINISHED`, error `None`. (Large `fast/docker/appdata` ~61 G may still be `RUNNING` on first pass — re-query until `FINISHED`.)
+Expected: all four tasks `FINISHED`, error `None`. (Large `fast/appdata` ~61 G may still be `RUNNING` on first pass — re-query until `FINISHED`.)
 
 - [ ] **Step 4: Confirm the replicas exist (encrypted, readonly) with snapshots**
 
@@ -267,12 +267,12 @@ Expected: all four tasks `FINISHED`, error `None`. (Large `fast/docker/appdata` 
 ssh -o ConnectTimeout=20 root@192.168.80.50 '
 zfs list -r -o name,used,readonly,encryptionroot backup/replica
 echo "--- snapshot counts on replicas ---"
-for d in data/paperless data/homes data/makerlab fast/docker/appdata; do
+for d in data/paperless data/homes data/makerlab fast/appdata; do
   echo "  backup/replica/$d : $(zfs list -t snapshot -o name 2>/dev/null | grep -c "^backup/replica/$d@")"
 done
 '
 ```
-Expected: `backup/replica/{data/paperless,data/homes,data/makerlab,fast/docker/appdata}` present, `readonly=on`, `encryptionroot=backup`, each with ≥1 `auto-` snapshot.
+Expected: `backup/replica/{data/paperless,data/homes,data/makerlab,fast/appdata}` present, `readonly=on`, `encryptionroot=backup`, each with ≥1 `auto-` snapshot.
 
 ---
 
@@ -299,4 +299,4 @@ gh pr create --repo appwerkstatt/homelab-gitops --base main --head feat/nas-back
 - **No placeholders:** the `replication.create` payload was spiked live (PUSH→`also_include_naming_schema`; encrypted pool→`encryption_inherit`) — exact, not guessed.
 - **Idempotency:** keyed on task `name` (`replica-<dotted-source>`); skips existing (incl. the spike's `replica-data-makerlab`) + missing sources; re-runnable for fresh-NAS recovery.
 - **Type/name consistency:** task names generated as `"replica-" + src.replace("/","-")` match the verify commands in Task 4 (`replica-data-paperless`, etc.).
-- **Known risk:** first replication of `fast/docker/appdata` (~61 G) may take a while — Task 4 Step 3 notes re-querying until `FINISHED`.
+- **Known risk:** first replication of `fast/appdata` (~61 G) may take a while — Task 4 Step 3 notes re-querying until `FINISHED`.

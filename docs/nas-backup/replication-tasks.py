@@ -24,7 +24,7 @@ SOURCES = [
     "data/paperless",
     "data/homes",
     "data/makerlab",
-    "fast/docker/appdata",
+    "fast/appdata",      # LIVE app data (NOT the stale pre-migration fast/docker/appdata)
 ]
 
 

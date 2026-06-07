@@ -69,11 +69,15 @@ sudo -n midclt call docker.update '{"insecure_registry_mirrors": ["http://127.0.
 schreibt den Wert nach `/etc/docker/daemon.json` (`registry-mirrors` + ggf. `insecure-registries`)
 und lädt/restartet den Docker-Daemon.
 
-**HAZARD — Daemon-Bounce:** `registry-mirrors` ist in dockerd's **live-reloadbarer** Config-Menge
-(SIGHUP-Reload reicht theoretisch, ohne Container-Neustart). Ob die TrueNAS-Middleware **reload**
-oder **full restart** macht, ist offen → **im Plan zuerst klären** (z.B. `docker events`/Uptime
-beobachten). Worst case: ein Docker-Restart **bounced ALLE NAS-Apps** (Keycloak/Paperless/Garage/
-Cache/…) kurz → **in einem ruhigen Fenster** ausführen.
+**Daemon-Bounce — VERIFIZIERT BENIGN (2026-06-06):** `midclt docker.update` macht zwar einen
+**dockerd-Restart** ("Stopping Docker service / Starting docker"; dockerd-PID wechselte
+54108→1983571), ABER die **Container überleben** — denn dockerd läuft gegen einen **externen
+containerd** (`--containerd=/run/containerd/containerd.sock`): ein Neustart der Docker-API-Schicht
+fasst die laufenden Container (von containerd verwaltet) NICHT an. Messung: alle 24 Container
+`Up`, **Uptimes unverändert** (garage 12d, keycloak 12d, cache 29h). **⇒ kein App-Bounce, kein
+ruhiges Fenster nötig.** (Der ursprüngliche „alle Apps bouncen"-Worst-Case trat nicht ein.)
+Außerdem: `midclt call -j` (nicht `-job`); `insecure_registry_mirrors: ["http://127.0.0.1:5001"]`
+landet als `registry-mirrors:[http://127.0.0.1:5001/]` + `insecure-registries:[127.0.0.1:5001]`.
 
 ## 4. Verifikation (Definition of Done)
 

@@ -44,8 +44,12 @@ GitHub (dieses Repo)
 | `20-observability` | VictoriaMetrics + Loki + Grafana 12.3.3 + node-exporter + cadvisor + alertmanager + otel-collector | `fast/appdata/{vm,loki,grafana}` |
 | `21-garage` | Garage v2.3.0 (S3: loki, velero, artifacts) — schlank, aktiv gepflegt | `fast/appdata/garage/meta`, `data/garage/data` |
 | `22-harbor` | Harbor (Registry + Trivy) — via offiziellem Installer | `data/harbor` |
+| `23-registry-cache` | registry:2 (proxy) — Pull-Through-Cache für Docker Hub (docker.io), getrennt von der privaten Registry | `data/registry-cache` |
 | `30-netboot` | dnsmasq (macvlan `.49`) + nginx + Go-Konsole — **Custom-App** | `data/provisioning` |
 | `40-homepage` | Homepage-Dashboard (Config-as-Code, zentrale Einstiegsseite) | – (Config im Repo) |
+
+> **Neuer Stack ⇒ neue Arcane-Gitsync-App**, gleich wie das `name:`-Feld im compose benannt
+> (z. B. `registry-cache`), sonst entsteht Drift wie garage→garages3 (s. `## Konventionen`).
 
 ## Konventionen
 

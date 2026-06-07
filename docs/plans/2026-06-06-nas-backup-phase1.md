@@ -27,7 +27,7 @@
 | Tier | Datasets | Frequent task | Weekly task |
 |------|----------|---------------|-------------|
 | 1 | `data/paperless`, `data/homes`, `backup/HomeFolders`, `backup/dumps` | every 12 h, keep 2 wk | Sun, keep 8 wk |
-| 2 | `fast/docker/appdata`, `fast/ix-apps`, `data/makerlab` | daily 03:00, keep 1 wk | Sun, keep 4 wk |
+| 2 | `fast/appdata`, `fast/ix-apps`, `data/makerlab` | daily 03:00, keep 1 wk | Sun, keep 4 wk |
 | 3 | `data/provisioning`, `data/media` | daily 03:00, keep 1 wk | — |
 
 `backup/timemachine` is deliberately **excluded** (TM self-versions; spec §3).
@@ -65,7 +65,7 @@ SPECS = [
     ("backup/HomeFolders",  False, "0,12", (2, "WEEK"), (8, "WEEK")),
     ("backup/dumps",        True,  "0,12", (2, "WEEK"), (8, "WEEK")),
     # Tier 2 — important/large: daily + weekly
-    ("fast/docker/appdata", True,  "3",    (1, "WEEK"), (4, "WEEK")),
+    ("fast/appdata", True,  "3",    (1, "WEEK"), (4, "WEEK")),
     ("fast/ix-apps",        True,  "3",    (1, "WEEK"), (4, "WEEK")),
     ("data/makerlab",       True,  "3",    (1, "WEEK"), (4, "WEEK")),
     # Tier 3 — reproducible: daily only
@@ -354,7 +354,7 @@ Run:
 ssh root@192.168.80.50 \
   'midclt call pool.snapshottask.query | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d),\"tasks\"); [print(t[\"dataset\"], t[\"schedule\"][\"hour\"]+\"h\", \"dow=\"+t[\"schedule\"][\"dow\"], t[\"lifetime_value\"], t[\"lifetime_unit\"]) for t in d]"'
 ```
-Expected: **16 tasks** — `data/paperless`, `data/homes`, `backup/HomeFolders`, `backup/dumps` each twice (`0,12h` + Sunday `5h dow=0`), `fast/docker/appdata`, `fast/ix-apps`, `data/makerlab` each twice (`3h` + Sunday), `data/provisioning` + `data/media` once each. (If `data/homes` is not a ZFS dataset it is skipped with a WARN in Step 2 → 14 tasks; resolve per spec §10.)
+Expected: **16 tasks** — `data/paperless`, `data/homes`, `backup/HomeFolders`, `backup/dumps` each twice (`0,12h` + Sunday `5h dow=0`), `fast/appdata`, `fast/ix-apps`, `data/makerlab` each twice (`3h` + Sunday), `data/provisioning` + `data/media` once each. (If `data/homes` is not a ZFS dataset it is skipped with a WARN in Step 2 → 14 tasks; resolve per spec §10.)
 
 - [ ] **Step 4: Verify the cron job exists**
 

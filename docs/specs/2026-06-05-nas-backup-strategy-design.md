@@ -67,7 +67,7 @@ haben.
 | Tier | Daten | Pool | Kopien |
 |------|-------|------|--------|
 | **1 — unersetzlich, klein** | Keycloak-PG-Dump · Paperless-PG-Dump + `data/paperless/media` + `…/export` · Forgejo-Dump (DB + Repos) · `data/homes` · `backup/HomeFolders` · TrueNAS-Config-Export · Garage-Bucket `velero` | data/backup | **alle 3** (Snapshot + Replica + **B2**) |
-| **2 — wichtig, groß** | `fast/docker/appdata` (61 G) · `fast/ix-apps` (20 G) · `data/makerlab` · `backup/timemachine` (1 T) | fast/data/backup | Snapshot + Replica (**kein B2**) |
+| **2 — wichtig, groß** | `fast/appdata` (61 G) · `fast/ix-apps` (20 G) · `data/makerlab` · `backup/timemachine` (1 T) | fast/data/backup | Snapshot + Replica (**kein B2**) |
 | **3 — reproduzierbar** | `data/provisioning` (Netboot) · `data/media` · Garage-Buckets `loki`/`artifacts` · Observability-TSDB · `boot-pool` (OS) | data/fast | Snapshot, kurze Retention (**kein Offsite**) |
 
 Anmerkungen:

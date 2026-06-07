@@ -27,7 +27,8 @@
   },
   "groups": [
     { "name": "lab-admins", "realmRoles": ["lab-admin"] },
-    { "name": "lab-users", "realmRoles": ["lab-user"] }
+    { "name": "lab-users", "realmRoles": ["lab-user"] },
+    { "name": "demo-viewers" }
   ],
 
   "requiredActions": [
@@ -259,6 +260,32 @@
         "https://longhorn.k8s.appsfab.org",
         "https://lab-status.k8s.appsfab.org"
       ],
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "oauth2-proxy-demo-k8s",
+      "name": "oauth2-proxy (cluster demo apps)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "secret": "$(env:OAUTH2_PROXY_DEMO_K8S_OIDC_CLIENT_SECRET)",
+      "redirectUris": ["https://auth.demo.k8s.appsfab.org/oauth2/callback"],
+      "webOrigins": ["https://auth.demo.k8s.appsfab.org"],
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [
         {

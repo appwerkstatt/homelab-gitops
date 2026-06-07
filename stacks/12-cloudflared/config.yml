@@ -17,5 +17,11 @@ ingress:
   #   originRequest:
   #     originServerName: docs.lab.appsfab.org
 
+  # Keycloak-Login — öffentlich, damit Cluster-Demo-App-SSO aus dem Internet abschließt.
+  - hostname: auth.lab.appsfab.org
+    service: https://traefik:443
+    originRequest:
+      originServerName: auth.lab.appsfab.org   # SNI für das *.lab-Cert
+
   # --- Pflicht: Catch-all lehnt alles Nicht-Gelistete ab ---
   - service: http_status:404

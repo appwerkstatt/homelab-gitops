@@ -35,4 +35,7 @@ fi
 # 3) create the periodic snapshot tasks (idempotent)
 python3 "$SELF/snapshot-tasks.py"
 
-echo "Phase-1 deploy complete."
+# 4) create the local replication tasks (idempotent)
+python3 "$SELF/replication-tasks.py"
+
+echo "Backup deploy complete (Phase 1 + 2)."

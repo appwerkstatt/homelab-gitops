@@ -52,7 +52,34 @@ midclt call replication.query | python3 -c "import sys,json;[print(t['name'],t['
 zfs list -r -o name,used,readonly,encryptionroot backup/replica
 ```
 
+## Phase 3 — offsite (restic → Backblaze B2)
+
+`backup-offsite.sh` (TrueNAS cron, 03:30 daily) takes app-consistent dumps —
+`pg_dump` of keycloak + paperless (via `docker exec`, local trust) and `forgejo dump`
+(tar.zst) into `/mnt/backup/dumps/<app>/` — then runs `restic` (`docker run --rm
+restic/restic`) to back up the **Tier-1 set** (`/mnt/backup/dumps` incl. the TrueNAS
+config-export, `/mnt/data/paperless/{media,export}`, `/mnt/data/homes`,
+`/mnt/backup/HomeFolders`) to B2. Encrypted + deduplicated; retention 14 daily / 8 weekly
+/ 12 monthly. Bulk (Time Machine, media) stays local by design (100-Mbit uplink).
+
+### One-time B2 setup
+1. Create a **private B2 bucket** (e.g. `appsfab-nas-offsite`).
+2. Create an **application key restricted to that bucket** (read+write). Note `keyID` + `applicationKey`.
+3. Generate a long restic passphrase (`openssl rand -base64 32`); store it in 1Password.
+4. On the NAS, create `/mnt/fast/appdata/_secrets/restic-b2.env` (root, `chmod 600`) from
+   `restic-b2.env.example` with the real values. (Also in 1Password.)
+5. Deploy: `bash /mnt/backup/scripts/nas-backup/deploy.sh` (registers the cron); first run:
+   `bash /mnt/backup/scripts/nas-backup/backup-offsite.sh`.
+
+### Restore (sketch)
+```bash
+# with the same env file present:
+docker run --rm -e RESTIC_REPOSITORY -e RESTIC_PASSWORD -e B2_ACCOUNT_ID -e B2_ACCOUNT_KEY \
+  -v /restore/target:/restore restic/restic:0.18.0 restore latest --target /restore
+# DB: zstd -d keycloak/<ts>.sql.zst | docker exec -i keycloak-keycloak-db-1 psql -U "$POSTGRES_USER" -d keycloak
+```
+
 ## Later phases (separate plans)
-- Phase 2 — local cross-disk replication (`fast`/`data` → `backup/replica`).
-- Phase 3 — `50-backup` stack: pg_dump/forgejo dump + restic→Backblaze B2.
 - Phase 4 — Velero→Garage + fold `velero` bucket into B2 + first restore drill.
+
+(Phases 1–3 are implemented above: snapshots + config-export, local cross-disk replication, and offsite restic→B2.)

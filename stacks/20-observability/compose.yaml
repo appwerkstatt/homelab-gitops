@@ -4,7 +4,7 @@ name: observability
 
 services:
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.144.0   # neuestes Community-Regular-Release (Stand 2026-05).
+    image: victoriametrics/victoria-metrics:v1.146.0   # neuestes Community-Regular-Release (Stand 2026-05).
     # ACHTUNG: LTS-Patch-Releases (v1.136.x .1+) sind NUR Enterprise-Images -> Community zieht die Regular-Linie; Renovate hält sie aktuell.
     command:
       - -storageDataPath=/storage

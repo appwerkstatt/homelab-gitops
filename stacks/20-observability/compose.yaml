@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   node-exporter:
-    image: prom/node-exporter:v1.11.1   # neuester Stand (07.04.2026)
+    image: prom/node-exporter:v1.12.1   # neuester Stand (07.04.2026)
     command: [--path.rootfs=/host]
     volumes: ["/:/host:ro,rslave"]
     networks: [obs]

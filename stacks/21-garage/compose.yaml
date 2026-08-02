@@ -1,7 +1,7 @@
 # 21-garage — S3-kompatibler Object Store (Backend fuer Loki-Chunks, Velero, Artefakte).
 # Garage statt MinIO: aktiv gepflegt (Deuxfleurs), schlank, kein EOL. Single-Node, replication_factor=1.
 # Secrets via ENV (GARAGE_*) aus der Arcane-.env, NICHT in garage.toml/Git.
-name: garage
+name: garages3
 
 services:
   garage:

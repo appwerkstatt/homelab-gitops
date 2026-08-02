@@ -1,6 +1,6 @@
 # 22-harbor — Zot (OCI-Registry): Private-Registry (netboot-console, lab-status) UND
 # Public-Pull-Through-Cache (sync onDemand: docker.io/ghcr.io/quay.io/registry.k8s.io).
-name: registry
+name: registryzot
 
 services:
   zot:

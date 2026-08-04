@@ -4,7 +4,7 @@ name: observability
 
 services:
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.146.0   # neuestes Community-Regular-Release (Stand 2026-05).
+    image: victoriametrics/victoria-metrics:v1.148.0   # neuestes Community-Regular-Release (Stand 2026-05).
     # ACHTUNG: LTS-Patch-Releases (v1.136.x .1+) sind NUR Enterprise-Images -> Community zieht die Regular-Linie; Renovate hält sie aktuell.
     command:
       - -storageDataPath=/storage
@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:3.7.3
+    image: grafana/loki:3.7.4
     command: -config.file=/etc/loki/loki.yaml
     volumes:
       - /mnt/fast/appdata/loki:/loki
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:13.1.0
+    image: grafana/grafana:13.1.1
     environment:
       GF_SERVER_ROOT_URL: https://grafana.${LAB_DOMAIN}
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
@@ -72,7 +72,7 @@ services:
     restart: unless-stopped
 
   cadvisor:
-    image: ghcr.io/google/cadvisor:v0.60.3
+    image: ghcr.io/google/cadvisor:v0.60.5
     command:
       - -logtostderr
       - -docker_only=true                # nur Container, keine rohen cgroups

@@ -4,7 +4,7 @@ name: registryzot
 
 services:
   zot:
-    image: ghcr.io/project-zot/zot:v2.1.18     # neuester Patch der v2.1.x-Linie (Stand 2026-03)
+    image: ghcr.io/project-zot/zot:v2.1.20     # neuester Patch der v2.1.x-Linie (Stand 2026-03)
     ports:
       # NAS-lokaler Pull-Pfad: der NAS-Host kann die macvlan-IP .48 (Traefik) nicht erreichen
       # (Hairpin), also Zot zusätzlich auf 127.0.0.1:5000 — Docker behandelt loopback automatisch

@@ -4,7 +4,7 @@ name: cloudflared
 
 services:
   cloudflared:
-    image: cloudflare/cloudflared:2026.7.3   # aktuellster Stand (13.05.2026); Tunnel-Clients aktuell halten
+    image: cloudflare/cloudflared:2026.8.3   # aktuellster Stand (13.05.2026); Tunnel-Clients aktuell halten
     command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
     volumes:
       - /mnt/fast/appdata/cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro

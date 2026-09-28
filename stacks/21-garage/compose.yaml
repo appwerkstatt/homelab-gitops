@@ -5,7 +5,7 @@ name: garages3
 
 services:
   garage:
-    image: dxflrs/garage:v2.3.0          # aktueller Stable-Tag (Stand 2026-05); --single-node legt das Layout selbst an
+    image: dxflrs/garage:v2.4.1          # aktueller Stable-Tag (Stand 2026-05); --single-node legt das Layout selbst an
     command: ["/garage", "server", "--single-node"]
     environment:
       RUST_LOG: garage=info

@@ -43,7 +43,7 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 | `03-oauth2-proxy` | oauth2-proxy — Traefik-ForwardAuth (`sso@docker`) gegen Keycloak | intern | – (zustandslos) |
 | `11-paperless` | Paperless-ngx + Postgres 17 + Redis + paperless-ai (Ollama auf `192.168.80.30`) | LAN (`docs`; `docs-ai` hinter SSO) | `fast/appdata/paperless`, `data/paperless` |
 | `12-cloudflared` | Cloudflare-Tunnel (nur Hosts aus `config.yml`, Rest 404) | – | `fast/appdata/cloudflared` |
-| `13-n8n` | n8n + Postgres 17; LLMs über Ollama auf dem Mac Studio (`192.168.80.30`, nur vom NAS erreichbar, `docs/mac-studio-llm.md`) | LAN (`n8n`, Editor hinter SSO; `/webhook*` ohne SSO, nur LAN) | `fast/appdata/n8n` |
+| `13-n8n` | n8n + Postgres 17; LLMs über Ollama auf dem Mac Studio (`192.168.80.30`, nur vom NAS erreichbar, `docs/mac-studio-llm.md`) | LAN (`n8n`, Editor hinter SSO; `/webhook*` ohne SSO); **Internet** nur `hooks.appsfab.org/webhook/` (Tunnel) | `fast/appdata/n8n` |
 | `20-observability` | VictoriaMetrics + Loki (Dateisystem) + Grafana + node-exporter + cadvisor + vmalert + Alertmanager (→ Telegram) + blackbox-exporter | LAN (`grafana`, Keycloak-OIDC) | `fast/appdata/{vm,loki,grafana}` |
 | `21-garage` | Garage (S3; Buckets: velero, artifacts, k3s-etcd-backups, longhorn-backup; `loki` ungenutzt) | LAN (`s3`) | `fast/appdata/garage/meta`, `data/garage/data` |
 | `22-harbor` | **Zot** (OCI-Registry). Ordnername historisch (Arcane-Pfad), Harbor wird nicht genutzt | LAN (`registry`); UI per Keycloak-SSO, Pull nur mit Login | `data/harbor/zot` |
@@ -64,7 +64,7 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
   Neuer Stack ⇒ Netz in `00-traefik` ergänzen (Netz + Traefik-Attachment), Traefik zuerst deployen.
 - **Domains:** `*.lab.appsfab.org` = nur intern (Split-Horizon → Traefik `192.168.80.48`, macvlan `vlan80`;
   der NAS-Host `.50` erreicht `.48` wegen Hairpin nicht → NAS-lokal `127.0.0.1:<port>`).
-  `*.appsfab.org` = öffentlich über den Cloudflare-Tunnel, **nur** `git.appsfab.org` und `auth.appsfab.org`
+  `*.appsfab.org` = öffentlich über den Cloudflare-Tunnel, **nur** `git.appsfab.org`, `auth.appsfab.org` und `hooks.appsfab.org` (nur `/webhook/` von n8n)
   (`stacks/12-cloudflared/config.yml`; Cloudflares Gratis-Zertifikat deckt nur eine Ebene ab).
   TLS: Let's-Encrypt-Wildcard via Cloudflare-DNS-01.
 - **SSO:** Keycloak-OIDC nativ, wo die App es kann; sonst Traefik-ForwardAuth; Login unter `auth.appsfab.org` (Admin-Konsole nur LAN: `auth.lab.appsfab.org`).

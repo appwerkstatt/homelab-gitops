@@ -1,5 +1,6 @@
 # 13-n8n — Workflow-Automatisierung (n8n + Postgres 17), LLMs lokal über Ollama auf dem Mac Studio.
-# Editor hinter Keycloak (sso@docker), Webhooks nur im LAN (kein Tunnel-Eintrag).
+# Editor hinter Keycloak (sso@docker). Produktive Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/),
+# im LAN zusätzlich unter n8n.lab (inkl. Test- und Waiting-Webhooks).
 # Mac-Studio-Einrichtung (Ollama im LAN, Firewall nur für das NAS, kein Ruhezustand): docs/mac-studio-llm.md
 #
 # Vor dem ersten Deploy (einmalig, auf dem NAS):
@@ -28,12 +29,15 @@ services:
   n8n:
     image: n8nio/n8n:2.48.7               # = Tag "stable" (20.11.2026); 3.x ist noch Vorabversion
     environment:
-      # --- URLs: Editor und Webhooks unter n8n.lab (nur LAN) ---
+      # --- URLs: Editor unter n8n.lab (nur LAN), Webhook-URLs öffentlich ---
       N8N_HOST: n8n.${LAB_DOMAIN}
       N8N_PORT: "5678"
       N8N_PROTOCOL: https
       N8N_EDITOR_BASE_URL: https://n8n.${LAB_DOMAIN}/
-      WEBHOOK_URL: https://n8n.${LAB_DOMAIN}/
+      # Basis für alle angezeigten/registrierten Webhook-URLs (z. B. Telegram-/GitHub-Trigger registrieren
+      # sich damit selbst). Öffentlich geht nur /webhook/ — Test-URLs (/webhook-test/) und Wait-Resume-URLs
+      # (/webhook-waiting/) dafür im LAN über n8n.lab aufrufen, über hooks.appsfab.org liefern sie 404.
+      WEBHOOK_URL: https://hooks.appsfab.org/
       N8N_PROXY_HOPS: "1"                 # genau ein Proxy davor (Traefik) -> X-Forwarded-For vertrauen
       GENERIC_TIMEZONE: ${TZ}
       TZ: ${TZ}
@@ -76,13 +80,25 @@ services:
       - traefik.http.routers.n8n.tls.certresolver=le
       - traefik.http.routers.n8n.middlewares=sso@docker
       - traefik.http.routers.n8n.service=n8n
-      # Webhooks: ohne SSO, damit Geräte/Dienste im LAN sie aufrufen können. *.lab ist nur intern
+      # LAN-Webhooks: ohne SSO, damit Geräte/Dienste im LAN sie aufrufen können. *.lab ist nur intern
       # erreichbar (Split-Horizon, kein Tunnel-Eintrag). Absicherung pro Workflow (Header-Auth im Webhook-Node).
       - traefik.http.routers.n8n-webhook.rule=Host(`n8n.${LAB_DOMAIN}`) && (PathPrefix(`/webhook/`) || PathPrefix(`/webhook-test/`) || PathPrefix(`/webhook-waiting/`))
       - traefik.http.routers.n8n-webhook.entrypoints=websecure
       - traefik.http.routers.n8n-webhook.tls.certresolver=le
       - traefik.http.routers.n8n-webhook.priority=100
       - traefik.http.routers.n8n-webhook.service=n8n
+      # Öffentlich: hooks.appsfab.org (Cloudflare-Tunnel, stacks/12-cloudflared/config.yml) NUR /webhook/.
+      # Alles andere auf diesem Host hat keinen Router -> Traefik 404 (kein Editor, keine API von außen).
+      # Einstufiger Name, weil Cloudflares Gratis-Zertifikat nur *.appsfab.org abdeckt.
+      - traefik.http.routers.n8n-hooks.rule=Host(`hooks.appsfab.org`) && PathPrefix(`/webhook/`)
+      - traefik.http.routers.n8n-hooks.entrypoints=websecure
+      - traefik.http.routers.n8n-hooks.tls.certresolver=le
+      - traefik.http.routers.n8n-hooks.middlewares=n8n-hooks-ratelimit
+      - traefik.http.routers.n8n-hooks.service=n8n
+      # Schutz vor Fluten aus dem Internet (pro Quell-IP, die Cloudflare in CF-Connecting-IP mitgibt)
+      - traefik.http.middlewares.n8n-hooks-ratelimit.ratelimit.average=30
+      - traefik.http.middlewares.n8n-hooks-ratelimit.ratelimit.burst=60
+      - traefik.http.middlewares.n8n-hooks-ratelimit.ratelimit.sourcecriterion.requestheadername=CF-Connecting-IP
       - traefik.http.services.n8n.loadbalancer.server.port=5678
     networks: [edge-n8n, n8n-internal]
     mem_limit: 2g

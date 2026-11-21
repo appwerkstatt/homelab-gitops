@@ -12,7 +12,7 @@
         "providers": {
           "oidc": {
             "name": "Keycloak",
-            "issuer": "https://auth.lab.appsfab.org/realms/AppsFab",
+            "issuer": "https://auth.appsfab.org/realms/AppsFab",
             "credentialsFile": "/etc/zot/oidc/oidc.json",
             "scopes": ["openid", "profile", "email"],
             "claimMapping": { "username": "preferred_username", "groups": "groups" }

@@ -12,7 +12,7 @@ Verwaltet von **Arcane** (TrueNAS-App), das dieses Repo überwacht und Stacks pe
 1. **Kein Custom-Docker.** Container laufen über die TrueNAS-App-Engine; Arcane verwaltet die Stacks, ohne den Daemon umzukonfigurieren.
 2. **Alles als Code.** Jeder Stack ist ein `stacks/<n>-<name>/compose.yaml`. Was nicht hier steht, existiert nicht.
 3. **Daten getrennt.** Persistente Daten liegen auf eigenen Datasets (`/mnt/fast/appdata/<dienst>`, `/mnt/data/...`), niemals im Repo.
-4. **Secrets verschlüsselt.** Niemals Klartext-Secrets committen — siehe `.sops.yaml` / `.env.example`.
+4. **Secrets in 1Password.** Niemals Klartext-Secrets committen. Das Repo enthält nur die Liste (`.env.example` mit `op://`-Referenzen), die Werte liegen in 1Password.
 
 ## Bootstrap-Reihenfolge
 
@@ -71,16 +71,29 @@ GitHub (dieses Repo)
 
 ## Secrets
 
-Niemals Klartext committen. Zwei Wege (siehe `.env.example`):
-- **SOPS + age** (empfohlen): `secrets.enc.env` verschlüsselt im Repo, age-Key auf dem NAS + in 1Password.
-- **Arcane-Environment**: Variablen außerhalb des Repos in Arcane pflegen.
+**1Password (Vault `AppsFab`) ist die einzige Quelle der Wahrheit.** Im Repo steht nur, *welche*
+Secrets es gibt und *wo* sie in 1Password liegen; die Werte selbst nie.
 
-**Entschlüsselte Secrets auf dem NAS absichern:** Die zur Laufzeit entschlüsselte `secrets.env`
-(bzw. der age-Key) gehört auf ein eigenes Dataset `fast/appdata/_secrets` mit `chmod 600` und
-Owner `apps`. Dieses Dataset von Snapshot-Cloud-Syncs ausschließen, damit Secrets nicht
-unbeabsichtigt in B2/Backups landen.
+- **`.env.example`** listet **jede** Variable, die ein `compose.yaml` per `${VAR}` liest — Secrets
+  als `op://AppsFab/<item>/<feld>`-Referenz, unkritische Konfiguration als Klartext.
+  CI (`validate` → `scripts/check-env.sh`) schlägt fehl, wenn ein Stack eine Variable nutzt, die
+  dort fehlt.
+- **Arcane-Environment** ist nur die Laufzeit-Kopie. Befüllen bzw. nach einer Änderung neu setzen:
+  ```bash
+  scripts/render-env.sh keycloak      # braucht die 1Password CLI (`op`), angemeldet
+  ```
+  gibt genau die Variablen des Stacks aus → in **Arcane → Stack → Environment** einfügen →
+  Redeploy. Nie in eine Datei im Repo umleiten.
+- **Secret ändern/rotieren:** zuerst in 1Password, dann `render-env.sh` und in Arcane setzen.
+  Nie nur in Arcane ändern — sonst driftet die Quelle.
+- **Neue Variable:** in `compose.yaml` verwenden, in `.env.example` mit `op://`-Referenz eintragen,
+  Item/Feld in 1Password anlegen.
+- **Datei-Secrets** (cloudflared `credentials.json`, Zot-`htpasswd`, Netboot-Wipe-Key,
+  Forgejo `jwt/private.pem`, `restic-b2.env`) liegen auf dem NAS unter `fast/appdata/…` (`chmod 600`)
+  und als **1Password-Dokument**; die Zuordnung steht unten in `.env.example`.
+- **Realm-Client-Secrets** (`*_OIDC_CLIENT_SECRET`) gehören in die Env des `keycloak`-Stacks **und**
+  des jeweiligen Consumers — `keycloak-config-cli` substituiert sie beim Reconcile in den Realm
+  (`$(env:...)`). Fehlt eins, setzt kcc es auf leer. Siehe `stacks/02-keycloak/RECONCILE.md`.
 
-Aus dem alten System zu übernehmen (in 1Password, dann neu setzen): Forgejo `jwt/private.pem`,
-`cloudflared/credentials.json`, `paperless-ai/.env`, DB-Passwörter. **Realm-Client-Secrets**
-(`*_OIDC_CLIENT_SECRET`) einmalig erzeugen und in der Arcane-Env setzen — `keycloak-config-cli`
-substituiert sie beim Reconcile in den Realm (`$(env:...)`), kein UI-Schritt. Siehe `stacks/02-keycloak/RECONCILE.md`.
+SOPS/age wurde 2026-11 entfernt: `secrets.enc.env` war unvollständig und wurde von Arcane nie
+gelesen (zwei Quellen → Drift). Der alte age-Key in 1Password kann archiviert werden.

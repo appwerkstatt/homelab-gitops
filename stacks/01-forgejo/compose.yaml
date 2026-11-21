@@ -38,7 +38,7 @@ services:
     volumes:
       - /mnt/fast/appdata/forgejo:/data       # enthält gitea.db + data/git + jwt/private.pem (migriert)
       - /etc/localtime:/etc/localtime:ro
-    # kein Host-Port-Mapping mehr — SSH läuft über Traefik (.48:2222), nicht über den NAS-Host (.50)
+    # kein Host-Port-Mapping — SSH läuft über Traefik (.48:22), nicht über den NAS-Host (.50)
     labels:
       - traefik.enable=true
       # HTTPS (Web-UI + Git-over-HTTPS):
@@ -55,7 +55,7 @@ services:
       - traefik.http.routers.forgejo-login.service=forgejo
       - traefik.http.middlewares.forgejo-sso-redirect.redirectregex.regex=^https?://([^/]+)/user/login(.*)$$
       - traefik.http.middlewares.forgejo-sso-redirect.redirectregex.replacement=https://$${1}/user/oauth2/keycloak$${2}
-      # Git-over-SSH (TCP-Passthrough über Traefik-Entrypoint ssh = .48:2222):
+      # Git-over-SSH (TCP-Passthrough über Traefik-Entrypoint ssh = .48:22):
       - traefik.tcp.routers.forgejo-ssh.rule=HostSNI(`*`)
       - traefik.tcp.routers.forgejo-ssh.entrypoints=ssh
       - traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh

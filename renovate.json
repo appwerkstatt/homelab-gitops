@@ -1,27 +1,59 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":dependencyDashboard"],
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
   "timezone": "Europe/Berlin",
-  "schedule": ["after 2am and before 6am"],
+  "schedule": [
+    "after 2am and before 6am"
+  ],
   "packageRules": [
     {
       "description": "Major-Updates nur nach manueller Freigabe (verhindert Überraschungs-Breaks)",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "Patch + Digest automatisch mergen nach grünem validate-Check (cluster-style; Minor/Major bleiben manuell)",
-      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "matchUpdateTypes": [
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": true
     },
     {
       "description": "Stateful DBs: KEINE Major-Bumps via Renovate (brauchen pg_upgrade/Daten-Migration, kein Tag-Swap) — siehe postgres-18-Incident 2026-06-05",
-      "matchManagers": ["docker-compose"],
-      "matchPackageNames": ["postgres", "redis"],
-      "matchUpdateTypes": ["major"],
+      "matchManagers": [
+        "docker-compose"
+      ],
+      "matchPackageNames": [
+        "postgres",
+        "redis"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "enabled": false
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "restic-Image im Offsite-Backup-Skript (kein compose → eigener Regex-Manager)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^docs/nas-backup/backup-offsite\\.sh$/"
+      ],
+      "matchStrings": [
+        "RESTIC_IMAGE=\"(?<depName>[^:\"]+):(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "docker"
     }
   ]
 }

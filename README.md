@@ -21,8 +21,8 @@ GitHub (dieses Repo)
    └─> Arcane (TrueNAS-App, manuell installiert)
          └─> 00-traefik         (legt das externe Netz "edge" an, TLS via DNS-01)
                └─> 01-forgejo + 02-keycloak   (Identity/Infra-Fundament)
-                     └─> Rest:  11-paperless · 12-cloudflared · 20-observability
-                                03-oauth2-proxy · 21-garage · 22-harbor · 30-netboot · 40-homepage
+                     └─> Rest:  03-oauth2-proxy · 11-paperless · 12-cloudflared · 20-observability
+                                21-garage · 22-harbor (= Zot) · 23-registry-cache · 30-netboot · 40-homepage
 ```
 
 1. **Arcane** als TrueNAS-App installieren (App-Pool = `fast`), dieses Repo als GitOps-Quelle hinterlegen.
@@ -33,20 +33,22 @@ GitHub (dieses Repo)
 
 ## Stacks
 
-| Stack | Dienste | Daten-Dataset |
-|-------|---------|---------------|
-| `00-traefik` | Traefik 3.6.8 (Reverse Proxy, ACME DNS-01) | `fast/appdata/traefik` |
-| `01-forgejo` | Forgejo 14.0.2 (SQLite) | `fast/appdata/forgejo` |
-| `02-keycloak` | Keycloak 26.5.4 + Postgres 17.8 (Realm-as-Code via keycloak-config-cli, Passkeys) | `fast/appdata/keycloak` |
-| `03-oauth2-proxy` | oauth2-proxy — Traefik-ForwardAuth gegen Keycloak | – (zustandslos) |
-| `11-paperless` | Paperless-ngx 2.20.7 + Postgres 17.8 + Redis + paperless-ai 3.0.9 | `fast/appdata/paperless`, `data/paperless` |
-| `12-cloudflared` | Cloudflared 2026.2.0 (Tunnel) | `fast/appdata/cloudflared` |
-| `20-observability` | VictoriaMetrics + Loki + Grafana 12.3.3 + node-exporter + cadvisor + alertmanager + otel-collector | `fast/appdata/{vm,loki,grafana}` |
-| `21-garage` | Garage v2.3.0 (S3: loki, velero, artifacts) — schlank, aktiv gepflegt | `fast/appdata/garage/meta`, `data/garage/data` |
-| `22-harbor` | Harbor (Registry + Trivy) — via offiziellem Installer | `data/harbor` |
-| `23-registry-cache` | registry:2 (proxy) — Pull-Through-Cache für Docker Hub (docker.io), getrennt von der privaten Registry | `data/registry-cache` |
-| `30-netboot` | dnsmasq (macvlan `.49`) + nginx + Go-Konsole — **Custom-App** | `data/provisioning` |
-| `40-homepage` | Homepage-Dashboard (Config-as-Code, zentrale Einstiegsseite) | – (Config im Repo) |
+Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml` (Renovate hält sie aktuell).
+
+| Stack | Dienste | Erreichbar | Daten-Dataset |
+|-------|---------|------------|---------------|
+| `00-traefik` | Traefik (macvlan `.48`, ACME DNS-01) + docker-socket-proxy (read-only) | LAN; Dashboard hinter SSO | `fast/appdata/traefik` |
+| `01-forgejo` | Forgejo (SQLite); Web-Login nur per Keycloak-SSO, Git-SSH über Traefik `.48:22` | **Internet** (`git.appsfab.org`, Tunnel) | `fast/appdata/forgejo` |
+| `02-keycloak` | Keycloak + Postgres 17 + keycloak-config-cli (Realm-as-Code, Passkeys) | **Internet** (`auth.appsfab.org`, Login); Admin nur LAN (`auth.lab.appsfab.org`) | `fast/appdata/keycloak` |
+| `03-oauth2-proxy` | oauth2-proxy — Traefik-ForwardAuth (`sso@docker`) gegen Keycloak | intern | – (zustandslos) |
+| `11-paperless` | Paperless-ngx + Postgres 17 + Redis + paperless-ai (Ollama auf `192.168.80.30`) | LAN (`docs`; `docs-ai` hinter SSO) | `fast/appdata/paperless`, `data/paperless` |
+| `12-cloudflared` | Cloudflare-Tunnel (nur Hosts aus `config.yml`, Rest 404) | – | `fast/appdata/cloudflared` |
+| `20-observability` | VictoriaMetrics + Loki (Dateisystem) + Grafana + node-exporter + cadvisor + vmalert + Alertmanager (→ Telegram) + blackbox-exporter | LAN (`grafana`, Keycloak-OIDC) | `fast/appdata/{vm,loki,grafana}` |
+| `21-garage` | Garage (S3; Buckets: velero, artifacts, k3s-etcd-backups, longhorn-backup; `loki` ungenutzt) | LAN (`s3`) | `fast/appdata/garage/meta`, `data/garage/data` |
+| `22-harbor` | **Zot** (OCI-Registry). Ordnername historisch (Arcane-Pfad), Harbor wird nicht genutzt | LAN (`registry`); UI per Keycloak-SSO, Pull nur mit Login | `data/harbor/zot` |
+| `23-registry-cache` | registry (proxy) — Pull-Through-Cache für Docker Hub, getrennt von Zot | LAN (`mirror`, nur VLAN 80 + 10) | `data/registry-cache` |
+| `30-netboot` | dnsmasq (macvlan `.49`) + nginx (`.47`) + Go-Konsole — **Custom-App** | LAN (`netboot`, Keycloak-OIDC) | `data/provisioning` |
+| `40-homepage` | Homepage-Dashboard (Config-as-Code) | LAN (`home`, hinter SSO) | – (Config im Repo) |
 
 > **Neuer Stack ⇒ neue Arcane-Gitsync-App**, gleich wie das `name:`-Feld im compose benannt
 > (z. B. `registry-cache`), sonst entsteht Drift wie garage→garages3 (s. `## Konventionen`).
@@ -54,9 +56,18 @@ GitHub (dieses Repo)
 ## Konventionen
 
 - **Netz `edge`:** extern, von `00-traefik` angelegt; alle web-exponierten Stacks hängen sich daran und werden per Traefik-Labels geroutet.
-- **Domain:** `*.lab.appsfab.org` (Split-Horizon → `192.168.80.50`), Wildcard-TLS via Cloudflare-DNS-01.
+- **Domains:** `*.lab.appsfab.org` = nur intern (Split-Horizon → Traefik `192.168.80.48`, macvlan `vlan80`;
+  der NAS-Host `.50` erreicht `.48` wegen Hairpin nicht → NAS-lokal `127.0.0.1:<port>`).
+  `*.appsfab.org` = öffentlich über den Cloudflare-Tunnel, **nur** `git.appsfab.org` und `auth.appsfab.org`
+  (`stacks/12-cloudflared/config.yml`; Cloudflares Gratis-Zertifikat deckt nur eine Ebene ab).
+  TLS: Let's-Encrypt-Wildcard via Cloudflare-DNS-01.
 - **SSO:** Keycloak-OIDC nativ, wo die App es kann; sonst Traefik-ForwardAuth; Login unter `auth.appsfab.org` (Admin-Konsole nur LAN: `auth.lab.appsfab.org`).
-- **Image-Versionen** sind gepinnt (kein `latest`) — Updates bewusst per PR/Commit (Renovate optional).
+- **Image-Versionen** sind gepinnt (kein `latest`). Renovate (nächtlich) mergt Patches automatisch, wenn
+  `validate` grün ist (Compose streng, Images existieren für `linux/amd64`); Minor/Major per Hand.
+- **Alerting:** vmalert → Alertmanager → Telegram (`stacks/20-observability/config/alerts.yml`), blackbox-Probes
+  für alle Dienste, Offsite-Backup-Alter über node-exporter-Textfile.
+- **Registry:** Zot verlangt Login. Menschen: Keycloak-SSO in der UI, CLI per Zot-API-Key; Robots im htpasswd
+  (`ci` = Push, `pull` = NAS/Cluster). Details `stacks/22-harbor/README.md`.
 - **Arcane setzt den Compose-Projektnamen, nicht `name:`.** Arcane startet jeden Stack als
   `docker compose -p <slug> …`, wobei `<slug>` aus dem Anzeigenamen der Gitsync-App stammt
   (z. B. „Garage S3" → `garages3`, „Registry ZOT" → `registryzot`). `-p` hat Vorrang vor dem

@@ -18,9 +18,10 @@ else
 fi
 
 # Zeilen VAR=... aus .env.example für genau diese Vars, ohne Inline-Kommentare, dann op inject.
-awk -v vars="$vars" '
-  BEGIN { n = split(vars, v, "\n"); for (i = 1; i <= n; i++) want[v[i]] = 1 }
+# Hinweis: Var-Liste als erste "Datei" statt awk -v (BSD-awk auf macOS kann keine Newlines in -v).
+awk '
+  NR == FNR { want[$1] = 1; next }
   /^[A-Za-z_][A-Za-z0-9_]*=/ {
     name = substr($0, 1, index($0, "=") - 1)
     if (name in want) { sub(/[ \t]+#.*$/, ""); print }
-  }' .env.example | op inject
+  }' <(printf '%s\n' "$vars") .env.example | op inject

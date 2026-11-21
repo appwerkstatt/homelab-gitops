@@ -70,6 +70,7 @@ services:
       edge-keycloak: { aliases: *traefik_aliases }
       edge-sso: { aliases: *traefik_aliases }
       edge-paperless: { aliases: *traefik_aliases }
+      edge-n8n: { aliases: *traefik_aliases }
       edge-tunnel: { aliases: *traefik_aliases }
       edge-obs: { aliases: *traefik_aliases }
       edge-garage: { aliases: *traefik_aliases }
@@ -104,6 +105,8 @@ networks:
     name: edge-sso          # 03-oauth2-proxy
   edge-paperless:
     name: edge-paperless          # 11-paperless
+  edge-n8n:
+    name: edge-n8n          # 13-n8n
   edge-tunnel:
     name: edge-tunnel          # 12-cloudflared
     # Feste Range: Tunnel-Traffic muss AUSSERHALB von 192.168/16 + 10/8 liegen, sonst hielte das

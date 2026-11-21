@@ -145,7 +145,7 @@ services:
       - ./config/blackbox.yml:/etc/blackbox/blackbox.yml:ro
     # Einziger Backend-Container mit Zugang zu mehreren Stack-Netzen: probt die Dienste direkt
     # (ohne Traefik). Nur ausgehende Probes, kein Traefik-Router.
-    networks: [obs, edge-obs, edge-keycloak, edge-forgejo, edge-sso, edge-garage, edge-zot, edge-mirror, edge-paperless]
+    networks: [obs, edge-obs, edge-keycloak, edge-forgejo, edge-sso, edge-garage, edge-zot, edge-mirror, edge-paperless, edge-n8n]
     mem_limit: 64m
     restart: unless-stopped
 
@@ -178,5 +178,7 @@ networks:
   edge-mirror:
     external: true
   edge-paperless:
+    external: true
+  edge-n8n:
     external: true
   obs:

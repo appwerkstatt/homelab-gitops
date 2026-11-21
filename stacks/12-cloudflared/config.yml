@@ -12,6 +12,14 @@ ingress:
     originRequest:
       originServerName: git.appsfab.org      # SNI, damit Traefik das richtige Cert liefert
 
+  # n8n-Webhooks — öffentlich, damit externe Dienste (GitHub, Telegram, …) Workflows auslösen können.
+  # Traefik routet auf diesem Host NUR /webhook/ + /webhook-test/ (Router n8n-hooks, 13-n8n), alles andere -> 404.
+  # Absicherung pro Workflow: Header-Auth bzw. Signaturprüfung im Webhook-Node.
+  - hostname: hooks.appsfab.org
+    service: https://traefik:443
+    originRequest:
+      originServerName: hooks.appsfab.org     # SNI → Traefik liefert das LE-Cert für hooks.appsfab.org
+
   # Weitere Hosts NUR bei echtem Bedarf freischalten (Beispiel, bewusst auskommentiert):
   # - hostname: docs.appsfab.org
   #   service: https://traefik:443

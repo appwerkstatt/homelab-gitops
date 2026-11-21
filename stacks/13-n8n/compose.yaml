@@ -1,0 +1,111 @@
+# 13-n8n — Workflow-Automatisierung (n8n + Postgres 17), LLMs lokal über Ollama auf dem Mac Studio.
+# Editor hinter Keycloak (sso@docker). Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/ + /webhook-test/),
+# im LAN zusätzlich unter n8n.lab (inkl. Test- und Waiting-Webhooks).
+# Mac-Studio-Einrichtung (Ollama im LAN, Firewall nur für das NAS, kein Ruhezustand): docs/mac-studio-llm.md
+#
+# Vor dem ersten Deploy (einmalig, auf dem NAS):
+#   install -d -o 1000 -g 1000 /mnt/fast/appdata/n8n/data    # n8n läuft als node (uid 1000)
+#   install -d /mnt/fast/appdata/n8n/db                       # Postgres chownt selbst
+name: n8n
+
+services:
+  n8n-db:
+    image: postgres:17.12-alpine          # gleiche Linie wie Keycloak/Paperless; Major-Bump nur mit pg_upgrade
+    environment:
+      POSTGRES_DB: n8n
+      POSTGRES_USER: ${N8N_DB_USER}
+      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD}
+    volumes:
+      - /mnt/fast/appdata/n8n/db:/var/lib/postgresql/data
+    networks: [n8n-internal]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER} -d n8n"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:2.48.7               # = Tag "stable" (20.11.2026); 3.x ist noch Vorabversion
+    environment:
+      # --- URLs: Editor unter n8n.lab (nur LAN), Webhook-URLs öffentlich ---
+      N8N_HOST: n8n.${LAB_DOMAIN}
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://n8n.${LAB_DOMAIN}/
+      # Basis für alle angezeigten/registrierten Webhook-URLs (z. B. Telegram-/GitHub-Trigger registrieren
+      # sich damit selbst). Öffentlich gehen /webhook/ und /webhook-test/; Wait-Resume-URLs
+      # (/webhook-waiting/) nur im LAN über n8n.lab, über hooks.appsfab.org liefern sie 404.
+      WEBHOOK_URL: https://hooks.appsfab.org/
+      N8N_PROXY_HOPS: "1"                 # genau ein Proxy davor (Traefik) -> X-Forwarded-For vertrauen
+      GENERIC_TIMEZONE: ${TZ}
+      TZ: ${TZ}
+      # --- Datenbank ---
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-db
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${N8N_DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
+      # Verschlüsselt alle gespeicherten Credentials. Geht der Key verloren, sind sie unlesbar
+      # -> NUR aus 1Password setzen, nie neu erzeugen, solange die DB existiert.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      # --- Executions aufräumen (sonst wächst die DB unbegrenzt) ---
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "336"      # Stunden = 14 Tage
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: "20000"
+      # --- Keine Telemetrie / kein Nach-Hause-Telefonieren ---
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"   # Updates macht Renovate
+      N8N_HIRING_BANNER_ENABLED: "false"
+      # --- Lokale LLMs: Ollama auf dem Mac Studio (direkt im .80-VLAN, wie paperless-ai) ---
+      # Setzt die Base-URL in JEDEM Ollama-Credential fest (Feld im Editor ausgeblendet), damit kein
+      # Workflow versehentlich woanders hin spricht. Im Editor einmal ein Credential "Ollama" anlegen.
+      # OpenAI-kompatibel (für Nodes ohne Ollama-Variante): http://192.168.80.30:11434/v1, API-Key beliebig.
+      CREDENTIALS_OVERWRITE_DATA: '{"ollamaApi":{"baseUrl":"http://192.168.80.30:11434"}}'
+    volumes:
+      - /mnt/fast/appdata/n8n/data:/home/node/.n8n    # Config, Binärdaten, Community-Nodes
+    depends_on:
+      n8n-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge-n8n
+      # Editor + API: nur nach Keycloak-Login (Gruppe lab-users); danach zusätzlich n8n-eigener Login
+      # (Community-Edition hat kein OIDC). Callback steht im Realm-Client oauth2-proxy.
+      - traefik.http.routers.n8n.rule=Host(`n8n.${LAB_DOMAIN}`)
+      - traefik.http.routers.n8n.entrypoints=websecure
+      - traefik.http.routers.n8n.tls.certresolver=le
+      - traefik.http.routers.n8n.middlewares=sso@docker
+      - traefik.http.routers.n8n.service=n8n
+      # LAN-Webhooks: ohne SSO, damit Geräte/Dienste im LAN sie aufrufen können. *.lab ist nur intern
+      # erreichbar (Split-Horizon, kein Tunnel-Eintrag). Absicherung pro Workflow (Header-Auth im Webhook-Node).
+      - traefik.http.routers.n8n-webhook.rule=Host(`n8n.${LAB_DOMAIN}`) && (PathPrefix(`/webhook/`) || PathPrefix(`/webhook-test/`) || PathPrefix(`/webhook-waiting/`))
+      - traefik.http.routers.n8n-webhook.entrypoints=websecure
+      - traefik.http.routers.n8n-webhook.tls.certresolver=le
+      - traefik.http.routers.n8n-webhook.priority=100
+      - traefik.http.routers.n8n-webhook.service=n8n
+      # Öffentlich: hooks.appsfab.org (Cloudflare-Tunnel, stacks/12-cloudflared/config.yml) NUR /webhook/ + /webhook-test/
+      # (Test-URLs lauschen nur, solange im Editor "Listen for test event" läuft).
+      # Alles andere auf diesem Host hat keinen Router -> Traefik 404 (kein Editor, keine API von außen).
+      # Einstufiger Name, weil Cloudflares Gratis-Zertifikat nur *.appsfab.org abdeckt.
+      - traefik.http.routers.n8n-hooks.rule=Host(`hooks.appsfab.org`) && (PathPrefix(`/webhook/`) || PathPrefix(`/webhook-test/`))
+      - traefik.http.routers.n8n-hooks.entrypoints=websecure
+      - traefik.http.routers.n8n-hooks.tls.certresolver=le
+      - traefik.http.routers.n8n-hooks.middlewares=n8n-hooks-ratelimit
+      - traefik.http.routers.n8n-hooks.service=n8n
+      # Schutz vor Fluten aus dem Internet (pro Quell-IP, die Cloudflare in CF-Connecting-IP mitgibt)
+      - traefik.http.middlewares.n8n-hooks-ratelimit.ratelimit.average=30
+      - traefik.http.middlewares.n8n-hooks-ratelimit.ratelimit.burst=60
+      - traefik.http.middlewares.n8n-hooks-ratelimit.ratelimit.sourcecriterion.requestheadername=CF-Connecting-IP
+      - traefik.http.services.n8n.loadbalancer.server.port=5678
+    networks: [edge-n8n, n8n-internal]
+    mem_limit: 2g
+    restart: unless-stopped
+
+networks:
+  edge-n8n:
+    external: true   # von 00-traefik angelegt; nur Traefik (und blackbox für Probes) teilt es mit diesem Stack
+  n8n-internal:

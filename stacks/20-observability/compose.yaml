@@ -4,7 +4,7 @@ name: observability
 
 services:
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.155.0   # neuestes Community-Regular-Release (Stand 2026-05).
+    image: victoriametrics/victoria-metrics:v1.156.0   # neuestes Community-Regular-Release (Stand 2026-05).
     # ACHTUNG: LTS-Patch-Releases (v1.136.x .1+) sind NUR Enterprise-Images -> Community zieht die Regular-Linie; Renovate hält sie aktuell.
     command:
       - -storageDataPath=/storage
@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:3.7.9
+    image: grafana/loki:3.7.10
     command: -config.file=/etc/loki/loki.yaml
     volumes:
       - /mnt/fast/appdata/loki:/loki
@@ -65,7 +65,10 @@ services:
 
   node-exporter:
     image: prom/node-exporter:v1.12.1   # neuester Stand (07.04.2026)
-    command: [--path.rootfs=/host]
+    command:
+      - --path.rootfs=/host
+      # Textfile-Collector: Skripte (z.B. backup-offsite.sh) legen hier *.prom-Dateien ab
+      - --collector.textfile.directory=/host/mnt/fast/appdata/node-exporter/textfile
     volumes: ["/:/host:ro,rslave"]
     networks: [obs]
     mem_limit: 128m
@@ -89,18 +92,62 @@ services:
     mem_limit: 256m
     restart: unless-stopped
 
-  # --- VORERST DEAKTIVIERT: Configs fehlen (waren "aus Altsystem übernehmen") ---
-  # Wieder aktivieren, sobald config/alertmanager.yml bzw. config/otel.yaml vorliegen
-  # (aus Phase-0-Backup zurückholen oder frisch schreiben). Beide sind fürs
-  # Kern-Monitoring (Metriken/Logs/Dashboards/OIDC) NICHT erforderlich.
-  #
-  # alertmanager:
-  #   image: prom/alertmanager:v0.31.1
-  #   volumes:
-  #     - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-  #   networks: [obs]
-  #   mem_limit: 128m
-  #   restart: unless-stopped
+  # --- Alerting: vmalert wertet config/alerts.yml gegen VictoriaMetrics aus und schickt an
+  # Alertmanager; der stellt per Telegram zu. Secrets (Bot-Token, Chat-ID) aus 1Password via
+  # Arcane-Env (scripts/render-env.sh observability). ---
+  vmalert:
+    image: victoriametrics/vmalert:v1.155.0      # gleiche Linie wie victoriametrics
+    command:
+      - -datasource.url=http://victoriametrics:8428
+      - -remoteWrite.url=http://victoriametrics:8428   # Alert-State als ALERTS-Serie (Grafana, Restarts)
+      - -remoteRead.url=http://victoriametrics:8428    # State nach Restart wiederherstellen
+      - -notifier.url=http://alertmanager:9093
+      - -rule=/etc/vmalert/alerts.yml
+      - -evaluationInterval=1m
+      - -external.url=https://grafana.${LAB_DOMAIN}
+    volumes:
+      - ./config/alerts.yml:/etc/vmalert/alerts.yml:ro
+    networks: [obs]
+    depends_on: [victoriametrics, alertmanager]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.35.0             # busybox-Variante (sh nötig fürs Rendern unten)
+    # Alertmanager kann keine Env-Variablen in der Config -> beim Start aus dem Template rendern.
+    # $$ = literales $ für Compose (sonst interpoliert Compose selbst).
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        sed -e "s|__TELEGRAM_BOT_TOKEN__|$$TELEGRAM_BOT_TOKEN|" -e "s|__TELEGRAM_CHAT_ID__|$$TELEGRAM_CHAT_ID|"
+        /etc/alertmanager/alertmanager.tmpl.yml > /tmp/alertmanager.yml &&
+        exec /bin/alertmanager --config.file=/tmp/alertmanager.yml
+        --storage.path=/alertmanager --web.external-url=http://alertmanager:9093
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+    volumes:
+      - ./config/alertmanager.tmpl.yml:/etc/alertmanager/alertmanager.tmpl.yml:ro
+      # Silences + Notification-Log. Image läuft als nobody -> Verzeichnis einmalig anlegen:
+      #   install -d -o 65534 -g 65534 /mnt/fast/appdata/alertmanager
+      - /mnt/fast/appdata/alertmanager:/alertmanager
+    networks: [obs]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  # Blackbox: prüft die Dienste über das edge-Netz (intern, ohne Hairpin) und das Wildcard-Cert
+  # über den Traefik-Alias auth.${LAB_DOMAIN}. Targets in config/scrape.yml.
+  blackbox:
+    image: prom/blackbox-exporter:v0.29.1
+    command: [--config.file=/etc/blackbox/blackbox.yml]
+    volumes:
+      - ./config/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    networks: [obs, edge]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  # --- VORERST DEAKTIVIERT: Config fehlt (war "aus Altsystem übernehmen") ---
+  # Wieder aktivieren, sobald config/otel.yaml vorliegt. Fürs Kern-Monitoring nicht nötig.
   #
   # otel-collector:
   #   image: otel/opentelemetry-collector-contrib:0.146.0

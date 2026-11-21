@@ -1,0 +1,32 @@
+# Alertmanager-Config (Template). __TELEGRAM_*__ werden beim Container-Start per sed aus der
+# Env ersetzt (siehe compose.yaml) -> keine Secrets in Git. Werte: 1Password homelab-alerting.
+route:
+  receiver: telegram
+  group_by: [alertname, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    # Info-Alerts gesammelt und seltener
+    - matchers: [severity="info"]
+      receiver: telegram
+      group_by: [alertname]
+      repeat_interval: 24h
+
+inhibit_rules:
+  # Ist ein Dienst-Probe rot, weil der ganze Scrape-Target weg ist, nicht doppelt melden
+  - source_matchers: [alertname="TargetDown"]
+    target_matchers: [alertname="ServiceDown"]
+    equal: [instance]
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token: "__TELEGRAM_BOT_TOKEN__"
+        chat_id: __TELEGRAM_CHAT_ID__
+        parse_mode: HTML
+        send_resolved: true
+        message: |-
+          {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} <b>{{ .CommonLabels.alertname }}</b>{{ if eq .Status "resolved" }} (resolved){{ end }}
+          {{ range .Alerts }}• {{ .Annotations.summary }}
+          {{ end }}

@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
 
   paperless-ai:
-    image: clusterzx/paperless-ai:3.0.9       # bestätigt (Docker Hub); aktuelle Stable
+    image: clusterzx/paperless-ai:4.4.0       # bestätigt (Docker Hub); aktuelle Stable
     environment:
       PAPERLESS_API_URL: http://paperless:8000/api
       PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_KEY}   # in Paperless erzeugen (Profil -> API-Token)
@@ -73,9 +73,12 @@ services:
       - traefik.http.routers.paperless-ai.rule=Host(`docs-ai.${LAB_DOMAIN}`)
       - traefik.http.routers.paperless-ai.entrypoints=websecure
       - traefik.http.routers.paperless-ai.tls.certresolver=le
+      - traefik.http.routers.paperless-ai.middlewares=sso@docker   # Keycloak-Login (Stack 03); Callback im Realm-Client oauth2-proxy
       - traefik.http.services.paperless-ai.loadbalancer.server.port=3000
     networks: [edge, pl-internal]
-    mem_limit: 512m
+    # v4 rechnet RAG-Embeddings lokal (Xenova multilingual-e5-small, 3 Threads) -> 512m reichte
+    # nicht (OOM-Kill des node-Prozesses beim Embedding, Restart-Loop 2026-11-21).
+    mem_limit: 2g
     restart: unless-stopped
 
 networks:

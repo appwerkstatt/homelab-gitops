@@ -61,4 +61,11 @@ restic_run backup --host nas --tag nas-offsite \
 restic_run forget --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune
 
 hc           # success ping
+
+# Erfolg für das Alerting festhalten (node-exporter Textfile-Collector -> vmalert
+# OffsiteBackupStale). Atomar via tmp+mv, damit node-exporter nie eine halbe Datei liest.
+TEXTFILE_DIR=/mnt/fast/appdata/node-exporter/textfile
+mkdir -p "$TEXTFILE_DIR"
+printf '# HELP homelab_backup_last_success_timestamp_seconds Unix time of the last successful backup run.\n# TYPE homelab_backup_last_success_timestamp_seconds gauge\nhomelab_backup_last_success_timestamp_seconds{backup="offsite"} %s\n' "$(date +%s)" \
+  > "$TEXTFILE_DIR/.backup.prom.tmp" && mv "$TEXTFILE_DIR/.backup.prom.tmp" "$TEXTFILE_DIR/backup.prom"
 echo "offsite backup complete: $ts"

@@ -1,0 +1,106 @@
+# vmalert-Regeln (Prometheus-Format). Severity: critical = sofort handeln, warning = heute,
+# info = bei Gelegenheit. Zustellung: Alertmanager -> Telegram.
+groups:
+  - name: availability
+    rules:
+      - alert: TargetDown
+        expr: up{job!~"probe-.*"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Scrape-Target {{ $labels.job }} ({{ $labels.instance }}) seit 5 min nicht erreichbar"
+
+      - alert: ServiceDown
+        expr: probe_success{job=~"probe-http|probe-registry|probe-paperless"} == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Dienst {{ $labels.instance }} antwortet seit 5 min nicht (Healthcheck rot)"
+
+      - alert: CertExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry{job="probe-tls"} - time()) < 14 * 86400
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: "TLS-Zertifikat für {{ $labels.instance }} läuft in {{ $value | humanizeDuration }} ab — Traefik-ACME prüfen"
+
+      - alert: CertProbeFailing
+        expr: probe_success{job="probe-tls"} == 0
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "TLS-Check gegen {{ $labels.instance }} schlägt fehl (Traefik oder Zertifikat)"
+
+  - name: host
+    rules:
+      - alert: ZpoolUnhealthy
+        expr: node_zfs_zpool_state{state!="online"} > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "ZFS-Pool {{ $labels.zpool }} ist {{ $labels.state }} — Disk prüfen"
+
+      - alert: PoolSpaceLow
+        # Pool-Root-Datasets (/mnt/fast, /mnt/data, /mnt/backup); Kind-Datasets teilen sich den Platz
+        expr: |
+          node_filesystem_avail_bytes{fstype="zfs",mountpoint=~"/mnt/[^/]+"}
+            / node_filesystem_size_bytes{fstype="zfs",mountpoint=~"/mnt/[^/]+"} < 0.15
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Pool {{ $labels.mountpoint }}: nur noch {{ $value | humanizePercentage }} frei"
+
+      - alert: PoolSpaceCritical
+        expr: |
+          node_filesystem_avail_bytes{fstype="zfs",mountpoint=~"/mnt/[^/]+"}
+            / node_filesystem_size_bytes{fstype="zfs",mountpoint=~"/mnt/[^/]+"} < 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Pool {{ $labels.mountpoint }} fast voll: {{ $value | humanizePercentage }} frei"
+
+      - alert: HostMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "NAS hat seit 15 min weniger als 10 % RAM verfügbar ({{ $value | humanizePercentage }})"
+
+  - name: containers
+    rules:
+      - alert: ContainerRestartLoop
+        expr: changes(container_start_time_seconds{name!=""}[30m]) > 2
+        labels: { severity: warning }
+        annotations:
+          summary: "Container {{ $labels.name }} wurde in 30 min {{ $value }}× neu gestartet"
+
+      - alert: ContainerOOMKilled
+        expr: increase(container_oom_events_total{name!=""}[15m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Container {{ $labels.name }} wurde wegen mem_limit gekillt (OOM)"
+
+  - name: backups
+    rules:
+      # backup-offsite.sh schreibt homelab_backup_last_success_timestamp_seconds per
+      # node-exporter-Textfile (/mnt/fast/appdata/node-exporter/textfile/backup.prom).
+      - alert: OffsiteBackupStale
+        expr: time() - homelab_backup_last_success_timestamp_seconds{backup="offsite"} > 36 * 3600
+        labels: { severity: critical }
+        annotations:
+          summary: "Letztes erfolgreiches Offsite-Backup (restic -> B2) ist {{ $value | humanizeDuration }} her"
+
+      - alert: OffsiteBackupStatusMissing
+        expr: absent(homelab_backup_last_success_timestamp_seconds{backup="offsite"})
+        for: 2h
+        labels: { severity: warning }
+        annotations:
+          summary: "Kein Backup-Status vom Offsite-Job — läuft backup-offsite.sh (neue Version) per Cron?"
+
+  - name: alerting-pipeline
+    rules:
+      - alert: AlertmanagerNotificationsFailing
+        expr: increase(alertmanager_notifications_failed_total[15m]) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "Alertmanager kann {{ $labels.integration }} nicht zustellen (Telegram-Token/Chat-ID prüfen)"

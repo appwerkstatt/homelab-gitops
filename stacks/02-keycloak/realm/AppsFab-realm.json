@@ -6,6 +6,16 @@
   "registrationAllowed": false,
   "sslRequired": "external",
 
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 10,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+  "passwordPolicy": "length(12) and notUsername(undefined) and notEmail(undefined)",
+
   "browserFlow": "browser-passkey",
 
   "webAuthnPolicyPasswordlessRpEntityName": "AppsFab Homelab",
@@ -171,8 +181,16 @@
       "publicClient": false,
       "standardFlowEnabled": true,
       "secret": "$(env:OAUTH2_PROXY_CLIENT_SECRET)",
-      "redirectUris": ["https://traefik.lab.appsfab.org/oauth2/callback"],
-      "webOrigins": ["https://traefik.lab.appsfab.org"],
+      "redirectUris": [
+        "https://traefik.lab.appsfab.org/oauth2/callback",
+        "https://docs-ai.lab.appsfab.org/oauth2/callback",
+        "https://home.lab.appsfab.org/oauth2/callback"
+      ],
+      "webOrigins": [
+        "https://traefik.lab.appsfab.org",
+        "https://docs-ai.lab.appsfab.org",
+        "https://home.lab.appsfab.org"
+      ],
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [
         {

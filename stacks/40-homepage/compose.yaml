@@ -16,7 +16,7 @@ services:
       - traefik.http.routers.homepage.entrypoints=websecure
       - traefik.http.routers.homepage.tls.certresolver=le
       - traefik.http.services.homepage.loadbalancer.server.port=3000
-      # Optional hinter SSO: traefik.http.routers.homepage.middlewares=sso@docker
+      - traefik.http.routers.homepage.middlewares=sso@docker   # Keycloak-Login (Stack 03); Callback im Realm-Client oauth2-proxy
     networks: [edge]
     mem_limit: 128m
     restart: unless-stopped

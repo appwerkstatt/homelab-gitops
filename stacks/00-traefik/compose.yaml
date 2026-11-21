@@ -99,6 +99,12 @@ networks:
     name: edge-paperless          # 11-paperless
   edge-tunnel:
     name: edge-tunnel          # 12-cloudflared
+    # Feste Range: Tunnel-Traffic muss AUSSERHALB von 192.168/16 + 10/8 liegen, sonst hielte das
+    # LAN-only-ipallowlist (keycloak-admin) Internet-Anfragen für LAN. Bei Konflikt schlägt der Deploy fehl
+    # (laut), statt still unsicher zu werden.
+    ipam:
+      config:
+        - subnet: 172.31.253.0/24
   edge-obs:
     name: edge-obs          # 20-observability (grafana, blackbox)
   edge-garage:

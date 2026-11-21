@@ -51,6 +51,9 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 | `30-netboot` | dnsmasq (macvlan `.49`) + nginx (`.47`) + Go-Konsole — **Custom-App** | LAN (`netboot`, Keycloak-OIDC) | `data/provisioning` |
 | `40-homepage` | Homepage-Dashboard (Config-as-Code) | LAN (`home`, hinter SSO) | – (Config im Repo) |
 
+**Außerhalb von Arcane:** `vms/n8n-sandbox` — Code-Sandbox des n8n-Assistenten in einer eigenen VM
+(privilegierter Docker-in-Docker-Runner, deshalb nicht auf dem NAS). Von Hand nach `vms/n8n-sandbox/README.md`.
+
 > **Neuer Stack ⇒ neue Arcane-Gitsync-App**, gleich wie das `name:`-Feld im compose benannt
 > (z. B. `registry-cache`), sonst entsteht Drift wie garage→garages3 (s. `## Konventionen`).
 

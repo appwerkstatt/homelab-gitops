@@ -7,7 +7,7 @@ sondern in einer eigenen, wegwerfbaren VM ohne Daten. Diese Anleitung ist von Ha
 
 ```
 NAS (TrueNAS)                                      VM n8n-sandbox (Debian)
- n8n-Container ──NAT──> br-sandbox 10.88.88.1 ───── NIC1 10.88.88.2 :8080 sandbox-api ── runner (DinD)
+ n8n-Container ──NAT──> br88 10.88.88.1 ───── NIC1 10.88.88.2 :8080 sandbox-api ── runner (DinD)
                                                    NIC2 (enp6s0, DHCP) ── Internet (Image-Pulls, Pakete)
 ```
 
@@ -24,7 +24,7 @@ NAS (TrueNAS)                                      VM n8n-sandbox (Debian)
 
 TrueNAS → *Network → Interfaces → Add*:
 
-- Type **Bridge**, Name `br-sandbox`, **keine** Bridge-Members
+- Type **Bridge**, Name `br88`, **keine** Bridge-Members
 - IP-Adresse `10.88.88.1/30`, DHCP aus
 - *Save* → *Test Changes* → *Save Changes* (an `enp3s0`/`enp6s0` ändert sich nichts)
 
@@ -35,7 +35,7 @@ TrueNAS → *Network → Interfaces → Add*:
    - Name `n8nsandbox`, Guest OS Linux, **Start on Boot** an
    - 2 vCPU, **4 GiB** RAM (Minimum laut n8n)
    - Disk: neues Zvol `fast/vm/n8n-sandbox`, 40 GiB
-   - NIC 1: Attach to **`br-sandbox`**
+   - NIC 1: Attach to **`br88`**
    - NIC 2 (nach dem Anlegen unter *Devices → Add → NIC*): Attach to **`enp6s0`**
    - CD-ROM: das ISO
 3. Debian minimal installieren (nur „SSH server“ + „standard system utilities“), Benutzer `christian`.

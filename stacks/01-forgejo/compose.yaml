@@ -46,6 +46,15 @@ services:
       - traefik.http.routers.forgejo.entrypoints=websecure
       - traefik.http.routers.forgejo.tls.certresolver=le
       - traefik.http.services.forgejo.loadbalancer.server.port=3000
+      # Login-Seite überspringen: /user/login direkt zur Keycloak-Quelle umleiten (nur SSO, siehe ENABLE_INTERNAL_SIGNIN).
+      # Query (z. B. redirect_to) wird mitgenommen. Rückbau: die forgejo-login/forgejo-sso-redirect-Labels entfernen.
+      - traefik.http.routers.forgejo-login.rule=Host(`git.appsfab.org`) && Path(`/user/login`)
+      - traefik.http.routers.forgejo-login.entrypoints=websecure
+      - traefik.http.routers.forgejo-login.tls.certresolver=le
+      - traefik.http.routers.forgejo-login.middlewares=forgejo-sso-redirect
+      - traefik.http.routers.forgejo-login.service=forgejo
+      - traefik.http.middlewares.forgejo-sso-redirect.redirectregex.regex=^https?://([^/]+)/user/login(.*)$$
+      - traefik.http.middlewares.forgejo-sso-redirect.redirectregex.replacement=https://$${1}/user/oauth2/keycloak$${2}
       # Git-over-SSH (TCP-Passthrough über Traefik-Entrypoint ssh = .48:2222):
       - traefik.tcp.routers.forgejo-ssh.rule=HostSNI(`*`)
       - traefik.tcp.routers.forgejo-ssh.entrypoints=ssh

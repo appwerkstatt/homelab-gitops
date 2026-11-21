@@ -12,7 +12,6 @@ services:
       # Widget-Secrets (1Password-Item homelab-homepage, s. .env.example). In der Config als {{HOMEPAGE_VAR_…}}.
       HOMEPAGE_VAR_GRAFANA_TOKEN: ${HOMEPAGE_GRAFANA_TOKEN}       # Grafana-Service-Account "homepage", Rolle Viewer
       HOMEPAGE_VAR_PAPERLESS_TOKEN: ${HOMEPAGE_PAPERLESS_TOKEN}   # API-Token des Paperless-Users "homepage" (nur Lesen)
-      HOMEPAGE_VAR_ARCANE_KEY: ${HOMEPAGE_ARCANE_KEY}             # Arcane-API-Key "homepage"
     volumes:
       - ./config:/app/config                 # Dashboard-Definition aus dem Repo (GitOps)
     labels:

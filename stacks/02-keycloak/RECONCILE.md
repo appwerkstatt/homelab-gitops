@@ -33,9 +33,9 @@ pass-throughs, resolves from it) so kcc reconciles to the **same** secret each d
 already uses — otherwise kcc would overwrite the live secret with an empty value and break
 those apps' logins.
 
-> The committed `secrets.enc.env` (SOPS) is **legacy/unused** — env is managed in Arcane, not
-> from that file. Ignore it here; it still carries dead `KC_CLIENT_SECRET_*` and is slated for
-> separate cleanup.
+> **1Password is the source of truth** for these values (vault `AppsFab`, references in the repo's
+> `.env.example`); the Arcane env is the runtime copy. `scripts/render-env.sh keycloak` prints the
+> complete env for this stack. The old SOPS `secrets.enc.env` was removed in 2026-11.
 
 1. Read each client's current secret. Easiest from the admin console: realm **AppsFab** →
    **Clients** → *client* → **Credentials** tab → **Client secret**, for `grafana`, `forgejo`,

@@ -3,6 +3,25 @@
 name: registryzot
 
 services:
+  # Zot kann keine Env-Variablen in der Config und das Image ist distroless (keine Shell) ->
+  # das OIDC-Credentials-File einmalig beim Start aus dem Arcane-Env rendern (1Password
+  # bleibt Quelle, s. .env.example ZOT_OIDC_CLIENT_SECRET). $$ = literales $ für Compose.
+  zot-oidc-creds:
+    image: busybox:1.37.0
+    command:
+      - sh
+      - -c
+      - >-
+        umask 022 &&
+        printf '{"clientid":"zot","clientsecret":"%s"}' "$$ZOT_OIDC_CLIENT_SECRET" > /creds/oidc.json &&
+        test -n "$$ZOT_OIDC_CLIENT_SECRET"
+    environment:
+      ZOT_OIDC_CLIENT_SECRET: ${ZOT_OIDC_CLIENT_SECRET}
+    volumes:
+      - zot-oidc:/creds
+    network_mode: none
+    restart: "no"
+
   zot:
     image: ghcr.io/project-zot/zot:v2.1.23     # neuester Patch der v2.1.x-Linie (Stand 2026-03)
     ports:
@@ -14,6 +33,10 @@ services:
       - /mnt/data/harbor/zot:/var/lib/registry
       - ./config/zot.json:/etc/zot/config.json:ro
       - /mnt/fast/appdata/registry/htpasswd:/etc/zot/htpasswd:ro   # bcrypt-htpasswd (ci-Robot); Secret bleibt auf dem NAS, nicht in Git
+      - zot-oidc:/etc/zot/oidc:ro   # Keycloak-Client-Credentials, gerendert von zot-oidc-creds
+    depends_on:
+      zot-oidc-creds:
+        condition: service_completed_successfully
     labels:
       - traefik.enable=true
       - traefik.http.routers.registry.rule=Host(`registry.${LAB_DOMAIN}`)
@@ -23,6 +46,9 @@ services:
     networks: [edge]
     mem_limit: 512m   # sync-Cache + UI/Trivy/scrub im selben Container
     restart: unless-stopped
+
+volumes:
+  zot-oidc:
 
 networks:
   edge:

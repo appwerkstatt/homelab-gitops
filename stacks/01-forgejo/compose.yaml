@@ -13,6 +13,11 @@ services:
       FORGEJO__server__ROOT_URL: https://git.appsfab.org/
       FORGEJO__server__SSH_DOMAIN: git.appsfab.org    # in den Klon-URLs angezeigter Host
       FORGEJO__server__SSH_PORT: "22"                 # Standard-SSH-Port (.48:22 via Traefik) -> keine :2222 in Klon-URLs
+      # Web-Login nur per SSO (Keycloak): Benutzername/Passwort-Formular ausgeblendet.
+      # Git über HTTPS/API mit Token (und Basic Auth) bleibt erlaubt -> ENABLE_BASIC_AUTHENTICATION.
+      # Notzugang, falls Keycloak down ist: Wert auf "true" setzen oder per CLI arbeiten
+      #   (docker exec -u git forgejo-forgejo-1 forgejo admin user ...).
+      FORGEJO__service__ENABLE_INTERNAL_SIGNIN: "false"
       # kein SSH_LISTEN_PORT: das normale Forgejo-Image nutzt den Container-OpenSSH auf Port 22
       #
       # OIDC-Quelle gegen Keycloak — EINMALIG nach dem ersten Start (liegt danach in gitea.db, persistent):

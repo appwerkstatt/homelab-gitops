@@ -8,9 +8,10 @@
     "accessControl": {
       "repositories": {
         "**": {
-          "anonymousPolicy": ["read"],
+          "anonymousPolicy": [],
           "policies": [
-            { "users": ["ci"], "actions": ["read", "create", "update"] }
+            { "users": ["ci"], "actions": ["read", "create", "update"] },
+            { "users": ["pull"], "actions": ["read"] }
           ]
         }
       }

@@ -44,3 +44,23 @@ Rollout (VOR dem Merge, sonst schlagen Pulls fehl):
    Nach dem Merge: ohne `-u` → 401, und netboot-console bzw. ein Pod mit Zot-Image lässt sich neu pullen.
 
 Rollback: `"anonymousPolicy": ["read"]` zurück.
+
+## Login über Keycloak (OIDC)
+
+Die Web-UI (https://registry.lab.appsfab.org) bietet "Sign in with Keycloak" (Realm AppsFab,
+Client `zot`). Benutzername in Zot = Keycloak-`preferred_username`.
+
+- Gruppe `lab-admins` = Admin (read/create/update/delete auf allen Repos, `adminPolicy`).
+- Jeder andere Keycloak-User = read (`defaultPolicy`).
+- Robots bleiben im htpasswd: `ci` (Push aus CI), `pull` (NAS/Cluster).
+
+Docker-CLI kann kein OIDC → nach dem SSO-Login in der UI unter "API Keys" einen Key erzeugen
+(Prefix `zak_`) und damit einloggen:
+
+```sh
+docker login registry.lab.appsfab.org -u <keycloak-username> -p zak_...
+```
+
+Das Client-Secret (`ZOT_OIDC_CLIENT_SECRET`, 1Password `AppsFab/homelab-zot/oidc-client-secret`) muss
+in BEIDEN Arcane-Envs stehen: `keycloak` (kcc legt den Client an) und `registryzot`
+(`zot-oidc-init` schreibt es nach `/run/zot/oidc-credentials.json`).

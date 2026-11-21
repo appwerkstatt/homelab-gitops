@@ -3,6 +3,22 @@
 name: registryzot
 
 services:
+  # Zot (distroless, keine Shell) liest das OIDC-Client-Secret nur aus einer Datei ->
+  # Einmal-Init schreibt sie aus der Arcane-Env in ein privates Volume.
+  zot-oidc-init:
+    image: alpine:3.22.2
+    environment:
+      ZOT_OIDC_CLIENT_SECRET: ${ZOT_OIDC_CLIENT_SECRET}   # 1Password: AppsFab/homelab-zot/oidc-client-secret
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        umask 022 &&
+        printf '{"clientid":"zot","clientsecret":"%s"}\n' "$$ZOT_OIDC_CLIENT_SECRET" > /run/zot/oidc-credentials.json
+    volumes:
+      - zot-secrets:/run/zot
+    network_mode: none
+    restart: "no"
+
   zot:
     image: ghcr.io/project-zot/zot:v2.1.23     # neuester Patch der v2.1.x-Linie (Stand 2026-03)
     ports:
@@ -13,7 +29,11 @@ services:
     volumes:
       - /mnt/data/harbor/zot:/var/lib/registry
       - ./config/zot.json:/etc/zot/config.json:ro
-      - /mnt/fast/appdata/registry/htpasswd:/etc/zot/htpasswd:ro   # bcrypt-htpasswd (ci-Robot); Secret bleibt auf dem NAS, nicht in Git
+      - /mnt/fast/appdata/registry/htpasswd:/etc/zot/htpasswd:ro   # bcrypt-htpasswd (Robots ci + pull); Secret bleibt auf dem NAS, nicht in Git
+      - zot-secrets:/run/zot:ro                                    # oidc-credentials.json (zot-oidc-init)
+    depends_on:
+      zot-oidc-init:
+        condition: service_completed_successfully
     labels:
       - traefik.enable=true
       - traefik.http.routers.registry.rule=Host(`registry.${LAB_DOMAIN}`)
@@ -27,3 +47,6 @@ services:
 networks:
   edge:
     external: true
+
+volumes:
+  zot-secrets:

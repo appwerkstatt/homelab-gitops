@@ -1,20 +1,36 @@
+# Homepage-Einstellungen (https://gethomepage.dev/configs/settings/). Config-as-Code: Arcane deployt main.
 title: AppsFab Homelab
+description: Einstieg ins Homelab (TrueNAS + Pi-Cluster)
+language: de
 theme: dark
 color: slate
-headerStyle: clean
+headerStyle: boxed
+statusStyle: dot          # siteMonitor als Punkt statt Badge
+hideVersion: true
+disableUpdateCheck: true  # kein Aufruf an die GitHub-API; Updates macht Renovate
+target: _self
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: true
+  hideVisitURL: true
+
+# Reihenfolge = Reihenfolge auf der Seite
 layout:
-  Identity & Git:
+  Status:
+    style: row
+    columns: 4
+  Zugang:
     style: row
     columns: 2
+  Entwicklung & Automatisierung:
+    style: row
+    columns: 4
   Dokumente:
-    style: row
-    columns: 2
-  Observability:
     style: row
     columns: 2
   Infrastruktur:
     style: row
-    columns: 4
+    columns: 3
   Cluster:
     style: row
     columns: 2

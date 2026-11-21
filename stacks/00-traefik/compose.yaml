@@ -76,7 +76,20 @@ services:
       edge-zot: { aliases: *traefik_aliases }
       edge-mirror: { aliases: *traefik_aliases }
       edge-netboot: { aliases: *traefik_aliases }
-      edge-home: { aliases: *traefik_aliases }
+      # edge-home bekommt zusätzlich die FQDNs, die Homepage für siteMonitor/Widgets aufruft (40-homepage/config/services.yaml).
+      edge-home:
+        aliases:
+          - traefik
+          - auth.${LAB_DOMAIN}
+          - auth.appsfab.org
+          - git.appsfab.org
+          - grafana.${LAB_DOMAIN}
+          - registry.${LAB_DOMAIN}
+          - docs.${LAB_DOMAIN}
+          - traefik.${LAB_DOMAIN}
+          - netboot.${LAB_DOMAIN}
+          - s3.${LAB_DOMAIN}
+          - n8n.${LAB_DOMAIN}
       socket: {}
     mem_limit: 256m
     restart: unless-stopped

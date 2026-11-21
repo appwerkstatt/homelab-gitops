@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
 
   paperless-ai:
-    image: clusterzx/paperless-ai:3.0.9       # bestätigt (Docker Hub); aktuelle Stable
+    image: clusterzx/paperless-ai:4.4.0       # bestätigt (Docker Hub); aktuelle Stable
     environment:
       PAPERLESS_API_URL: http://paperless:8000/api
       PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_KEY}   # in Paperless erzeugen (Profil -> API-Token)

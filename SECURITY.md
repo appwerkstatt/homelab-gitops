@@ -38,7 +38,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | D | democratic-csi `allowInsecure: true` (selbstsigniertes TrueNAS-Cert) | 🟢 | akzeptiert intern; optional interne CA + Pinning |
 | E | `backup`-Pool ohne Redundanz (Single-Disk) | 🟢 | bekannt; keine Live-RWX-Daten drauf (Phase 4 verschiebt k8s-NFS auf `data`) |
 | F | Version-Pins von VictoriaMetrics/Garage/Zot/dnsmasq | 🟢 | Renovate hält sie aktuell (auch das restic-Image in `docs/nas-backup/backup-offsite.sh`, Regex-Manager) |
-| G | Gemeinsames Docker-Netz `edge`: jeder Web-Container erreicht jeden anderen direkt (an ForwardAuth vorbei) | 🟡 | offen — Aufteilung in Netze pro Stack, nur Traefik verbindet |
+| G | Gemeinsames Docker-Netz `edge`: jeder Web-Container erreicht jeden anderen direkt (an ForwardAuth vorbei) | 🟡 | in Arbeit — Netze `edge-<stack>`, nur Traefik (und blackbox für Probes) verbindet. Schritt 1: Traefik legt die Netze an; Schritt 2: Stacks ziehen um; Schritt 3: `edge` entfernen |
 | H | Garage (`data/garage`: etcd- + Longhorn-Backups des Clusters) ohne Snapshot/Replikation/Offsite | 🟡 | offen |
 
 ## Grundsätzlich gut (bestätigt)

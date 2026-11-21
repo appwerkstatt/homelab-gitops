@@ -1,4 +1,4 @@
-# 00-traefik — Reverse Proxy + Wildcard-TLS (DNS-01) + erstellt das Netz "edge".
+# 00-traefik — Reverse Proxy + Wildcard-TLS (DNS-01) + erstellt die Netze "edge" und "edge-<stack>".
 # Härtung: Traefik spricht NICHT direkt mit dem Docker-Socket, sondern über einen
 # read-only socket-proxy (kein Host-Root-Risiko). Dashboard hinter SSO.
 name: traefik
@@ -64,10 +64,23 @@ services:
         # Host<->macvlan-Kind ist gesperrt). Ueber den Alias bleibt der Verkehr im edge-Bridge-Netz:
         # Docker-DNS -> Traefik-Bridge-IP -> SNI bleibt auth.* (Wildcard-Cert) -> Host-Routing an Keycloak.
         # Weitere intern serverseitig aufgerufene Hosts hier nachtragen (i.d.R. nur Keycloak noetig).
-        aliases:
+        aliases: &traefik_aliases
           - traefik
           - auth.${LAB_DOMAIN}
           - auth.appsfab.org      # Realm-Issuer (frontendUrl) — Container müssen ihn intern über Traefik erreichen
+      # Netze pro Stack (Aufteilung von "edge", SECURITY.md G): Traefik ist der EINZIGE Container in
+      # allen, Backends sehen sich gegenseitig nicht mehr. Gleiche Aliase in jedem Netz (OIDC-Issuer).
+      edge-forgejo: { aliases: *traefik_aliases }
+      edge-keycloak: { aliases: *traefik_aliases }
+      edge-sso: { aliases: *traefik_aliases }
+      edge-paperless: { aliases: *traefik_aliases }
+      edge-tunnel: { aliases: *traefik_aliases }
+      edge-obs: { aliases: *traefik_aliases }
+      edge-garage: { aliases: *traefik_aliases }
+      edge-zot: { aliases: *traefik_aliases }
+      edge-mirror: { aliases: *traefik_aliases }
+      edge-netboot: { aliases: *traefik_aliases }
+      edge-home: { aliases: *traefik_aliases }
       socket: {}
     mem_limit: 256m
     restart: unless-stopped
@@ -75,6 +88,29 @@ services:
 networks:
   edge:
     name: edge          # erstellt das externe Netz; andere Stacks nutzen es als external
+  # Netze pro Stack — hier angelegt (Traefik deployt zuerst), in den Stacks als external genutzt.
+  edge-forgejo:
+    name: edge-forgejo          # 01-forgejo (+ netboot-console für git clone/push)
+  edge-keycloak:
+    name: edge-keycloak          # 02-keycloak
+  edge-sso:
+    name: edge-sso          # 03-oauth2-proxy
+  edge-paperless:
+    name: edge-paperless          # 11-paperless
+  edge-tunnel:
+    name: edge-tunnel          # 12-cloudflared
+  edge-obs:
+    name: edge-obs          # 20-observability (grafana, blackbox)
+  edge-garage:
+    name: edge-garage          # 21-garage
+  edge-zot:
+    name: edge-zot          # 22-harbor (Zot)
+  edge-mirror:
+    name: edge-mirror          # 23-registry-cache
+  edge-netboot:
+    name: edge-netboot          # 30-netboot (console)
+  edge-home:
+    name: edge-home          # 40-homepage
   socket:               # privates Netz nur zwischen Traefik und socket-proxy
   vlan80:
     name: vlan80        # macvlan; andere Stacks (z.B. Netboot) nutzen es als external

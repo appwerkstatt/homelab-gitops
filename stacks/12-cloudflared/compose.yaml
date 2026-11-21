@@ -6,6 +6,12 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:2026.10.7   # aktuellster Stand (13.05.2026); Tunnel-Clients aktuell halten
     command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    environment:
+      # Bei JEDER Änderung an config.yml hochzählen. Arcane redeployt nur, wenn sich compose.yaml
+      # ändert, und cloudflared liest config.yml nur beim Start (Bind-Mount, kein Reload) —
+      # ohne Bump läuft der Tunnel mit den alten Ingress-Regeln weiter (Vorfall 2026-11-21:
+      # auth.appsfab.org → 404 vom Catch-all). Gleiches Muster wie KCC_REALM_REV (02-keycloak).
+      CF_INGRESS_REV: "2"
     volumes:
       - /mnt/fast/appdata/cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
       - ./config.yml:/etc/cloudflared/config.yml:ro       # explizite Ingress-Regeln (Repo)

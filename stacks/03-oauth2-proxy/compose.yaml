@@ -14,7 +14,7 @@ services:
       - --provider=keycloak-oidc
       - --scope=openid email profile        # explizit ohne "groups": der keycloak-oidc-Provider haengt sonst "groups" an,
                                              # das ist aber kein anforderbarer Scope (groups-Claim kommt per Client-Mapper im Realm) -> sonst invalid_scope
-      - --oidc-issuer-url=https://auth.${LAB_DOMAIN}/realms/AppsFab
+      - --oidc-issuer-url=https://auth.appsfab.org/realms/AppsFab   # Realm-frontendUrl; intern via Traefik-Alias
       - --client-id=oauth2-proxy
       - --client-secret=${OAUTH2_PROXY_CLIENT_SECRET}
       - --cookie-secret=${OAUTH2_PROXY_COOKIE_SECRET}    # openssl rand -base64 32

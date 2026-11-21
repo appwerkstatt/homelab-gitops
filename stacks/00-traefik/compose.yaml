@@ -67,6 +67,7 @@ services:
         aliases:
           - traefik
           - auth.${LAB_DOMAIN}
+          - auth.appsfab.org      # Realm-Issuer (frontendUrl) — Container müssen ihn intern über Traefik erreichen
       socket: {}
     mem_limit: 256m
     restart: unless-stopped

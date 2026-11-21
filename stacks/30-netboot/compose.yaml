@@ -44,7 +44,7 @@ services:
     environment:
       LISTEN_ADDR: ":8081"
       # --- OIDC gegen Keycloak (Client netboot-console) ---
-      OIDC_ISSUER: https://auth.${LAB_DOMAIN}/realms/AppsFab
+      OIDC_ISSUER: https://auth.appsfab.org/realms/AppsFab
       OIDC_CLIENT_ID: netboot-console
       OIDC_CLIENT_SECRET: ${NETBOOT_OIDC_CLIENT_SECRET}      # in Keycloak regenerieren
       OIDC_REDIRECT_URL: https://netboot.${LAB_DOMAIN}/auth/callback   # App-Route ist /auth/callback (main.go)

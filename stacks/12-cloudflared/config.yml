@@ -18,10 +18,13 @@ ingress:
   #     originServerName: docs.lab.appsfab.org
 
   # Keycloak-Login — öffentlich, damit Cluster-Demo-App-SSO aus dem Internet abschließt.
-  - hostname: auth.lab.appsfab.org
+  # Einstufiger Name, weil Cloudflares Gratis-Zertifikat nur *.appsfab.org abdeckt (auth.lab.* hatte
+  # dort KEIN Zertifikat → TLS-Abbruch). auth.lab.appsfab.org bleibt rein intern (Admin-Konsole, LAN).
+  # /admin + /realms/master liefern über den Tunnel 403 (Traefik-Router keycloak-admin, ipallowlist).
+  - hostname: auth.appsfab.org
     service: https://traefik:443
     originRequest:
-      originServerName: auth.lab.appsfab.org   # SNI für das *.lab-Cert
+      originServerName: auth.appsfab.org       # SNI → Traefik liefert das LE-Cert für auth.appsfab.org
 
   # --- Pflicht: Catch-all lehnt alles Nicht-Gelistete ab ---
   - service: http_status:404

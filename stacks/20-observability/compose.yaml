@@ -40,9 +40,9 @@ services:
       GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
       GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
       GF_AUTH_GENERIC_OAUTH_SCOPES: openid profile email
-      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.${LAB_DOMAIN}/realms/AppsFab/protocol/openid-connect/auth
-      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.${LAB_DOMAIN}/realms/AppsFab/protocol/openid-connect/token
-      GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.${LAB_DOMAIN}/realms/AppsFab/protocol/openid-connect/userinfo
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/auth
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/userinfo
       # RBAC: Keycloak-Gruppe lab-admins -> Grafana-Admin, sonst Viewer
       GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], 'lab-admins') && 'Admin' || 'Viewer'"
       GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "true"

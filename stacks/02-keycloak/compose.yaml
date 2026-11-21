@@ -43,7 +43,11 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
-      - traefik.http.routers.keycloak.rule=Host(`auth.${LAB_DOMAIN}`)
+      # Zwei Hosts, eine Instanz: auth.appsfab.org = öffentlicher Login (Realm AppsFab, frontendUrl
+      # im Realm-JSON → Issuer https://auth.appsfab.org/realms/AppsFab für ALLE Clients, LAN wie Internet);
+      # auth.${LAB_DOMAIN} = Server-Hostname, nur Admin-Konsole/master, nur LAN (kein öffentlicher DNS-Eintrag).
+      # Hintergrund: Cloudflares Gratis-Zertifikat deckt nur *.appsfab.org, nicht auth.lab.appsfab.org.
+      - traefik.http.routers.keycloak.rule=Host(`auth.${LAB_DOMAIN}`) || Host(`auth.appsfab.org`)
       - traefik.http.routers.keycloak.entrypoints=websecure
       - traefik.http.routers.keycloak.tls.certresolver=le
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
@@ -51,7 +55,7 @@ services:
       # Cloudflare-Tunnel (Quell-IP = cloudflared im edge-Netz, 172.16/12) und wird hier mit 403
       # abgewiesen; LAN-Clients erreichen Traefik direkt über macvlan .48 mit echter Quell-IP.
       # Neue LAN-/VPN-Netze bei Bedarf in sourcerange ergänzen.
-      - traefik.http.routers.keycloak-admin.rule=Host(`auth.${LAB_DOMAIN}`) && (PathPrefix(`/admin`) || PathPrefix(`/realms/master`))
+      - traefik.http.routers.keycloak-admin.rule=(Host(`auth.${LAB_DOMAIN}`) || Host(`auth.appsfab.org`)) && (PathPrefix(`/admin`) || PathPrefix(`/realms/master`))
       - traefik.http.routers.keycloak-admin.entrypoints=websecure
       - traefik.http.routers.keycloak-admin.tls.certresolver=le
       - traefik.http.routers.keycloak-admin.priority=100
@@ -102,7 +106,7 @@ services:
       # Bump on every realm/ change. A changed env value forces Compose to recreate this
       # one-shot (so it re-runs), AND touching compose.yaml guarantees Arcane redeploys the
       # stack (a realm-only file edit alone may not trigger either). See RECONCILE.md.
-      KCC_REALM_REV: "11"
+      KCC_REALM_REV: "12"
       # OIDC client secrets — resolved into the realm by $(env:...). Same vars the consumers read.
       GRAFANA_OIDC_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
       FORGEJO_OIDC_CLIENT_SECRET: ${FORGEJO_OIDC_CLIENT_SECRET}

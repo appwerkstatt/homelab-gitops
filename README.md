@@ -55,7 +55,7 @@ GitHub (dieses Repo)
 
 - **Netz `edge`:** extern, von `00-traefik` angelegt; alle web-exponierten Stacks hängen sich daran und werden per Traefik-Labels geroutet.
 - **Domain:** `*.lab.appsfab.org` (Split-Horizon → `192.168.80.50`), Wildcard-TLS via Cloudflare-DNS-01.
-- **SSO:** Keycloak-OIDC nativ, wo die App es kann; sonst Traefik-ForwardAuth (`auth.lab.appsfab.org`).
+- **SSO:** Keycloak-OIDC nativ, wo die App es kann; sonst Traefik-ForwardAuth; Login unter `auth.appsfab.org` (Admin-Konsole nur LAN: `auth.lab.appsfab.org`).
 - **Image-Versionen** sind gepinnt (kein `latest`) — Updates bewusst per PR/Commit (Renovate optional).
 - **Arcane setzt den Compose-Projektnamen, nicht `name:`.** Arcane startet jeden Stack als
   `docker compose -p <slug> …`, wobei `<slug>` aus dem Anzeigenamen der Gitsync-App stammt

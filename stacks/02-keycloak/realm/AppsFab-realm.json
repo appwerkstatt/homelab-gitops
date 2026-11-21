@@ -181,8 +181,16 @@
       "publicClient": false,
       "standardFlowEnabled": true,
       "secret": "$(env:OAUTH2_PROXY_CLIENT_SECRET)",
-      "redirectUris": ["https://traefik.lab.appsfab.org/oauth2/callback"],
-      "webOrigins": ["https://traefik.lab.appsfab.org"],
+      "redirectUris": [
+        "https://traefik.lab.appsfab.org/oauth2/callback",
+        "https://docs-ai.lab.appsfab.org/oauth2/callback",
+        "https://home.lab.appsfab.org/oauth2/callback"
+      ],
+      "webOrigins": [
+        "https://traefik.lab.appsfab.org",
+        "https://docs-ai.lab.appsfab.org",
+        "https://home.lab.appsfab.org"
+      ],
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [
         {

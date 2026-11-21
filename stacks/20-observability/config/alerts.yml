@@ -11,7 +11,7 @@ groups:
           summary: "Scrape-Target {{ $labels.job }} ({{ $labels.instance }}) seit 5 min nicht erreichbar"
 
       - alert: ServiceDown
-        expr: probe_success{job=~"probe-http|probe-paperless"} == 0
+        expr: probe_success{job=~"probe-http|probe-registry|probe-paperless"} == 0
         for: 5m
         labels: { severity: critical }
         annotations:

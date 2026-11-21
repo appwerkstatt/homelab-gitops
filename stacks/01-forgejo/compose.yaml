@@ -41,6 +41,7 @@ services:
     # kein Host-Port-Mapping — SSH läuft über Traefik (.48:22), nicht über den NAS-Host (.50)
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-forgejo
       # HTTPS (Web-UI + Git-over-HTTPS):
       - traefik.http.routers.forgejo.rule=Host(`git.appsfab.org`)
       - traefik.http.routers.forgejo.entrypoints=websecure
@@ -60,10 +61,12 @@ services:
       - traefik.tcp.routers.forgejo-ssh.entrypoints=ssh
       - traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh
       - traefik.tcp.services.forgejo-ssh.loadbalancer.server.port=22   # Container-OpenSSH lauscht auf 22
-    networks: [edge]
+    networks: [edge-forgejo, edge-netboot]   # edge-netboot: netboot-console klont/pusht direkt über http://forgejo:3000
     mem_limit: 1g
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-forgejo:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
+  edge-netboot:
+    external: true   # geteilt mit 30-netboot (console → forgejo:3000)

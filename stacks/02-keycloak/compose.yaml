@@ -43,6 +43,7 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-keycloak
       # Zwei Hosts, eine Instanz: auth.appsfab.org = öffentlicher Login (Realm AppsFab, frontendUrl
       # im Realm-JSON → Issuer https://auth.appsfab.org/realms/AppsFab für ALLE Clients, LAN wie Internet);
       # auth.${LAB_DOMAIN} = Server-Hostname, nur Admin-Konsole/master, nur LAN (kein öffentlicher DNS-Eintrag).
@@ -52,7 +53,7 @@ services:
       - traefik.http.routers.keycloak.tls.certresolver=le
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
       # Admin-Konsole + master-Realm NUR aus dem LAN. Internet-Traffic kommt über den
-      # Cloudflare-Tunnel (Quell-IP = cloudflared im edge-Netz, 172.16/12) und wird hier mit 403
+      # Cloudflare-Tunnel (Quell-IP = cloudflared im Netz edge-tunnel, 172.31.253.0/24) und wird hier mit 403
       # abgewiesen; LAN-Clients erreichen Traefik direkt über macvlan .48 mit echter Quell-IP.
       # Neue LAN-/VPN-Netze bei Bedarf in sourcerange ergänzen.
       - traefik.http.routers.keycloak-admin.rule=(Host(`auth.${LAB_DOMAIN}`) || Host(`auth.appsfab.org`)) && (PathPrefix(`/admin`) || PathPrefix(`/realms/master`))
@@ -62,7 +63,7 @@ services:
       - traefik.http.routers.keycloak-admin.service=keycloak
       - traefik.http.routers.keycloak-admin.middlewares=kc-lan-only
       - traefik.http.middlewares.kc-lan-only.ipallowlist.sourcerange=192.168.0.0/16,10.0.0.0/8
-    networks: [edge, kc-internal]
+    networks: [edge-keycloak, kc-internal]
     mem_limit: 1g
     restart: unless-stopped
 
@@ -125,6 +126,6 @@ services:
     mem_limit: 512m
 
 networks:
-  edge:
-    external: true
+  edge-keycloak:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
   kc-internal:

@@ -56,11 +56,12 @@ services:
     depends_on: [victoriametrics, loki]
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-obs
       - traefik.http.routers.grafana.rule=Host(`grafana.${LAB_DOMAIN}`)
       - traefik.http.routers.grafana.entrypoints=websecure
       - traefik.http.routers.grafana.tls.certresolver=le
       - traefik.http.services.grafana.loadbalancer.server.port=3000
-    networks: [edge, obs]
+    networks: [edge-obs, obs]
     restart: unless-stopped
 
   node-exporter:
@@ -135,14 +136,16 @@ services:
     mem_limit: 128m
     restart: unless-stopped
 
-  # Blackbox: prüft die Dienste über das edge-Netz (intern, ohne Hairpin) und das Wildcard-Cert
+  # Blackbox: prüft die Dienste direkt über deren edge-<stack>-Netze (intern, ohne Hairpin) und das Wildcard-Cert
   # über den Traefik-Alias auth.${LAB_DOMAIN}. Targets in config/scrape.yml.
   blackbox:
     image: prom/blackbox-exporter:v0.29.1
     command: [--config.file=/etc/blackbox/blackbox.yml]
     volumes:
       - ./config/blackbox.yml:/etc/blackbox/blackbox.yml:ro
-    networks: [obs, edge]
+    # Einziger Backend-Container mit Zugang zu mehreren Stack-Netzen: probt die Dienste direkt
+    # (ohne Traefik). Nur ausgehende Probes, kein Traefik-Router.
+    networks: [obs, edge-obs, edge-keycloak, edge-forgejo, edge-sso, edge-garage, edge-zot, edge-mirror, edge-paperless]
     mem_limit: 64m
     restart: unless-stopped
 
@@ -154,11 +157,26 @@ services:
   #   command: [--config=/etc/otel/config.yaml]
   #   volumes:
   #     - ./config/otel.yaml:/etc/otel/config.yaml:ro
-  #   networks: [obs, edge]
+  #   networks: [obs, edge-obs]
   #   mem_limit: 256m
   #   restart: unless-stopped
 
 networks:
-  edge:
+  edge-obs:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
+  # nur für blackbox (Probes):
+  edge-keycloak:
+    external: true
+  edge-forgejo:
+    external: true
+  edge-sso:
+    external: true
+  edge-garage:
+    external: true
+  edge-zot:
+    external: true
+  edge-mirror:
+    external: true
+  edge-paperless:
     external: true
   obs:

@@ -12,15 +12,16 @@ services:
       - ./config:/app/config                 # Dashboard-Definition aus dem Repo (GitOps)
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-home
       - traefik.http.routers.homepage.rule=Host(`home.${LAB_DOMAIN}`)
       - traefik.http.routers.homepage.entrypoints=websecure
       - traefik.http.routers.homepage.tls.certresolver=le
       - traefik.http.services.homepage.loadbalancer.server.port=3000
       - traefik.http.routers.homepage.middlewares=sso@docker   # Keycloak-Login (Stack 03); Callback im Realm-Client oauth2-proxy
-    networks: [edge]
+    networks: [edge-home]
     mem_limit: 128m
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-home:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack

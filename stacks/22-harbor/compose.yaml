@@ -39,11 +39,12 @@ services:
         condition: service_completed_successfully
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-zot
       - traefik.http.routers.registry.rule=Host(`registry.${LAB_DOMAIN}`)
       - traefik.http.routers.registry.entrypoints=websecure
       - traefik.http.routers.registry.tls.certresolver=le
       - traefik.http.services.registry.loadbalancer.server.port=5000
-    networks: [edge]
+    networks: [edge-zot]
     mem_limit: 512m   # sync-Cache + UI/Trivy/scrub im selben Container
     restart: unless-stopped
 
@@ -51,5 +52,5 @@ volumes:
   zot-oidc:
 
 networks:
-  edge:
-    external: true
+  edge-zot:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack

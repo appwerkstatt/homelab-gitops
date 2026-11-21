@@ -1,5 +1,7 @@
 # validate.yml — Required Check für Renovate-Automerge: prüft, dass renovate.json valide
-# bleibt und jede Compose-Stack-Datei syntaktisch parst. Läuft auf jedem PR (also auch auf
+# bleibt, jede Compose-Variable in .env.example (1Password-Liste) steht, jede
+# Compose-Stack-Datei ohne Warnungen interpoliert, neu eingetragene Image-Tags für
+# linux/amd64 existieren und die Alerting-Configs gültig sind. Läuft auf jedem PR (also auch auf
 # Renovate-PRs, weil die per GitHub-App-Token geöffnet werden -> NICHT GITHUB_TOKEN -> triggert
 # Folge-Workflows). Der Job-Name "validate" IST der Status-Context, der in der Branch-
 # Protection als Pflicht eingetragen wird.
@@ -9,6 +11,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch: {}   # manuell: prüft dann ALLE Images (check-images.sh --all)
 
 # Redundante Läufe pro Ref abbrechen (spart Free-Tier-Minuten bei Renovate-PR-Schüben);
 # pro PR eigene Group -> bricht nur ältere Läufe DESSELBEN PR ab, blockt keinen Required Check.
@@ -25,16 +28,52 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # Diff gegen die PR-Basis für check-images.sh
 
       - name: Validate renovate.json
         run: npx --yes --package renovate@43 -- renovate-config-validator --strict
 
-      - name: Validate compose stacks
+      - name: Check every compose variable is listed in .env.example
+        run: scripts/check-env.sh
+
+      - name: Validate compose stacks (all variables set, warnings fail)
         run: |
+          # Dummy-Env aus .env.example: op://-Referenzen -> Platzhalter, Inline-Kommentare weg.
+          # So prüft compose die echte Interpolation, und jede Warnung (z.B. unbekannte
+          # Variable, veraltetes Feld) lässt den Check scheitern statt nur zu loggen.
+          sed -E -e '/^[A-Za-z_][A-Za-z0-9_]*=/!d' -e 's/[[:space:]]+#.*$//' -e 's|=op://.*|=ci-dummy|' .env.example > /tmp/ci.env
           fail=0
           for f in stacks/*/compose.yaml; do
             echo "::group::$f"
-            docker compose -f "$f" config -q || fail=1
+            out=$(docker compose --env-file /tmp/ci.env -f "$f" config -q 2>&1) || fail=1
+            [ -n "$out" ] && echo "$out"
+            if echo "$out" | grep -qiE 'warn|level=warning'; then
+              echo "::error file=$f::docker compose meldet Warnungen"; fail=1
+            fi
             echo "::endgroup::"
           done
           exit $fail
+
+      - name: Check changed images exist for linux/amd64
+        if: github.event_name != 'push'
+        run: |
+          command -v skopeo >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq skopeo; }
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            scripts/check-images.sh "origin/${{ github.base_ref }}"
+          else
+            scripts/check-images.sh --all
+          fi
+
+      - name: Validate alerting configs (vmalert rules, Alertmanager, blackbox)
+        run: |
+          cfg=stacks/20-observability/config
+          vm=$(grep -oE 'victoriametrics/vmalert:[^ ]+' stacks/20-observability/compose.yaml)
+          am=$(grep -oE 'prom/alertmanager:[^ ]+' stacks/20-observability/compose.yaml)
+          bb=$(grep -oE 'prom/blackbox-exporter:[^ ]+' stacks/20-observability/compose.yaml)
+          docker run --rm -v "$PWD/$cfg:/c:ro" "$vm" -rule=/c/alerts.yml -dryRun
+          # Template mit Dummy-Werten rendern, wie es der Container beim Start tut
+          mkdir -p /tmp/am
+          sed -e 's|__TELEGRAM_BOT_TOKEN__|000:dummy|' -e 's|__TELEGRAM_CHAT_ID__|-1|' "$cfg/alertmanager.tmpl.yml" > /tmp/am/alertmanager.yml
+          docker run --rm -v /tmp/am:/c:ro --entrypoint amtool "$am" check-config /c/alertmanager.yml
+          docker run --rm -v "$PWD/$cfg:/c:ro" "$bb" --config.file=/c/blackbox.yml --config.check

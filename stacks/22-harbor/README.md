@@ -18,3 +18,29 @@ bereitgestellt, der ein `docker-compose.yml` generiert. Vorgehen:
 Wenn Harbor (mehrere Container, Java/Trivy, ~2–3 GB RAM) zu schwer ist, deployt `compose.yaml`
 **Zot** (CNCF, ein einzelner OCI-Registry-Container) als sofort lauffähigen Start. Später auf Harbor
 wechseln, wenn RBAC/Scanning/Replication gebraucht werden.
+
+## Pflicht-Login für Lesen (seit 2026-11, kein anonymer Pull mehr)
+
+`anonymousPolicy` ist leer: ohne Credentials antwortet Zot mit 401. Zwei Robot-User im htpasswd:
+`ci` (read/create/update, Push) und `pull` (nur read, für NAS + Cluster).
+
+Rollout (VOR dem Merge, sonst schlagen Pulls fehl):
+
+1. Passwort erzeugen und in 1Password ablegen: Item `homelab-zot`, Feld `pull-password`
+   (`openssl rand -base64 24`).
+2. User anhängen und Dokument in 1Password aktualisieren:
+   ```sh
+   htpasswd -nbB pull "$(op read op://AppsFab/homelab-zot/pull-password)" \
+     | ssh truenas.server 'sudo tee -a /mnt/fast/appdata/registry/htpasswd >/dev/null'
+   ```
+   Zot liest das htpasswd beim Start → nach dem Merge Recreate (passiert durch den Deploy).
+   Danach `homelab-zot-htpasswd` in 1Password durch die neue Datei ersetzen.
+3. NAS-Pulls (netboot-console `127.0.0.1:5000/...`): In Arcane unter Settings → Container
+   Registries `127.0.0.1:5000` mit User `pull` anlegen (oder auf dem NAS `sudo docker login 127.0.0.1:5000`).
+4. Cluster (`christian/cluster`, k3s `registries.yaml`): unter `configs:` für
+   `registry.lab.appsfab.org` `auth: {username: pull, password: ...}` setzen und auf die Nodes ausrollen
+   (k3s neu starten).
+5. Test vor dem Merge: `curl -u pull:… https://registry.lab.appsfab.org/v2/_catalog` → 200.
+   Nach dem Merge: ohne `-u` → 401, und netboot-console bzw. ein Pod mit Zot-Image lässt sich neu pullen.
+
+Rollback: `"anonymousPolicy": ["read"]` zurück.

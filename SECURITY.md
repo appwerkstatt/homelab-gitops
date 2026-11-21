@@ -21,6 +21,8 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | 12 | Keine kontrollierte Update-Strategie | 🟢 | **Renovate** (`renovate.json`): Major nur nach Freigabe |
 | 13 | Registry ohne Vuln-Scanning | 🟢 | Zot **Trivy-CVE-Scanning** + scrub aktiviert (`zot.json`) |
 | 14 | Entschlüsselte Secrets-Datei ungeschützt | 🟡 | README: eigenes Dataset `fast/appdata/_secrets`, `chmod 600`, aus Backups ausschließen |
+| 15 | Zwei Secret-Quellen (SOPS-Datei unvollständig vs. Arcane-Env) → Drift, kein Rebuild aus Git möglich | 🟡 | 2026-11: SOPS entfernt; 1Password = einzige Quelle, `.env.example` = vollständige `op://`-Liste, CI-Check `scripts/check-env.sh` |
+| 16 | Keycloak öffentlich (Tunnel) ohne Brute-Force-Schutz; Admin-Konsole + master-Realm aus dem Internet erreichbar | 🔴 | 2026-11: `bruteForceProtected` + Passwort-Policy im Realm-JSON; Traefik-Router `keycloak-admin` mit `ipallowlist` (nur LAN) für `/admin` und `/realms/master` |
 
 ## Verbleibend — beim Deploy / bewusst akzeptiert
 
@@ -35,7 +37,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 
 ## Grundsätzlich gut (bestätigt)
 
-- Keine Klartext-Secrets im Repo (`${VARS}`/Platzhalter), `.gitignore` + SOPS greifen.
+- Keine Klartext-Secrets im Repo (`${VARS}` + `op://`-Referenzen), `.gitignore` greift; Werte nur in 1Password.
 - Datenbanken nur in internen Netzen (kein Port-Mapping), Web-Dienste nur über Traefik.
 - Image-Pinning durchgängig; Daten getrennt von Stack-Definition (eigene Datasets).
 - IaC offsite bei GitHub → die Reproduzierbarkeit, die die Update-Katastrophe verhindert.

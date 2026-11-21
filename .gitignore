@@ -9,10 +9,6 @@ credentials.json
 age.key
 *.agekey
 
-# erlaubt: SOPS-verschlüsselte Secrets
-!secrets.enc.env
-!*.enc.env
-!*.enc.yaml
 
 # lokales/temporäres
 .DS_Store

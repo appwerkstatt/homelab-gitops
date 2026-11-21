@@ -47,6 +47,17 @@ services:
       - traefik.http.routers.keycloak.entrypoints=websecure
       - traefik.http.routers.keycloak.tls.certresolver=le
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
+      # Admin-Konsole + master-Realm NUR aus dem LAN. Internet-Traffic kommt über den
+      # Cloudflare-Tunnel (Quell-IP = cloudflared im edge-Netz, 172.16/12) und wird hier mit 403
+      # abgewiesen; LAN-Clients erreichen Traefik direkt über macvlan .48 mit echter Quell-IP.
+      # Neue LAN-/VPN-Netze bei Bedarf in sourcerange ergänzen.
+      - traefik.http.routers.keycloak-admin.rule=Host(`auth.${LAB_DOMAIN}`) && (PathPrefix(`/admin`) || PathPrefix(`/realms/master`))
+      - traefik.http.routers.keycloak-admin.entrypoints=websecure
+      - traefik.http.routers.keycloak-admin.tls.certresolver=le
+      - traefik.http.routers.keycloak-admin.priority=100
+      - traefik.http.routers.keycloak-admin.service=keycloak
+      - traefik.http.routers.keycloak-admin.middlewares=kc-lan-only
+      - traefik.http.middlewares.kc-lan-only.ipallowlist.sourcerange=192.168.0.0/16,10.0.0.0/8
     networks: [edge, kc-internal]
     mem_limit: 1g
     restart: unless-stopped
@@ -91,7 +102,7 @@ services:
       # Bump on every realm/ change. A changed env value forces Compose to recreate this
       # one-shot (so it re-runs), AND touching compose.yaml guarantees Arcane redeploys the
       # stack (a realm-only file edit alone may not trigger either). See RECONCILE.md.
-      KCC_REALM_REV: "9"
+      KCC_REALM_REV: "10"
       # OIDC client secrets — resolved into the realm by $(env:...). Same vars the consumers read.
       GRAFANA_OIDC_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
       FORGEJO_OIDC_CLIENT_SECRET: ${FORGEJO_OIDC_CLIENT_SECRET}

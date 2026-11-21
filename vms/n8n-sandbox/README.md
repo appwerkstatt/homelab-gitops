@@ -14,8 +14,10 @@ NAS (TrueNAS)                                      VM n8n-sandbox (Debian)
 - **NIC1** hängt an einer reinen Host-Bridge ohne physisches Interface. Darüber erreicht n8n die
   API. Ein direkt an `enp3s0` gehängtes VM-Interface (macvtap) wäre vom NAS selbst aus nicht
   erreichbar (gleiches Hairpin-Problem wie Traefik `.48`).
-- **NIC2** hängt an `enp6s0` und ist nur für den Weg ins Internet. Container in der VM dürfen dort
-  **nicht** in private Netze (Firewall in Schritt 5).
+- **NIC2** hängt an `enp6s0` (VLAN 40 = Server-Netz) und ist nur für den Weg ins Internet. Container
+  in der VM dürfen dort **nicht** in private Netze (Firewall in Schritt 5).
+  Restrisiko: Bricht Code aus dem Runner bis auf die VM aus, steht die VM selbst im Server-VLAN.
+  Sauberer wäre später ein eigenes UniFi-VLAN „Sandbox“ nur mit Internet-Zugang; dann NIC 2 dorthin.
 - Die VM hat **keine** Secrets außer den drei Sandbox-Schlüsseln. Kein LLM-Key, keine n8n-Daten.
 
 ## 1. Host-Bridge auf dem NAS

@@ -17,6 +17,13 @@ groups:
         annotations:
           summary: "Dienst {{ $labels.instance }} antwortet seit 5 min nicht (Healthcheck rot)"
 
+      - alert: LlmHostDown
+        expr: probe_success{job="probe-llm"} == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Ollama auf dem Mac Studio ({{ $labels.instance }}) antwortet seit 10 min nicht — n8n-KI-Workflows und paperless-ai laufen ins Leere (Mac aus/schläft? docs/mac-studio-llm.md)"
+
       - alert: CertExpiringSoon
         expr: (probe_ssl_earliest_cert_expiry{job="probe-tls"} - time()) < 14 * 86400
         for: 1h

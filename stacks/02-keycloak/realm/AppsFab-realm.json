@@ -218,12 +218,14 @@
       "redirectUris": [
         "https://traefik.lab.appsfab.org/oauth2/callback",
         "https://docs-ai.lab.appsfab.org/oauth2/callback",
-        "https://home.lab.appsfab.org/oauth2/callback"
+        "https://home.lab.appsfab.org/oauth2/callback",
+        "https://n8n.lab.appsfab.org/oauth2/callback"
       ],
       "webOrigins": [
         "https://traefik.lab.appsfab.org",
         "https://docs-ai.lab.appsfab.org",
-        "https://home.lab.appsfab.org"
+        "https://home.lab.appsfab.org",
+        "https://n8n.lab.appsfab.org"
       ],
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [

@@ -44,3 +44,28 @@ Rollout (VOR dem Merge, sonst schlagen Pulls fehl):
    Nach dem Merge: ohne `-u` → 401, und netboot-console bzw. ein Pod mit Zot-Image lässt sich neu pullen.
 
 Rollback: `"anonymousPolicy": ["read"]` zurück.
+
+## Web-UI-Login über Keycloak (OIDC)
+
+Die Zot-UI (`https://registry.lab.appsfab.org`) zeigt „Sign in with Keycloak“ statt nur des
+Passwort-Formulars. Rechte kommen aus den Keycloak-Gruppen (Claim `groups`):
+`lab-admins` → read/create/update/delete, `lab-users` → read. Benutzername = `preferred_username`.
+
+- Keycloak-Client `zot` (Realm-JSON, kcc), Redirect `https://registry.lab.appsfab.org/zot/auth/callback/oidc`.
+- Secret: 1Password `homelab-zot` / Feld `oidc-client-secret` → Env `ZOT_OIDC_CLIENT_SECRET`
+  in **beiden** Arcane-Stacks (`keycloak` UND `registryzot`). Der One-Shot `zot-oidc-creds`
+  rendert daraus `/etc/zot/oidc/oidc.json` (Zot kann keine Env-Variablen in der Config).
+- Server-seitige OIDC-Calls laufen über den Traefik-Alias `auth.${LAB_DOMAIN}` im edge-Netz (kein Hairpin).
+- CLI/CI (docker, k3s, Arcane) bleiben bei htpasswd (`ci`, `pull`). Persönliche CLI-Zugänge:
+  nach dem OIDC-Login in der UI einen API-Key erzeugen (`apikey: true`) und mit
+  `docker login -u <keycloak-user> -p <api-key> registry.lab.appsfab.org` nutzen.
+
+Rollout-Reihenfolge (sonst setzt kcc das Secret leer bzw. `zot-oidc-creds` bricht ab):
+
+1. `openssl rand -base64 32 | tr -d '/+=' ` → 1Password `homelab-zot`, Feld `oidc-client-secret`.
+2. `ZOT_OIDC_CLIENT_SECRET` in Arcane → `keycloak` → Environment und → `registryzot` → Environment
+   setzen (`scripts/render-env.sh keycloak` / `scripts/render-env.sh harbor`).
+3. Merge → Arcane deployt keycloak (kcc legt Client `zot` an, `KCC_REALM_REV` 12) und registryzot.
+4. Test: UI → „Sign in with Keycloak“ → Repos sichtbar; `curl -u pull:… …/v2/_catalog` weiterhin 200.
+
+Rollback: `openid`-Block aus `zot.json` entfernen (htpasswd-Login bleibt unverändert).

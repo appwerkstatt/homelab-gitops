@@ -174,6 +174,33 @@
       ]
     },
     {
+      "clientId": "zot",
+      "name": "Zot Registry",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "secret": "$(env:ZOT_OIDC_CLIENT_SECRET)",
+      "redirectUris": ["https://registry.lab.appsfab.org/zot/auth/callback/oidc"],
+      "webOrigins": ["https://registry.lab.appsfab.org"],
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
       "clientId": "oauth2-proxy",
       "name": "Traefik ForwardAuth (oauth2-proxy)",
       "enabled": true,

@@ -22,6 +22,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | 13 | Registry ohne Vuln-Scanning | 🟢 | Zot **Trivy-CVE-Scanning** + scrub aktiviert (`zot.json`) |
 | 14 | Entschlüsselte Secrets-Datei ungeschützt | 🟡 | README: eigenes Dataset `fast/appdata/_secrets`, `chmod 600`, aus Backups ausschließen |
 | 15 | Zwei Secret-Quellen (SOPS-Datei unvollständig vs. Arcane-Env) → Drift, kein Rebuild aus Git möglich | 🟡 | 2026-11: SOPS entfernt; 1Password = einzige Quelle, `.env.example` = vollständige `op://`-Liste, CI-Check `scripts/check-env.sh` |
+| 16 | Keycloak öffentlich (Tunnel) ohne Brute-Force-Schutz; Admin-Konsole + master-Realm aus dem Internet erreichbar | 🔴 | 2026-11: `bruteForceProtected` + Passwort-Policy im Realm-JSON; Traefik-Router `keycloak-admin` mit `ipallowlist` (nur LAN) für `/admin` und `/realms/master` |
 
 ## Verbleibend — beim Deploy / bewusst akzeptiert
 

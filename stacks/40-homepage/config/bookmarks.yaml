@@ -1,0 +1,30 @@
+# Lesezeichen (https://gethomepage.dev/configs/bookmarks/) — Werkzeuge rund ums Lab.
+- Code:
+    - homelab-gitops:
+        - abbr: GH
+          href: https://github.com/appwerkstatt/homelab-gitops
+          description: NAS-Stacks (Quelle der Wahrheit, Arcane deployt main)
+    - Cluster-Repo:
+        - abbr: CL
+          href: https://git.appsfab.org/christian/cluster
+          description: Pi-k3s (Forgejo)
+
+- Konten:
+    - Mein Konto:
+        - abbr: ID
+          href: https://auth.appsfab.org/realms/AppsFab/account
+          description: Keycloak-Konto, Passkeys, Sitzungen
+    - 1Password:
+        - abbr: 1P
+          href: https://my.1password.com
+          description: Vault AppsFab (einzige Secret-Quelle)
+
+- Extern:
+    - Cloudflare:
+        - abbr: CF
+          href: https://dash.cloudflare.com
+          description: DNS + Tunnel (git/auth.appsfab.org)
+    - Telegram:
+        - abbr: TG
+          href: https://web.telegram.org
+          description: Alerts aus Alertmanager

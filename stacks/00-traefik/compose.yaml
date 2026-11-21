@@ -24,7 +24,7 @@ services:
       - --providers.docker=true
       - --providers.docker.endpoint=tcp://socket-proxy:2375    # statt direktem Socket
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=edge
+      # kein globales providers.docker.network: jeder geroutete Dienst setzt traefik.docker.network=edge-<stack>
       - --entrypoints.web.address=:80
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https

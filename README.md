@@ -19,14 +19,14 @@ Verwaltet von **Arcane** (TrueNAS-App), das dieses Repo überwacht und Stacks pe
 ```
 GitHub (dieses Repo)
    └─> Arcane (TrueNAS-App, manuell installiert)
-         └─> 00-traefik         (legt das externe Netz "edge" an, TLS via DNS-01)
+         └─> 00-traefik         (legt die Netze "edge-<stack>" an, TLS via DNS-01)
                └─> 01-forgejo + 02-keycloak   (Identity/Infra-Fundament)
                      └─> Rest:  03-oauth2-proxy · 11-paperless · 12-cloudflared · 20-observability
                                 21-garage · 22-harbor (= Zot) · 23-registry-cache · 30-netboot · 40-homepage
 ```
 
 1. **Arcane** als TrueNAS-App installieren (App-Pool = `fast`), dieses Repo als GitOps-Quelle hinterlegen.
-2. **00-traefik** zuerst — erstellt das gemeinsame Docker-Netz `edge` und holt das Wildcard-Zertifikat.
+2. **00-traefik** zuerst — erstellt die Docker-Netze `edge-<stack>` und holt das Wildcard-Zertifikat.
 3. **01-forgejo** + **02-keycloak** — danach kann GitHub optional nach Forgejo gespiegelt werden (GitHub bleibt die Wahrheit).
    - Realm-Änderungen reconcilen über `keycloak-config-cli` bei jedem Redeploy — siehe `stacks/02-keycloak/RECONCILE.md` (inkl. einmaliger Secret-Migration).
 4. Restliche Stacks. Daten vorher gemäß Runbook Phase 3 migrieren (Keycloak/Paperless = PG 17, Forgejo/Grafana/paperless-ai = Dateien/SQLite).
@@ -55,7 +55,12 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 
 ## Konventionen
 
-- **Netz `edge`:** extern, von `00-traefik` angelegt; alle web-exponierten Stacks hängen sich daran und werden per Traefik-Labels geroutet.
+- **Netze `edge-<stack>`:** von `00-traefik` angelegt, im Stack als `external`. Jeder web-exponierte Stack hängt
+  nur an seinem eigenen Netz, Traefik an allen → Backends erreichen sich nicht gegenseitig (kein Umgehen von
+  `sso@docker`). Geroutete Dienste setzen `traefik.docker.network=edge-<stack>`. Ausnahmen, bewusst:
+  blackbox (Probes, mehrere Netze), Forgejo zusätzlich in `edge-netboot` (Konsole klont direkt).
+  Server-seitige Aufrufe an `auth.appsfab.org`/`auth.lab.appsfab.org` laufen über Traefiks Netz-Aliase.
+  Neuer Stack ⇒ Netz in `00-traefik` ergänzen (Netz + Traefik-Attachment), Traefik zuerst deployen.
 - **Domains:** `*.lab.appsfab.org` = nur intern (Split-Horizon → Traefik `192.168.80.48`, macvlan `vlan80`;
   der NAS-Host `.50` erreicht `.48` wegen Hairpin nicht → NAS-lokal `127.0.0.1:<port>`).
   `*.appsfab.org` = öffentlich über den Cloudflare-Tunnel, **nur** `git.appsfab.org` und `auth.appsfab.org`

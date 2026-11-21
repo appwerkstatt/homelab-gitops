@@ -59,7 +59,7 @@ services:
       # --- Phase 2b: Inventory-Write-Pfad (PUT/render/commit/push) ---
       # Repo-Working-Tree liegt unter /opt/console/repo (bind-mount unten). Beim
       # ersten Start klont der entrypoint von FORGEJO_CLONE_URL (docker-internes
-      # http://forgejo:3000/... — forgejo+console teilen das edge-Netz, also
+      # http://forgejo:3000/... — forgejo+console teilen das Netz edge-netboot, also
       # geht Docker-DNS und der macvlan-Hairpin auf TrueNAS spielt keine Rolle).
       # Token kommt aus 1Password (via Arcane-Env, siehe .env.example) und wird NICHT
       # in der gespeicherten remote-URL persistiert — repo-lokaler credential-
@@ -118,17 +118,18 @@ services:
       - /mnt/fast/appdata/netboot-console/wipe-ssh.key:/etc/console/wipe-ssh.key:ro  # Phase 2g: SSH-Private-Key
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-netboot
       - traefik.http.routers.netboot.rule=Host(`netboot.${LAB_DOMAIN}`)
       - traefik.http.routers.netboot.entrypoints=websecure
       - traefik.http.routers.netboot.tls.certresolver=le
       - traefik.http.services.netboot.loadbalancer.server.port=8081   # App lauscht auf 8081 (war fälschlich 8090)
-    networks: [edge, netboot-internal]
+    networks: [edge-netboot, netboot-internal]
     mem_limit: 128m
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-netboot:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
   netboot-internal:
   # vlan80 wird von 00-traefik angelegt (macvlan, parent enp3s0) und hier nur wiederverwendet
   # -> kein zweites macvlan auf demselben Parent/Subnetz (das würde kollidieren).

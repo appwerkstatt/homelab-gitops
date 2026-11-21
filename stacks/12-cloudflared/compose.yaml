@@ -15,10 +15,10 @@ services:
     volumes:
       - /mnt/fast/appdata/cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
       - ./config.yml:/etc/cloudflared/config.yml:ro       # explizite Ingress-Regeln (Repo)
-    networks: [edge]
+    networks: [edge-tunnel]
     mem_limit: 128m
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-tunnel:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack

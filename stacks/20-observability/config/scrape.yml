@@ -12,3 +12,49 @@ scrape_configs:
   - job_name: cadvisor
     static_configs:
       - targets: ["cadvisor:8080"]
+  - job_name: vmalert
+    static_configs:
+      - targets: ["vmalert:8880"]
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+  - job_name: blackbox
+    static_configs:
+      - targets: ["blackbox:9115"]
+
+  # Dienst-Healthchecks über das edge-Netz (Docker-DNS, kein macvlan-Hairpin).
+  # Neuer web-exponierter Dienst -> hier einen internen Health-Endpoint ergänzen.
+  - job_name: probe-http
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    static_configs:
+      - targets:
+          - http://keycloak:8080/realms/AppsFab
+          - http://forgejo:3000/api/healthz
+          - http://grafana:3000/api/health
+          - http://oauth2-proxy:4180/ping
+          - http://zot:5000/v2/
+          - http://garage:3903/health
+          - http://dockerhub:5000/v2/
+    relabel_configs: &blackbox_relabel
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  - job_name: probe-paperless
+    metrics_path: /probe
+    params: { module: [http_paperless] }
+    static_configs:
+      - targets: ["http://paperless:8000/"]
+    relabel_configs: *blackbox_relabel
+
+  # Wildcard-Zertifikat (Traefik) über den edge-Alias auth.lab.appsfab.org -> Traefik:443.
+  - job_name: probe-tls
+    metrics_path: /probe
+    params: { module: [tls_cert] }
+    static_configs:
+      - targets: ["auth.lab.appsfab.org:443"]
+    relabel_configs: *blackbox_relabel

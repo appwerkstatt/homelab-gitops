@@ -42,3 +42,16 @@ jobs:
             echo "::endgroup::"
           done
           exit $fail
+
+      - name: Validate alerting configs (vmalert rules, Alertmanager, blackbox)
+        run: |
+          cfg=stacks/20-observability/config
+          vm=$(grep -oE 'victoriametrics/vmalert:[^ ]+' stacks/20-observability/compose.yaml)
+          am=$(grep -oE 'prom/alertmanager:[^ ]+' stacks/20-observability/compose.yaml)
+          bb=$(grep -oE 'prom/blackbox-exporter:[^ ]+' stacks/20-observability/compose.yaml)
+          docker run --rm -v "$PWD/$cfg:/c:ro" "$vm" -rule=/c/alerts.yml -dryRun
+          # Template mit Dummy-Werten rendern, wie es der Container beim Start tut
+          mkdir -p /tmp/am
+          sed -e 's|__TELEGRAM_BOT_TOKEN__|000:dummy|' -e 's|__TELEGRAM_CHAT_ID__|-1|' "$cfg/alertmanager.tmpl.yml" > /tmp/am/alertmanager.yml
+          docker run --rm -v /tmp/am:/c:ro --entrypoint amtool "$am" check-config /c/alertmanager.yml
+          docker run --rm -v "$PWD/$cfg:/c:ro" "$bb" --config.file=/c/blackbox.yml --config.check

@@ -4,14 +4,31 @@
     "address": "0.0.0.0",
     "port": "5000",
     "compat": ["docker2s2"],
-    "auth": { "htpasswd": { "path": "/etc/zot/htpasswd" } },
+    "externalUrl": "https://registry.lab.appsfab.org",
+    "auth": {
+      "htpasswd": { "path": "/etc/zot/htpasswd" },
+      "apikey": true,
+      "openid": {
+        "providers": {
+          "oidc": {
+            "name": "Keycloak",
+            "issuer": "https://auth.lab.appsfab.org/realms/AppsFab",
+            "credentialsFile": "/etc/zot/oidc/oidc.json",
+            "scopes": ["openid", "profile", "email"],
+            "claimMapping": { "username": "preferred_username", "groups": "groups" }
+          }
+        }
+      }
+    },
     "accessControl": {
       "repositories": {
         "**": {
           "anonymousPolicy": [],
           "policies": [
             { "users": ["ci"], "actions": ["read", "create", "update"] },
-            { "users": ["pull"], "actions": ["read"] }
+            { "users": ["pull"], "actions": ["read"] },
+            { "groups": ["lab-admins"], "actions": ["read", "create", "update", "delete"] },
+            { "groups": ["lab-users"], "actions": ["read"] }
           ]
         }
       }

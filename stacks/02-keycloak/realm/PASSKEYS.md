@@ -4,7 +4,10 @@ Konfiguriert in `AppsFab-realm.json`:
 
 - **Policy** (`webAuthnPolicyPasswordless*`): `requireResidentKey = Yes` (= echte Passkeys / discoverable credentials),
   `userVerificationRequirement = preferred`, Signatur-Algorithmen ES256/RS256.
-  `RpId` ist leer → Keycloak leitet sie automatisch vom Host ab (`auth.lab.appsfab.org`).
+  `RpId` = `appsfab.org` (Policy + Passwordless-Policy) → Passkeys gelten für jeden Login-Host unter appsfab.org,
+  aktuell `auth.appsfab.org` (Realm-frontendUrl). Seit 2026-11 fest gesetzt: vorher war RpId leer und damit
+  an `auth.lab.appsfab.org` gebunden — diese alten Passkeys funktionieren nach dem Umzug NICHT mehr und
+  müssen einmal neu registriert werden (Account-Console → Signing in → Passkey hinzufügen, alten löschen).
 - **Required Action** `webauthn-register-passwordless`: aktiviert (User können in der Account-Console einen Passkey anlegen).
   Nicht als Default erzwungen — soll jeder neue User direkt zur Passkey-Registrierung aufgefordert werden,
   `defaultAction` auf `true` setzen.

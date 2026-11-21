@@ -1,5 +1,8 @@
 {
   "realm": "AppsFab",
+  "attributes": {
+    "frontendUrl": "https://auth.appsfab.org"
+  },
   "enabled": true,
   "displayName": "AppsFab Homelab",
   "loginWithEmailAllowed": true,
@@ -19,7 +22,8 @@
   "browserFlow": "browser-passkey",
 
   "webAuthnPolicyPasswordlessRpEntityName": "AppsFab Homelab",
-  "webAuthnPolicyPasswordlessRpId": "",
+  "webAuthnPolicyPasswordlessRpId": "appsfab.org",
+  "webAuthnPolicyRpId": "appsfab.org",
   "webAuthnPolicyPasswordlessSignatureAlgorithms": ["ES256", "RS256"],
   "webAuthnPolicyPasswordlessAttestationConveyancePreference": "not specified",
   "webAuthnPolicyPasswordlessAuthenticatorAttachment": "not specified",

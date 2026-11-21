@@ -156,12 +156,13 @@
         description: NAS-Verwaltung (Pools, Snapshots, Apps)
     - Arcane:
         icon: arcane.png
-        href: http://192.168.80.50:3334
+        href: http://truenas.server:30258/containers
         description: GitOps-Deploy der Stacks aus GitHub main
-        # Direkt auf den NAS-Host (.50), nicht über Traefik: Bridge-Container -> Host geht ohne Hairpin.
+        # Widget direkt auf den NAS-Host (truenas.server = .50, im Container nicht auflösbar), nicht über
+        # Traefik: Bridge-Container -> Host geht ohne Hairpin.
         widget:
           type: arcane
-          url: http://192.168.80.50:3334
+          url: http://192.168.80.50:30258
           env: "0"          # Environment-ID von "Local" (Arcane -> Environments)
           key: "{{HOMEPAGE_VAR_ARCANE_KEY}}"
           fields: [running, stopped, total, image_updates]

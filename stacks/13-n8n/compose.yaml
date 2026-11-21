@@ -1,5 +1,5 @@
 # 13-n8n — Workflow-Automatisierung (n8n + Postgres 17), LLMs lokal über Ollama auf dem Mac Studio.
-# Editor hinter Keycloak (sso@docker). Produktive Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/),
+# Editor hinter Keycloak (sso@docker). Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/ + /webhook-test/),
 # im LAN zusätzlich unter n8n.lab (inkl. Test- und Waiting-Webhooks).
 # Mac-Studio-Einrichtung (Ollama im LAN, Firewall nur für das NAS, kein Ruhezustand): docs/mac-studio-llm.md
 #
@@ -35,8 +35,8 @@ services:
       N8N_PROTOCOL: https
       N8N_EDITOR_BASE_URL: https://n8n.${LAB_DOMAIN}/
       # Basis für alle angezeigten/registrierten Webhook-URLs (z. B. Telegram-/GitHub-Trigger registrieren
-      # sich damit selbst). Öffentlich geht nur /webhook/ — Test-URLs (/webhook-test/) und Wait-Resume-URLs
-      # (/webhook-waiting/) dafür im LAN über n8n.lab aufrufen, über hooks.appsfab.org liefern sie 404.
+      # sich damit selbst). Öffentlich gehen /webhook/ und /webhook-test/; Wait-Resume-URLs
+      # (/webhook-waiting/) nur im LAN über n8n.lab, über hooks.appsfab.org liefern sie 404.
       WEBHOOK_URL: https://hooks.appsfab.org/
       N8N_PROXY_HOPS: "1"                 # genau ein Proxy davor (Traefik) -> X-Forwarded-For vertrauen
       GENERIC_TIMEZONE: ${TZ}
@@ -87,10 +87,11 @@ services:
       - traefik.http.routers.n8n-webhook.tls.certresolver=le
       - traefik.http.routers.n8n-webhook.priority=100
       - traefik.http.routers.n8n-webhook.service=n8n
-      # Öffentlich: hooks.appsfab.org (Cloudflare-Tunnel, stacks/12-cloudflared/config.yml) NUR /webhook/.
+      # Öffentlich: hooks.appsfab.org (Cloudflare-Tunnel, stacks/12-cloudflared/config.yml) NUR /webhook/ + /webhook-test/
+      # (Test-URLs lauschen nur, solange im Editor "Listen for test event" läuft).
       # Alles andere auf diesem Host hat keinen Router -> Traefik 404 (kein Editor, keine API von außen).
       # Einstufiger Name, weil Cloudflares Gratis-Zertifikat nur *.appsfab.org abdeckt.
-      - traefik.http.routers.n8n-hooks.rule=Host(`hooks.appsfab.org`) && PathPrefix(`/webhook/`)
+      - traefik.http.routers.n8n-hooks.rule=Host(`hooks.appsfab.org`) && (PathPrefix(`/webhook/`) || PathPrefix(`/webhook-test/`))
       - traefik.http.routers.n8n-hooks.entrypoints=websecure
       - traefik.http.routers.n8n-hooks.tls.certresolver=le
       - traefik.http.routers.n8n-hooks.middlewares=n8n-hooks-ratelimit

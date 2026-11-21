@@ -184,6 +184,9 @@
       "secret": "$(env:ZOT_OIDC_CLIENT_SECRET)",
       "redirectUris": ["https://registry.lab.appsfab.org/zot/auth/callback/oidc"],
       "webOrigins": ["https://registry.lab.appsfab.org"],
+      "attributes": {
+        "post.logout.redirect.uris": "https://registry.lab.appsfab.org/login"
+      },
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [
         {

@@ -24,3 +24,11 @@ schema_config:
         period: 24h
 limits_config:
   retention_period: 744h     # 31 Tage
+# Retention greift NUR über den Compactor (retention_enabled). Ohne diesen Block löscht
+# Loki nie Chunks und /mnt/fast/appdata/loki wächst unbegrenzt.
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem   # Pflicht, sobald retention_enabled=true

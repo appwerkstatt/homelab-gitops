@@ -18,6 +18,9 @@ services:
       # Notzugang, falls Keycloak down ist: Wert auf "true" setzen oder per CLI arbeiten
       #   (docker exec -u git forgejo-forgejo-1 forgejo admin user ...).
       FORGEJO__service__ENABLE_INTERNAL_SIGNIN: "false"
+      # Klassisches OpenID 2.0 ("Mit OpenID fortfahren") aus — Login nur über die Keycloak-Quelle.
+      FORGEJO__openid__ENABLE_OPENID_SIGNIN: "false"
+      FORGEJO__openid__ENABLE_OPENID_SIGNUP: "false"
       # kein SSH_LISTEN_PORT: das normale Forgejo-Image nutzt den Container-OpenSSH auf Port 22
       #
       # OIDC-Quelle gegen Keycloak — EINMALIG nach dem ersten Start (liegt danach in gitea.db, persistent):

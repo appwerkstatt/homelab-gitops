@@ -4,6 +4,7 @@
 tunnel: 61570dd5-74aa-409e-8963-1ef61a368753
 credentials-file: /etc/cloudflared/credentials.json
 
+# Nach jeder Änderung hier: CF_INGRESS_REV in compose.yaml hochzählen (sonst kein Neustart).
 ingress:
   # --- explizit veröffentlichte Dienste (nur was WIRKLICH öffentlich sein muss) ---
   - hostname: git.appsfab.org

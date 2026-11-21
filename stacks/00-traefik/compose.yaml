@@ -1,4 +1,4 @@
-# 00-traefik — Reverse Proxy + Wildcard-TLS (DNS-01) + erstellt die Netze "edge" und "edge-<stack>".
+# 00-traefik — Reverse Proxy + Wildcard-TLS (DNS-01) + erstellt die Netze "edge-<stack>".
 # Härtung: Traefik spricht NICHT direkt mit dem Docker-Socket, sondern über einen
 # read-only socket-proxy (kein Host-Root-Risiko). Dashboard hinter SSO.
 name: traefik
@@ -57,20 +57,16 @@ services:
     networks:
       vlan80:
         ipv4_address: 192.168.80.48   # eigene VLAN-IP; *.lab.appsfab.org zeigt hierauf
-      edge:
-        # cross-stack erreichbar (cloudflared, Backends). Die FQDN-Aliase loesen das
-        # macvlan-Hairpin-Problem: serverseitige Container-Calls (OIDC-Discovery/Token/JWKS)
-        # an die oeffentliche FQDN wuerden sonst auf .48 zeigen und scheitern (no route to host,
-        # Host<->macvlan-Kind ist gesperrt). Ueber den Alias bleibt der Verkehr im edge-Bridge-Netz:
-        # Docker-DNS -> Traefik-Bridge-IP -> SNI bleibt auth.* (Wildcard-Cert) -> Host-Routing an Keycloak.
-        # Weitere intern serverseitig aufgerufene Hosts hier nachtragen (i.d.R. nur Keycloak noetig).
+      # Netze pro Stack (SECURITY.md G): Traefik ist der EINZIGE Container in allen (plus blackbox für
+      # Probes), Backends sehen sich gegenseitig nicht. Die FQDN-Aliase lösen das macvlan-Hairpin-Problem:
+      # serverseitige Container-Calls (OIDC-Discovery/Token/JWKS) an auth.* würden sonst auf .48 zeigen und
+      # scheitern (Host<->macvlan-Kind gesperrt). Über den Alias: Docker-DNS -> Traefik-Bridge-IP -> SNI auth.*
+      # -> Host-Routing an Keycloak. Weitere intern serverseitig aufgerufene Hosts hier nachtragen.
+      edge-forgejo:
         aliases: &traefik_aliases
           - traefik
           - auth.${LAB_DOMAIN}
-          - auth.appsfab.org      # Realm-Issuer (frontendUrl) — Container müssen ihn intern über Traefik erreichen
-      # Netze pro Stack (Aufteilung von "edge", SECURITY.md G): Traefik ist der EINZIGE Container in
-      # allen, Backends sehen sich gegenseitig nicht mehr. Gleiche Aliase in jedem Netz (OIDC-Issuer).
-      edge-forgejo: { aliases: *traefik_aliases }
+          - auth.appsfab.org      # Realm-Issuer (frontendUrl)
       edge-keycloak: { aliases: *traefik_aliases }
       edge-sso: { aliases: *traefik_aliases }
       edge-paperless: { aliases: *traefik_aliases }
@@ -86,8 +82,6 @@ services:
     restart: unless-stopped
 
 networks:
-  edge:
-    name: edge          # erstellt das externe Netz; andere Stacks nutzen es als external
   # Netze pro Stack — hier angelegt (Traefik deployt zuerst), in den Stacks als external genutzt.
   edge-forgejo:
     name: edge-forgejo          # 01-forgejo (+ netboot-console für git clone/push)

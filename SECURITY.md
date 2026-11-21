@@ -27,6 +27,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | 18 | Anonymer LAN-Zugriff: Zot lesbar ohne Login, `mirror.lab` offener Docker-Hub-Proxy, `docs-ai`/`home` ohne SSO | 🟡 | 2026-11: Zot `anonymousPolicy: []` (UI per Keycloak-OIDC, Robots `ci`/`pull`), `mirror.lab` nur VLAN 80 + 10 (`MIRROR_ALLOWED_CIDRS`), `docs-ai` + `home` hinter `sso@docker` |
 | 19 | Forgejo mit lokalem Passwort-Login aus dem Internet | 🟡 | 2026-11: Web-Login nur per Keycloak-SSO (`ENABLE_INTERNAL_SIGNIN=false`, `/user/login` → Keycloak) |
 | 20 | Renovate-Automerge ohne echte Prüfung | 🟡 | 2026-11: `validate` prüft Compose streng (Warnung = Fehler) und dass jedes geänderte Image für `linux/amd64` existiert |
+| 21 | Gemeinsames Docker-Netz `edge`: jeder Web-Container erreichte jeden anderen direkt (an `sso@docker` vorbei) | 🟡 | 2026-11: Netze `edge-<stack>`, nur Traefik (und blackbox für Probes) in mehreren; `edge-tunnel` fest `172.31.253.0/24` außerhalb der LAN-Allowlist |
 
 ## Verbleibend — beim Deploy / bewusst akzeptiert
 
@@ -38,7 +39,6 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | D | democratic-csi `allowInsecure: true` (selbstsigniertes TrueNAS-Cert) | 🟢 | akzeptiert intern; optional interne CA + Pinning |
 | E | `backup`-Pool ohne Redundanz (Single-Disk) | 🟢 | bekannt; keine Live-RWX-Daten drauf (Phase 4 verschiebt k8s-NFS auf `data`) |
 | F | Version-Pins von VictoriaMetrics/Garage/Zot/dnsmasq | 🟢 | Renovate hält sie aktuell (auch das restic-Image in `docs/nas-backup/backup-offsite.sh`, Regex-Manager) |
-| G | Gemeinsames Docker-Netz `edge`: jeder Web-Container erreicht jeden anderen direkt (an ForwardAuth vorbei) | 🟡 | in Arbeit — Netze `edge-<stack>`, nur Traefik (und blackbox für Probes) verbindet. Schritt 1: Traefik legt die Netze an; Schritt 2: Stacks ziehen um; Schritt 3: `edge` entfernen |
 | H | Garage (`data/garage`: etcd- + Longhorn-Backups des Clusters) ohne Snapshot/Replikation/Offsite | 🟡 | offen |
 
 ## Grundsätzlich gut (bestätigt)

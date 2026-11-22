@@ -1,6 +1,7 @@
 # 13-n8n — Workflow-Automatisierung (n8n + Postgres 17), LLMs lokal über Ollama auf dem Mac Studio.
 # Editor hinter Keycloak (sso@docker). Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/ + /webhook-test/),
 # im LAN zusätzlich unter n8n.lab (inkl. Test- und Waiting-Webhooks).
+# Websuche des Assistenten über die stack-interne SearXNG-Instanz (searxng-settings.yml).
 # Mac-Studio-Einrichtung (Ollama im LAN, Firewall nur für das NAS, kein Ruhezustand): docs/mac-studio-llm.md
 #
 # Vor dem ersten Deploy (einmalig, auf dem NAS):
@@ -78,11 +79,15 @@ services:
       N8N_INSTANCE_AI_SANDBOX_API_URL: ${N8N_SANDBOX_SERVICE_URL}
       N8N_SANDBOX_SERVICE_URL: ${N8N_SANDBOX_SERVICE_URL}
       N8N_SANDBOX_SERVICE_API_KEY: ${N8N_SANDBOX_SERVICE_API_KEY}
+      # Websuche für den Assistenten: eigene SearXNG-Instanz (Dienst unten), kein API-Key nötig.
+      N8N_INSTANCE_AI_SEARXNG_URL: http://searxng:8080
     volumes:
       - /mnt/fast/appdata/n8n/data:/home/node/.n8n    # Config, Binärdaten, Community-Nodes
     depends_on:
       n8n-db:
         condition: service_healthy
+      searxng:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.docker.network=edge-n8n
@@ -116,6 +121,19 @@ services:
       - traefik.http.services.n8n.loadbalancer.server.port=5678
     networks: [edge-n8n, n8n-internal]
     mem_limit: 2g
+    restart: unless-stopped
+
+  # Metasuchmaschine für die Websuche des Assistenten. Nur im Stack-Netz (kein Traefik, kein Port),
+  # fragt selbst Google/Bing/DuckDuckGo & Co. ab. JSON-Ausgabe ist in searxng-settings.yml eingeschaltet.
+  searxng:
+    image: searxng/searxng:2026.11.21-c6ee3e9fd
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./searxng-settings.yml:/etc/searxng/settings.yml:ro
+    networks: [n8n-internal]
+    mem_limit: 512m
     restart: unless-stopped
 
 networks:

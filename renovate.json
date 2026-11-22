@@ -41,6 +41,16 @@
         "major"
       ],
       "enabled": false
+    },
+    {
+      "description": "SearXNG taggt JJJJ.MM.TT-<commit>; ohne Regex hält Renovate den Hash für eine Variante und findet nie Updates. Tag im selben Monat = Patch (Automerge), neuer Monat = Minor (manuell)",
+      "matchManagers": [
+        "docker-compose"
+      ],
+      "matchPackageNames": [
+        "searxng/searxng"
+      ],
+      "versioning": "regex:^(?<major>\\d{4})\\.(?<minor>\\d{1,2})\\.(?<patch>\\d{1,2})-[0-9a-f]+$"
     }
   ],
   "customManagers": [

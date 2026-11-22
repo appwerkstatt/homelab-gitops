@@ -1,0 +1,11 @@
+# SearXNG für die Websuche des n8n-Assistenten (nur intern, http://searxng:8080).
+# Alles Übrige kommt aus den SearXNG-Standards; secret_key setzt SEARXNG_SECRET aus 1Password.
+use_default_settings: true
+
+search:
+  formats: [html, json]     # n8n fragt /search?format=json ab
+
+server:
+  limiter: false            # Bot-Schutz nur für öffentliche Instanzen (bräuchte Valkey); hier fragt nur n8n
+  image_proxy: false
+  public_instance: false

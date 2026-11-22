@@ -36,6 +36,7 @@ services:
     image: tecnativa/docker-socket-proxy:v0.5.0
     environment:
       CONTAINERS: 1          # Container auflisten + Logs lesen
+      NETWORKS: 1            # discovery.docker liest die Netze für Labels (sonst 403)
       POST: 0                # keine schreibenden Docker-API-Calls
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

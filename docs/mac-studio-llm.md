@@ -98,12 +98,13 @@ die Regel muss auf dem Mac sitzen.
 `/etc/pf.anchors/org.appsfab.ollama`:
 
 ```
-# Ollama (11434): nur localhost und das NAS (Container gehen per NAT mit .50 raus)
-pass  in quick on lo0 proto tcp from any to any port 11434
-pass  in quick proto tcp from 192.168.80.50 to any port 11434
+# Ollama (11434) + LM Studio (1234): nur localhost und das NAS (Container gehen per NAT mit .50 raus)
+llm_ports = "{ 11434, 1234 }"
+pass  in quick on lo0 proto tcp from any to any port $llm_ports
+pass  in quick proto tcp from 192.168.80.50 to any port $llm_ports
 # optional, z. B. Christians Mac im Trusted-VLAN (IP eintragen, dann Zeile aktivieren):
-# pass in quick proto tcp from 192.168.10.X to any port 11434
-block in quick proto tcp from any to any port 11434
+# pass in quick proto tcp from 192.168.10.X to any port $llm_ports
+block in quick proto tcp from any to any port $llm_ports
 ```
 
 In `/etc/pf.conf` **ans Ende** anhängen (macOS-Updates können die Datei zurücksetzen, danach
@@ -142,6 +143,28 @@ Zusätzlich (optional, Verteidigung in der Tiefe): in UniFi eine Regel, die aus 
 VLANs** TCP `192.168.80.30:11434` verwirft. Das fängt den Fall ab, dass pf nach einem macOS-Update
 still aus ist.
 
+## 2b. LM Studio für den n8n-Assistenten
+
+Der n8n-Assistent (Instance AI) spricht nur OpenAI-kompatible APIs, nicht Ollama. Dafür läuft
+**LM Studio** parallel zu Ollama (Ollama bleibt für paperless-ai und die Ollama-Nodes in Workflows).
+
+1. LM Studio installieren, Modell laden. Für einen Agenten, der Workflows baut, braucht es
+   zuverlässiges **Tool-Calling** und viel Kontext, z. B. `qwen/qwen3-coder-30b` oder (bei genug RAM)
+   `openai/gpt-oss-120b`. Kleine Modelle (< 14B) scheitern hier meist.
+2. *Developer → Local Server:*
+   - **Serve on Local Network** an (sonst nur 127.0.0.1), Port **1234**
+   - **Just-in-Time Model Loading** an, *Auto unload* z. B. nach 60 min
+   - Beim Modell die **Context Length** auf mindestens 32768 setzen
+3. *Settings → App:* **Run LLM server on login** an. LM Studio läuft dann ohne geöffnetes Fenster.
+   Weil das an den Login gebunden ist: in *Systemeinstellungen → Benutzer & Gruppen* die
+   **automatische Anmeldung** für den Mac Studio einschalten (geht nur ohne FileVault).
+4. Die Modell-ID für `.env.example` (`N8N_INSTANCE_AI_MODEL=openai/<id>`) vom NAS abfragen:
+   ```bash
+   curl -s http://192.168.80.30:1234/v1/models | python3 -m json.tool | grep '"id"'
+   ```
+5. RAM: Ollama und LM Studio halten Modelle jeweils im Speicher. `OLLAMA_KEEP_ALIVE` und das
+   Auto-Unload von LM Studio sorgen dafür, dass sich beide nicht dauerhaft blockieren.
+
 ## 3. Nie schlafen, nach Stromausfall wieder hochfahren
 
 ```bash
@@ -163,6 +186,7 @@ Vom **NAS** (TrueNAS-Shell):
 
 ```bash
 curl -s http://192.168.80.30:11434/api/version      # {"version":"..."}
+curl -s http://192.168.80.30:1234/v1/models          # LM Studio: Liste der Modelle
 ```
 
 Von **einem anderen Gerät** (z. B. Laptop im Trusted-VLAN) muss das scheitern:
@@ -183,7 +207,7 @@ Nach einem Neustart des Mac (ohne Login) nochmal den NAS-Test: Ollama und pf mü
 
 ## 6. Plan B, wenn der Mac aus ist
 
-- **Alarm:** blackbox probt `http://192.168.80.30:11434/api/version` (Job `probe-llm`); nach 10 min
+- **Alarm:** blackbox probt `http://192.168.80.30:11434/api/version` und `:1234/v1/models` (Job `probe-llm`); nach 10 min
   ohne Antwort kommt `LlmHostDown` per Telegram.
 - **Im Workflow:**
   - Am *AI Agent*-Node **„Fallback Model“** aktivieren und ein zweites Modell anhängen (anderes,

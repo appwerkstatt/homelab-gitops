@@ -66,8 +66,10 @@ services:
       # OpenAI-kompatibel (für Nodes ohne Ollama-Variante): http://192.168.80.30:11434/v1, API-Key beliebig.
       CREDENTIALS_OVERWRITE_DATA: '{"ollamaApi":{"baseUrl":"http://192.168.80.30:11434"}}'
       # --- n8n-Assistent (Instance AI) ---
-      # Modell + Key: offiziell nur anthropic/openai/openrouter (Ollama nicht unterstützt).
+      # Modell: LM Studio auf dem Mac Studio (OpenAI-kompatibel, Port 1234, nur vom NAS erreichbar;
+      # docs/mac-studio-llm.md). Format provider/modell, "openai/" = OpenAI-API-Dialekt der URL.
       N8N_INSTANCE_AI_MODEL: ${N8N_INSTANCE_AI_MODEL}
+      N8N_INSTANCE_AI_MODEL_URL: ${N8N_INSTANCE_AI_MODEL_URL}
       N8N_INSTANCE_AI_MODEL_API_KEY: ${N8N_INSTANCE_AI_MODEL_API_KEY}
       # Code-Sandbox: läuft NICHT hier, sondern in der VM n8n-sandbox (privilegierter DinD-Runner,
       # vms/n8n-sandbox/README.md). Erreichbar nur vom NAS, Zugriff per API-Key.

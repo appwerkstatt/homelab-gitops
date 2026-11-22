@@ -1,53 +1,182 @@
-- Identity & Git:
+# Dienste (https://gethomepage.dev/configs/services/). Gruppen-Reihenfolge/Spalten: settings.yaml.
+#
+# Erreichbarkeit: Homepage hängt nur an edge-home und erreicht alles über Traefik. Damit die echten
+# FQDNs nicht auf .48 zeigen (macvlan-Hairpin), hat Traefik in edge-home Netz-Aliase für genau die Hosts
+# unten (stacks/00-traefik/compose.yaml). Neuer siteMonitor/Widget-Host ⇒ dort als Alias eintragen.
+# siteMonitor: HTTP ≤ 403 = grün (401/403 von Login/Allowlist zählt als "lebt").
+#
+# Secrets kommen als HOMEPAGE_VAR_* aus der Arcane-Env (compose.yaml, .env.example → 1Password).
+#
+# Status-Kacheln fragen VictoriaMetrics über den Grafana-Datasource-Proxy (uid victoriametrics) mit einem
+# Viewer-Service-Account-Token. Queries sind MetricsQL (sort_by_label/union/label_set = VM-Erweiterungen),
+# die Reihenfolge der Ergebnisse ist über das Label k festgelegt, damit die Indizes in mappings stimmen.
+# Geschweifte Klammern der Label-Matcher MÜSSEN als %7B/%7D stehen: Homepage ersetzt {…} in URLs als
+# Platzhalter (ein roher Matcher würde stillschweigend gelöscht).
+
+- Status:
+    - Grafana:
+        icon: grafana.png
+        href: https://grafana.lab.appsfab.org
+        description: Dashboards (VictoriaMetrics + Loki), Keycloak-Login
+        siteMonitor: https://grafana.lab.appsfab.org/api/health
+    - Dienste:
+        icon: mdi-heart-pulse
+        href: https://grafana.lab.appsfab.org
+        description: blackbox-Probes + vmalert
+        widget:
+          type: customapi
+          url: >-
+            https://grafana.lab.appsfab.org/api/datasources/proxy/uid/victoriametrics/api/v1/query?query=sort_by_label(union(
+            label_set(count(probe_success%7Bjob=~"probe-.*"%7D == 1) or vector(0), "k", "1"),
+            label_set(count(probe_success%7Bjob=~"probe-.*"%7D) or vector(0), "k", "2"),
+            label_set(count(ALERTS%7Balertstate="firing"%7D) or vector(0), "k", "3")), "k")
+          headers:
+            Authorization: Bearer {{HOMEPAGE_VAR_GRAFANA_TOKEN}}
+          refreshInterval: 60000
+          mappings:
+            - label: Probes ok
+              field: data.result.0.value.1
+              format: number
+            - label: Probes gesamt
+              field: data.result.1.value.1
+              format: number
+            - label: Alerts aktiv
+              field: data.result.2.value.1
+              format: number
+    - Alerts:
+        icon: telegram.png
+        description: vmalert → Alertmanager → Telegram
+        widget:
+          type: customapi
+          url: >-
+            https://grafana.lab.appsfab.org/api/datasources/proxy/uid/victoriametrics/api/v1/query?query=ALERTS%7Balertstate="firing"%7D
+          headers:
+            Authorization: Bearer {{HOMEPAGE_VAR_GRAFANA_TOKEN}}
+          refreshInterval: 60000
+          display: dynamic-list
+          mappings:
+            items: data.result
+            name: metric.alertname
+            label: metric.severity
+            limit: 5
+    - NAS:
+        icon: truenas-scale.png
+        href: https://192.168.80.50
+        description: TrueNAS 25.10 · freier Platz je Pool
+        widget:
+          type: customapi
+          url: >-
+            https://grafana.lab.appsfab.org/api/datasources/proxy/uid/victoriametrics/api/v1/query?query=sort_by_label(union(
+            label_set(100 * (1 - avg(rate(node_cpu_seconds_total%7Binstance="node-exporter:9100",mode="idle"%7D[5m]))) or vector(0), "k", "1"),
+            label_set(max(node_filesystem_avail_bytes%7Binstance="node-exporter:9100",mountpoint="/mnt/fast"%7D) or vector(0), "k", "2"),
+            label_set(max(node_filesystem_avail_bytes%7Binstance="node-exporter:9100",mountpoint="/mnt/data"%7D) or vector(0), "k", "3"),
+            label_set(max(node_filesystem_avail_bytes%7Binstance="node-exporter:9100",mountpoint="/mnt/backup"%7D) or vector(0), "k", "4")), "k")
+          headers:
+            Authorization: Bearer {{HOMEPAGE_VAR_GRAFANA_TOKEN}}
+          refreshInterval: 60000
+          mappings:
+            - label: CPU
+              field: data.result.0.value.1
+              format: percent
+            - label: fast frei
+              field: data.result.1.value.1
+              format: bytes
+            - label: data frei
+              field: data.result.2.value.1
+              format: bytes
+            - label: backup frei
+              field: data.result.3.value.1
+              format: bytes
+
+- Zugang:
     - Keycloak:
-        href: https://auth.lab.appsfab.org
-        description: IAM / SSO (Passkeys)
         icon: keycloak.png
+        href: https://auth.appsfab.org/realms/AppsFab/account
+        description: SSO-Login (öffentlich, Passkeys) · eigenes Konto
+        siteMonitor: https://auth.appsfab.org/realms/AppsFab
+    - Keycloak Admin:
+        icon: keycloak.png
+        href: https://auth.lab.appsfab.org/admin/master/console/
+        description: Admin-Konsole, nur aus dem LAN
+
+- Entwicklung & Automatisierung:
     - Forgejo:
-        href: https://git.appsfab.org
-        description: Git + Actions
         icon: forgejo.png
+        href: https://git.appsfab.org
+        description: Git + Actions, Login nur per Keycloak-SSO
+        siteMonitor: https://git.appsfab.org/api/healthz
+    - Zot:
+        icon: mdi-package-variant-closed
+        href: https://registry.lab.appsfab.org
+        description: OCI-Registry · UI per Keycloak, CLI per API-Key
+        siteMonitor: https://registry.lab.appsfab.org/v2/
+    - Docker-Hub-Mirror:
+        icon: docker.png
+        description: mirror.lab.appsfab.org · Pull-Through-Cache, nur VLAN 80 + 10
+    - n8n:
+        icon: n8n.png
+        href: https://n8n.lab.appsfab.org
+        description: Workflows + LLMs (Mac Studio) · im Aufbau
+        # siteMonitor erst nach dem Deploy des n8n-Stacks einschalten (vorher 404 = rot):
+        # siteMonitor: https://n8n.lab.appsfab.org/
+    - Plane:
+        icon: plane.png
+        href: https://plane.lab.appsfab.org
+        description: Projekte, Issues, Kanban · hinter SSO
+        # kein siteMonitor: hinter sso@docker liefert der Check nur den Login-Redirect; Verfügbarkeit prüft blackbox
 
 - Dokumente:
     - Paperless:
+        icon: paperless-ngx.png
         href: https://docs.lab.appsfab.org
         description: Dokumentenarchiv
-        icon: paperless-ngx.png
+        siteMonitor: https://docs.lab.appsfab.org/accounts/login/
+        widget:
+          type: paperlessngx
+          url: https://docs.lab.appsfab.org
+          key: "{{HOMEPAGE_VAR_PAPERLESS_TOKEN}}"
     - Paperless-AI:
+        icon: mdi-robot-outline
         href: https://docs-ai.lab.appsfab.org
-        description: Auto-Tagging & RAG (Ollama)
-        icon: mdi-robot
-
-- Observability:
-    - Grafana:
-        href: https://grafana.lab.appsfab.org
-        description: Dashboards (VictoriaMetrics + Loki)
-        icon: grafana.png
+        description: Auto-Tagging + RAG (Ollama, Mac Studio) · hinter SSO
+    - Homelab-Handbuch:
+        icon: mdi-book-open-variant
+        href: https://doku.lab.appsfab.org
+        description: Architektur, Dienste, Runbooks (MkDocs) · hinter SSO
+        # kein siteMonitor: hinter sso@docker; Verfügbarkeit prüft blackbox (doku-web /healthz)
 
 - Infrastruktur:
     - Traefik:
-        href: https://traefik.lab.appsfab.org
-        description: Reverse Proxy
         icon: traefik.png
-    - Garage:
-        href: https://s3.lab.appsfab.org
-        description: S3 Object Store (CLI-verwaltet, keine Web-Console)
-        icon: mdi-bucket-outline
-    - Registry:
-        href: https://registry.lab.appsfab.org
-        description: Container-Registry
-        icon: mdi-package-variant-closed
+        href: https://traefik.lab.appsfab.org
+        description: Reverse Proxy · Netze edge-<stack> · hinter SSO
+        siteMonitor: https://traefik.lab.appsfab.org/
     - Netboot:
-        href: https://netboot.lab.appsfab.org
-        description: Pi-5-Provisionierung
         icon: mdi-server-network
+        href: https://netboot.lab.appsfab.org
+        description: Pi-Provisionierung (PXE), Keycloak-Login
+        siteMonitor: https://netboot.lab.appsfab.org/
+    - Garage:
+        icon: mdi-bucket-outline
+        description: s3.lab.appsfab.org · S3 für Cluster-Backups, nur CLI
+        siteMonitor: https://s3.lab.appsfab.org/
+    - TrueNAS:
+        icon: truenas-scale.png
+        href: https://192.168.80.50
+        description: NAS-Verwaltung (Pools, Snapshots, Apps)
+    - Arcane:
+        icon: arcane.png
+        href: http://truenas.server:30258/containers
+        description: GitOps-Deploy der Stacks aus GitHub main
+        # Kein Widget: Arcane v3.1.1 hat die API nicht unter /api/environments/… (Homepage-Widget ≤ v2.8.0
+        # erwartet genau das) -> 404 "API endpoint not found". Wieder einbauen, wenn Widget/Arcane passen.
 
 - Cluster:
     - ArgoCD:
-        href: https://argocd.k8s.cluster
-        description: GitOps (Pi-k3s)
         icon: argocd.png
+        href: https://argocd.k8s.cluster
+        description: GitOps (Pi-k3s) · Cluster im Neuaufbau
     - Longhorn:
-        href: https://longhorn.k8s.cluster
-        description: Cluster-Storage
         icon: longhorn.png
+        href: https://longhorn.k8s.cluster
+        description: Cluster-Storage · Cluster im Neuaufbau

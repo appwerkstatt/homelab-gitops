@@ -5,16 +5,16 @@ name: oauth2-proxy
 
 services:
   oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5   # akt. Stand 2026-04; behebt Auth-Bypass + Session-Fixation (CVE-Fixes ggü. 7.7.x)
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.6   # akt. Stand 2026-04; behebt Auth-Bypass + Session-Fixation (CVE-Fixes ggü. 7.7.x)
     command:
       - --http-address=0.0.0.0:4180
       - --reverse-proxy=true
-      - --trusted-proxy-ip=172.16.0.0/12   # X-Forwarded-* nur von Docker-internen Proxy-IPs (Traefik im edge-Netz) akzeptieren
+      - --trusted-proxy-ip=172.16.0.0/12   # X-Forwarded-* nur von Docker-internen Proxy-IPs (Traefik im Netz edge-sso) akzeptieren
       - --skip-provider-button=true        # ohne Zwischenseite direkt zu Keycloak; unauth. Request -> 302 (fail-closed)
       - --provider=keycloak-oidc
       - --scope=openid email profile        # explizit ohne "groups": der keycloak-oidc-Provider haengt sonst "groups" an,
                                              # das ist aber kein anforderbarer Scope (groups-Claim kommt per Client-Mapper im Realm) -> sonst invalid_scope
-      - --oidc-issuer-url=https://auth.${LAB_DOMAIN}/realms/AppsFab
+      - --oidc-issuer-url=https://auth.appsfab.org/realms/AppsFab   # Realm-frontendUrl; intern via Traefik-Alias
       - --client-id=oauth2-proxy
       - --client-secret=${OAUTH2_PROXY_CLIENT_SECRET}
       - --cookie-secret=${OAUTH2_PROXY_COOKIE_SECRET}    # openssl rand -base64 32
@@ -30,8 +30,10 @@ services:
       - --upstream=static://202
     labels:
       - traefik.enable=true
-      # /oauth2/* auf allen Lab-Hosts zum Proxy routen (Login-/Callback-Endpunkte):
-      - traefik.http.routers.oauth2-proxy.rule=Host(`auth-proxy.${LAB_DOMAIN}`) || PathPrefix(`/oauth2`)
+      - traefik.docker.network=edge-sso
+      # /oauth2/* auf allen Lab-Hosts zum Proxy routen (Login-/Callback-Endpunkte). NUR *.lab: vorher matchte
+      # PathPrefix(`/oauth2`) jeden Host, also auch git/auth/hooks.appsfab.org aus dem Internet (Security-Check 2026-11-22, M1).
+      - traefik.http.routers.oauth2-proxy.rule=Host(`auth-proxy.${LAB_DOMAIN}`) || (HostRegexp(`^[a-z0-9-]+\.lab\.appsfab\.org$$`) && PathPrefix(`/oauth2`))
       - traefik.http.routers.oauth2-proxy.entrypoints=websecure
       - traefik.http.routers.oauth2-proxy.tls.certresolver=le
       - traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180
@@ -41,7 +43,7 @@ services:
       - traefik.http.middlewares.sso.forwardauth.address=http://oauth2-proxy:4180/
       - traefik.http.middlewares.sso.forwardauth.trustForwardHeader=true
       - traefik.http.middlewares.sso.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
-    networks: [edge]
+    networks: [edge-sso]
     mem_limit: 128m
     restart: unless-stopped
 
@@ -55,5 +57,5 @@ services:
 # (02-keycloak/realm/AppsFab-realm.json, redirectUris+webOrigins) und KCC_REALM_REV bumpen.
 
 networks:
-  edge:
-    external: true
+  edge-sso:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack

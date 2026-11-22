@@ -8,19 +8,25 @@ services:
       HOMEPAGE_ALLOWED_HOSTS: home.${LAB_DOMAIN}
       PUID: ${PUID}
       PGID: ${PGID}
+      TZ: ${TZ}
+      # Widget-Secrets (1Password-Item homelab-homepage, s. .env.example). In der Config als {{HOMEPAGE_VAR_…}}.
+      HOMEPAGE_VAR_GRAFANA_TOKEN: ${HOMEPAGE_GRAFANA_TOKEN}       # Grafana-Service-Account "homepage", Rolle Viewer
+      HOMEPAGE_VAR_PAPERLESS_TOKEN: ${HOMEPAGE_PAPERLESS_TOKEN}   # API-Token des Paperless-Users "homepage" (nur Lesen)
     volumes:
       - ./config:/app/config                 # Dashboard-Definition aus dem Repo (GitOps)
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-home
       - traefik.http.routers.homepage.rule=Host(`home.${LAB_DOMAIN}`)
       - traefik.http.routers.homepage.entrypoints=websecure
       - traefik.http.routers.homepage.tls.certresolver=le
       - traefik.http.services.homepage.loadbalancer.server.port=3000
-      # Optional hinter SSO: traefik.http.routers.homepage.middlewares=sso@docker
-    networks: [edge]
-    mem_limit: 128m
+      - traefik.http.routers.homepage.middlewares=sso@docker   # Keycloak-Login (Stack 03); Callback im Realm-Client oauth2-proxy
+    # Nur edge-home: Status-Checks und Widgets laufen über Traefik (FQDN-Aliase in 00-traefik, edge-home).
+    networks: [edge-home]
+    mem_limit: 256m          # 128m lag bei 97 % (2026-11-22)
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-home:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack

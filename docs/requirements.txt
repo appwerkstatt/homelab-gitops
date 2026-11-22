@@ -1,0 +1,3 @@
+# Abhängigkeiten zum Bauen des Handbuchs (mkdocs.yml). Renovate hält die Versionen aktuell.
+mkdocs==1.6.1
+mkdocs-material==9.8.2

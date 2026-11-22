@@ -1,15 +1,36 @@
 {
   "realm": "AppsFab",
+  "attributes": {
+    "frontendUrl": "https://auth.appsfab.org"
+  },
   "enabled": true,
   "displayName": "AppsFab Homelab",
   "loginWithEmailAllowed": true,
   "registrationAllowed": false,
   "sslRequired": "external",
 
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 10,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "maxDeltaTimeSeconds": 43200,
+  "quickLoginCheckMilliSeconds": 1000,
+  "minimumQuickLoginWaitSeconds": 60,
+  "passwordPolicy": "length(12) and notUsername(undefined) and notEmail(undefined)",
+
   "browserFlow": "browser-passkey",
+  "directGrantFlow": "direct-grant-disabled",
+
+  "eventsListeners": ["jboss-logging"],
 
   "webAuthnPolicyPasswordlessRpEntityName": "AppsFab Homelab",
-  "webAuthnPolicyPasswordlessRpId": "",
+  "webAuthnPolicyPasswordlessRpId": "appsfab.org",
+  "webAuthnPolicyRpId": "appsfab.org",
+  "webAuthnPolicyRpEntityName": "AppsFab Homelab",
+  "webAuthnPolicySignatureAlgorithms": ["ES256", "RS256"],
+  "webAuthnPolicyUserVerificationRequirement": "preferred",
+  "webAuthnPolicyRequireResidentKey": "Yes",
   "webAuthnPolicyPasswordlessSignatureAlgorithms": ["ES256", "RS256"],
   "webAuthnPolicyPasswordlessAttestationConveyancePreference": "not specified",
   "webAuthnPolicyPasswordlessAuthenticatorAttachment": "not specified",
@@ -18,6 +39,7 @@
   "webAuthnPolicyPasswordlessCreateTimeout": 0,
   "webAuthnPolicyPasswordlessAvoidSameAuthenticatorRegister": false,
   "webAuthnPolicyPasswordlessAcceptableAaguids": [],
+  "webAuthnPolicyPasswordlessPasskeysEnabled": true,
 
   "roles": {
     "realm": [
@@ -50,7 +72,7 @@
   "authenticationFlows": [
     {
       "alias": "browser-passkey",
-      "description": "Browser-Flow: Passkey bevorzugt, Passwort als Fallback",
+      "description": "Browser-Flow: Passkey allein oder Passwort + zweiter Faktor (Details: PASSKEYS.md)",
       "providerId": "basic-flow",
       "topLevel": true,
       "builtIn": false,
@@ -62,25 +84,73 @@
     },
     {
       "alias": "browser-passkey-forms",
-      "description": "Username, dann Passkey oder Passwort",
+      "description": "Username-Form mit Passkey-Autofill; ohne Passkey weiter mit Passwort + zweitem Faktor",
       "providerId": "basic-flow",
       "topLevel": false,
       "builtIn": false,
       "authenticationExecutions": [
         { "authenticator": "auth-username-form", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
-        { "authenticatorFlow": true, "flowAlias": "browser-passkey-auth", "requirement": "REQUIRED", "priority": 20, "userSetupAllowed": false }
+        { "authenticatorFlow": true, "flowAlias": "browser-passkey-password-2fa", "requirement": "CONDITIONAL", "priority": 20, "userSetupAllowed": false }
       ]
     },
     {
-      "alias": "browser-passkey-auth",
-      "description": "Passkey (passwordless) ALTERNATIVE zu Passwort-Fallback",
+      "alias": "browser-passkey-password-2fa",
+      "description": "Nur wenn kein Passkey benutzt wurde: Passwort, danach Pflicht-2FA; ohne zweiten Faktor muss beim Login ein Passkey eingerichtet werden",
       "providerId": "basic-flow",
       "topLevel": false,
       "builtIn": false,
       "authenticationExecutions": [
-        { "authenticator": "webauthn-authenticator-passwordless", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 10, "userSetupAllowed": false },
-        { "authenticator": "auth-password-form", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 20, "userSetupAllowed": false }
+        { "authenticator": "conditional-credential", "authenticatorConfig": "no-passkey-used", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 5, "userSetupAllowed": false },
+        { "authenticator": "auth-password-form", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
+        { "authenticatorFlow": true, "flowAlias": "browser-passkey-second-factor", "requirement": "CONDITIONAL", "priority": 20, "userSetupAllowed": false },
+        { "authenticatorFlow": true, "flowAlias": "browser-passkey-enroll", "requirement": "CONDITIONAL", "priority": 30, "userSetupAllowed": false }
       ]
+    },
+    {
+      "alias": "browser-passkey-second-factor",
+      "description": "Zweiter Faktor (falls eingerichtet): Passkey, Sicherheitsschlüssel, OTP-App oder Recovery-Code",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "conditional-user-configured", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
+        { "authenticator": "webauthn-authenticator-passwordless", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 20, "userSetupAllowed": false },
+        { "authenticator": "webauthn-authenticator", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 30, "userSetupAllowed": false },
+        { "authenticator": "auth-otp-form", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 40, "userSetupAllowed": false },
+        { "authenticator": "auth-recovery-authn-code-form", "authenticatorFlow": false, "requirement": "ALTERNATIVE", "priority": 50, "userSetupAllowed": false }
+      ]
+    },
+    {
+      "alias": "browser-passkey-enroll",
+      "description": "Noch kein zweiter Faktor: Passkey/Sicherheitsschlüssel jetzt einrichten (Required Action webauthn-register), sonst kein Login",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "conditional-sub-flow-executed", "authenticatorConfig": "second-factor-not-executed", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false },
+        { "authenticator": "webauthn-authenticator", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 20, "userSetupAllowed": true }
+      ]
+    },
+    {
+      "alias": "direct-grant-disabled",
+      "description": "Password-Grant (ROPC) für alle Clients aus: er würde Passkey/2FA umgehen. Kein Dienst nutzt ihn.",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        { "authenticator": "deny-access-authenticator", "authenticatorFlow": false, "requirement": "REQUIRED", "priority": 10, "userSetupAllowed": false }
+      ]
+    }
+  ],
+
+  "authenticatorConfig": [
+    {
+      "alias": "no-passkey-used",
+      "config": { "credentials": "webauthn-passwordless", "included": "false" }
+    },
+    {
+      "alias": "second-factor-not-executed",
+      "config": { "flow_to_check": "browser-passkey-second-factor", "check_result": "not-executed" }
     }
   ],
 
@@ -164,6 +234,36 @@
       ]
     },
     {
+      "clientId": "zot",
+      "name": "Zot Registry",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "secret": "$(env:ZOT_OIDC_CLIENT_SECRET)",
+      "redirectUris": ["https://registry.lab.appsfab.org/zot/auth/callback/oidc"],
+      "webOrigins": ["https://registry.lab.appsfab.org"],
+      "attributes": {
+        "post.logout.redirect.uris": "https://registry.lab.appsfab.org/login"
+      },
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
       "clientId": "oauth2-proxy",
       "name": "Traefik ForwardAuth (oauth2-proxy)",
       "enabled": true,
@@ -171,8 +271,22 @@
       "publicClient": false,
       "standardFlowEnabled": true,
       "secret": "$(env:OAUTH2_PROXY_CLIENT_SECRET)",
-      "redirectUris": ["https://traefik.lab.appsfab.org/oauth2/callback"],
-      "webOrigins": ["https://traefik.lab.appsfab.org"],
+      "redirectUris": [
+        "https://traefik.lab.appsfab.org/oauth2/callback",
+        "https://docs-ai.lab.appsfab.org/oauth2/callback",
+        "https://home.lab.appsfab.org/oauth2/callback",
+        "https://n8n.lab.appsfab.org/oauth2/callback",
+        "https://plane.lab.appsfab.org/oauth2/callback",
+        "https://doku.lab.appsfab.org/oauth2/callback"
+      ],
+      "webOrigins": [
+        "https://traefik.lab.appsfab.org",
+        "https://docs-ai.lab.appsfab.org",
+        "https://home.lab.appsfab.org",
+        "https://n8n.lab.appsfab.org",
+        "https://plane.lab.appsfab.org",
+        "https://doku.lab.appsfab.org"
+      ],
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"],
       "protocolMappers": [
         {

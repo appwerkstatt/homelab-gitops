@@ -1,0 +1,822 @@
+{
+  "uid": "homelab-services",
+  "title": "Homelab · Dienste & Erreichbarkeit",
+  "description": "Blackbox-Healthchecks (config/scrape.yml): Status, Verfügbarkeit, Antwortzeiten, TLS, Scrape-Targets.",
+  "tags": [
+    "homelab",
+    "services"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "timezone": "browser",
+  "weekStart": "monday",
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "homelab"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true,
+      "title": "Homelab",
+      "icon": "external link",
+      "targetBlank": false
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "enable": false,
+        "iconColor": "red",
+        "name": "Alerts (firing)",
+        "expr": "ALERTS{alertstate=\"firing\"}",
+        "step": "60s",
+        "titleFormat": "{{alertname}}",
+        "textFormat": "{{severity}} {{instance}}{{name}}{{mountpoint}}{{zpool}}",
+        "useValueForTime": false,
+        "hide": false
+      }
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Dienst-Status",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(probe_success{job=~\"probe-http|probe-registry|probe-paperless|probe-llm\"}, \"svc\", \"$1\", \"instance\", \"(?:https?://)?([^:/]+).*\"), \"svc\", \"ollama (Mac Studio)\", \"instance\", \".*:11434/.*\"), \"svc\", \"lm-studio (Mac Studio)\", \"instance\", \".*:1234/.*\"), \"svc\", \"zot\", \"instance\", \"http://zot:.*\"), \"svc\", \"registry-cache\", \"instance\", \"http://dockerhub:.*\"), \"svc\", \"TLS-Wildcard\", \"instance\", \"auth\\\\.lab\\\\..*:443\")",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{svc}}",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 2,
+      "type": "state-timeline",
+      "title": "Verlauf",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(probe_success{job=~\"probe-http|probe-registry|probe-paperless|probe-llm\"}, \"svc\", \"$1\", \"instance\", \"(?:https?://)?([^:/]+).*\"), \"svc\", \"ollama (Mac Studio)\", \"instance\", \".*:11434/.*\"), \"svc\", \"lm-studio (Mac Studio)\", \"instance\", \".*:1234/.*\"), \"svc\", \"zot\", \"instance\", \"http://zot:.*\"), \"svc\", \"registry-cache\", \"instance\", \"http://dockerhub:.*\"), \"svc\", \"TLS-Wildcard\", \"instance\", \"auth\\\\.lab\\\\..*:443\")",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{svc}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 3,
+      "type": "bargauge",
+      "title": "Verfügbarkeit im Zeitraum",
+      "description": "Anteil erfolgreicher Probes im gewählten Zeitraum.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(avg_over_time(probe_success{job=~\"probe-http|probe-registry|probe-paperless|probe-llm\"}[$__range]), \"svc\", \"$1\", \"instance\", \"(?:https?://)?([^:/]+).*\"), \"svc\", \"ollama (Mac Studio)\", \"instance\", \".*:11434/.*\"), \"svc\", \"lm-studio (Mac Studio)\", \"instance\", \".*:1234/.*\"), \"svc\", \"zot\", \"instance\", \"http://zot:.*\"), \"svc\", \"registry-cache\", \"instance\", \"http://dockerhub:.*\"), \"svc\", \"TLS-Wildcard\", \"instance\", \"auth\\\\.lab\\\\..*:443\")",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{svc}}",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.99
+              },
+              {
+                "color": "green",
+                "value": 0.999
+              }
+            ]
+          },
+          "min": 0.9,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "auto",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "maxVizHeight": 300
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Antwortzeit",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 14,
+        "w": 16,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(probe_duration_seconds{job=~\"probe-http|probe-registry|probe-paperless|probe-llm\"}, \"svc\", \"$1\", \"instance\", \"(?:https?://)?([^:/]+).*\"), \"svc\", \"ollama (Mac Studio)\", \"instance\", \".*:11434/.*\"), \"svc\", \"lm-studio (Mac Studio)\", \"instance\", \".*:1234/.*\"), \"svc\", \"zot\", \"instance\", \"http://zot:.*\"), \"svc\", \"registry-cache\", \"instance\", \"http://dockerhub:.*\"), \"svc\", \"TLS-Wildcard\", \"instance\", \"auth\\\\.lab\\\\..*:443\")",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{svc}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0,
+            "insertNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "HTTP & TLS",
+      "id": 5,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "HTTP-Status",
+      "description": "Letzter HTTP-Statuscode je Probe (0 = keine Verbindung).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(probe_http_status_code{job=~\"probe-http|probe-registry|probe-paperless|probe-llm\"}, \"svc\", \"$1\", \"instance\", \"(?:https?://)?([^:/]+).*\"), \"svc\", \"ollama (Mac Studio)\", \"instance\", \".*:11434/.*\"), \"svc\", \"lm-studio (Mac Studio)\", \"instance\", \".*:1234/.*\"), \"svc\", \"zot\", \"instance\", \"http://zot:.*\"), \"svc\", \"registry-cache\", \"instance\", \"http://dockerhub:.*\"), \"svc\", \"TLS-Wildcard\", \"instance\", \"auth\\\\.lab\\\\..*:443\")",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{svc}}",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 400
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "value_and_name",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Zertifikat läuft ab in",
+      "description": "Alert CertExpiringSoon unter 14 Tagen.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(probe_ssl_earliest_cert_expiry{job=\"probe-tls\"} - time(), \"svc\", \"$1\", \"instance\", \"(?:https?://)?([^:/]+).*\"), \"svc\", \"ollama (Mac Studio)\", \"instance\", \".*:11434/.*\"), \"svc\", \"lm-studio (Mac Studio)\", \"instance\", \".*:1234/.*\"), \"svc\", \"zot\", \"instance\", \"http://zot:.*\"), \"svc\", \"registry-cache\", \"instance\", \"http://dockerhub:.*\"), \"svc\", \"TLS-Wildcard\", \"instance\", \"auth\\\\.lab\\\\..*:443\")",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{svc}}",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 604800
+              },
+              {
+                "color": "green",
+                "value": 1209600
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "TLS-Version",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 24,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "probe_tls_version_info{job=\"probe-tls\"}",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{version}}",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "name",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "type": "row",
+      "title": "Scrape-Targets",
+      "id": 9,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "state-timeline",
+      "title": "Exporter erreichbar (up)",
+      "description": "Alert TargetDown nach 5 min.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "up{job!~\"probe-.*\"}",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{job}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Scrape-Dauer",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "scrape_duration_seconds{job!~\"probe-.*\"}",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{job}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0,
+            "insertNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Samples je Scrape",
+      "description": "Wächst cadvisor stark, steigt die Kardinalität (Speicher in VictoriaMetrics).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 38,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "scrape_samples_scraped{job!~\"probe-.*\"}",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{job}}",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "gradientMode": "opacity",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0,
+            "insertNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "name": "GitHub: neue PRs nach Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "owner": {
+          "__rl": true,
+          "value": "appwerkstatt",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "homelab-gitops",
+          "mode": "name"
+        },
+        "events": [
+          "pull_request"
+        ],
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "GitHub Trigger",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "b2000000-0000-4000-8000-0000000000f1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Meldet neue Pull Requests (geöffnet, wieder geöffnet, aus Draft freigegeben) nach Telegram.\n// Alles andere (ping, synchronize, closed, Drafts) wird still verworfen.\nconst SKIP_RENOVATE = false;   // true: Renovate-PRs nicht melden (die stehen auch im Tagesbericht)\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst out = [];\nfor (const item of $input.all()) {\n  const p = item.json.body ?? item.json;          // GitHub Trigger liefert {body, headers, query}\n  const pr = p.pull_request;\n  if (!pr || !['opened', 'reopened', 'ready_for_review'].includes(p.action) || pr.draft) continue;\n  const bot = pr.user?.type === 'Bot';\n  if (bot && SKIP_RENOVATE && /renovate/i.test(pr.user.login)) continue;\n  const head = { opened: '🆕 Neuer PR', reopened: '♻️ PR wieder geöffnet', ready_for_review: '👀 PR bereit zum Review' }[p.action];\n  const labels = (pr.labels || []).map(l => l.name);\n  const lines = [\n    '<b>' + head + '</b> in ' + esc(p.repository?.full_name),\n    '<a href=\"' + pr.html_url + '\">#' + pr.number + ' ' + esc(pr.title) + '</a>',\n    (bot ? '🤖 ' : '👤 ') + esc(pr.user?.login) + ' · ' + esc(pr.head?.ref) + ' → ' + esc(pr.base?.ref),\n    '+' + (pr.additions ?? '?') + ' / −' + (pr.deletions ?? '?') + ' Zeilen in ' + (pr.changed_files ?? '?') + ' Dateien',\n  ];\n  if (labels.length) lines.push('🏷 ' + labels.map(esc).join(', '));\n  out.push({ json: { text: lines.join('\\n') } });\n}\nreturn out;\n"
+      },
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Nachricht bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "TELEGRAM_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        0
+      ],
+      "webhookId": "b2000000-0000-4000-8000-0000000000f2"
+    }
+  ],
+  "connections": {
+    "GitHub Trigger": {
+      "main": [
+        [
+          {
+            "node": "Nachricht bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nachricht bauen": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

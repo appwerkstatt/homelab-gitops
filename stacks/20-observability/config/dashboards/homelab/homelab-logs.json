@@ -1,0 +1,418 @@
+{
+  "uid": "homelab-logs",
+  "title": "Homelab · Logs",
+  "description": "Container-Logs aller NAS-Stacks (Alloy → Loki). Filter nach Stack, Container und Suchbegriff.",
+  "tags": [
+    "homelab",
+    "logs"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "timezone": "browser",
+  "weekStart": "monday",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "homelab"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true,
+      "title": "Homelab",
+      "icon": "external link",
+      "targetBlank": false
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        },
+        "enable": false,
+        "iconColor": "red",
+        "name": "Alerts (firing)",
+        "expr": "ALERTS{alertstate=\"firing\"}",
+        "step": "60s",
+        "titleFormat": "{{alertname}}",
+        "textFormat": "{{severity}} {{instance}}{{name}}{{mountpoint}}{{zpool}}",
+        "useValueForTime": false,
+        "hide": false
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "stack",
+        "label": "Stack",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "hide": 0,
+        "regex": "",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "definition": "label_values({host=\"truenas\"}, compose_project)",
+        "query": {
+          "type": 1,
+          "label": "compose_project",
+          "stream": "{host=\"truenas\"}",
+          "refId": "LokiVariableQueryEditor-VariableQuery"
+        }
+      },
+      {
+        "name": "container",
+        "label": "Container",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "hide": 0,
+        "regex": "",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "definition": "label_values({host=\"truenas\", compose_project=~\"$stack\"}, container)",
+        "query": {
+          "type": 1,
+          "label": "container",
+          "stream": "{host=\"truenas\", compose_project=~\"$stack\"}",
+          "refId": "LokiVariableQueryEditor-VariableQuery"
+        }
+      },
+      {
+        "name": "suche",
+        "label": "Suche (Regex)",
+        "type": "textbox",
+        "hide": 0,
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Logvolumen",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (container) (count_over_time({host=\"truenas\", compose_project=~\"$stack\", container=~\"$container\"} |~ \"(?i)$suche\" [$__auto]))",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{container}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0,
+            "insertNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "showLegend": false,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Fehler je Container (Zeitraum)",
+      "description": "Zeilen mit error/fatal/panic/exception — grobe Heuristik, nicht jedes 'error' ist einer.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (container) (count_over_time({host=\"truenas\", compose_project=~\"$stack\", container=~\"$container\"} |~ \"(?i)(\\\\b|_)(error|err|fatal|panic|exception|crit|critical)(\\\\b|_)\" [$__auto]))",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{container}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [],
+          "fields": "/^Total$/"
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "auto",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "maxVizHeight": 300
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "sum"
+            ],
+            "mode": "seriesToRows"
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Total",
+                "desc": true
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Fehler-Zeilen",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (container) (count_over_time({host=\"truenas\", compose_project=~\"$stack\", container=~\"$container\"} |~ \"(?i)(\\\\b|_)(error|err|fatal|panic|exception|crit|critical)(\\\\b|_)\" [$__auto]))",
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{container}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0,
+            "insertNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "logs",
+      "title": "Logs",
+      "description": "Neueste oben. Aufklappen zeigt Labels (container, compose_project, compose_service).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 18
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{host=\"truenas\", compose_project=~\"$stack\", container=~\"$container\"} |~ \"(?i)$suche\"",
+          "refId": "A",
+          "editorMode": "code",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}

@@ -45,10 +45,12 @@ fi
 ensure ipt INPUT 1 -p tcp --dport "$VNC_PORT" ! -i lo ! -s "$MGMT_CIDRS" -m comment --comment "nas-firewall: vnc mgmt only" -j DROP
 
 # --- H4: Arcane. IPv4-Zugriffe von außen laufen per DNAT durch FORWARD -> Kette DOCKER-USER (Original-Port
-# über conntrack, weil der Zielport nach DNAT der Container-Port ist). Die Kette legt Docker an; fehlt sie
+# über conntrack, weil der Zielport nach DNAT der Container-Port ist). --ctdir ORIGINAL ist Pflicht: FORWARD sieht
+# auch Arcanes Antworten (Quelle = Container-IP, gleicher conntrack-Eintrag), ohne die Richtung würden die
+# verworfen und Arcane wäre auch aus VLAN 10 tot (so passiert 2026-11-22). Die Kette legt Docker an; fehlt sie
 # (Docker startet noch), setzt der nächste Cron-Lauf die Regel.
 if ipt -nL DOCKER-USER >/dev/null 2>&1; then
-  ensure ipt DOCKER-USER 1 -p tcp -m conntrack --ctorigdstport "$ARCANE_PORT" ! -s "$MGMT_CIDRS" -m comment --comment "nas-firewall: arcane mgmt only" -j DROP
+  ensure ipt DOCKER-USER 1 -p tcp -m conntrack --ctorigdstport "$ARCANE_PORT" --ctdir ORIGINAL ! -s "$MGMT_CIDRS" -m comment --comment "nas-firewall: arcane mgmt only" -j DROP
 else
   echo "nas-firewall: Kette DOCKER-USER fehlt noch – Arcane-Regel beim nächsten Lauf" >&2
 fi

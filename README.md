@@ -4,6 +4,9 @@ Infrastruktur-als-Code für das TrueNAS-Homelab (UGREEN DXP4800 Plus, TrueNAS 25
 **Dies ist die externe Wahrheit** — das NAS ist nur die austauschbare Ausführungsumgebung.
 Verwaltet von **Arcane** (TrueNAS-App), das dieses Repo überwacht und Stacks per GitOps deployt.
 
+**Handbuch:** <https://doku.lab.appsfab.org> (LAN, hinter SSO) bzw. als Markdown unter [`docs/`](docs/index.md).
+Architektur, alle Dienste, Backup/Restore, Alarme und Runbooks stehen dort.
+
 > Entstanden nach einer Update-Katastrophe (Custom-Docker am System vorbei → vom Update zerlegt).
 > Lehre: kein Docker am TrueNAS-System vorbei, alles als Code, Daten getrennt von Definition.
 
@@ -21,7 +24,7 @@ GitHub (dieses Repo)
    └─> Arcane (TrueNAS-App, manuell installiert)
          └─> 00-traefik         (legt die Netze "edge-<stack>" an, TLS via DNS-01)
                └─> 01-forgejo + 02-keycloak   (Identity/Infra-Fundament)
-                     └─> Rest:  03-oauth2-proxy · 11-paperless · 12-cloudflared · 13-n8n · 14-plane · 20-observability
+                     └─> Rest:  03-oauth2-proxy · 11-paperless · 12-cloudflared · 13-n8n · 14-plane · 15-doku · 20-observability
                                 21-garage · 22-harbor (= Zot) · 23-registry-cache · 30-netboot · 40-homepage
 ```
 
@@ -45,6 +48,7 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 | `12-cloudflared` | Cloudflare-Tunnel (nur Hosts aus `config.yml`, Rest 404) | – | `fast/appdata/cloudflared` |
 | `13-n8n` | n8n + Postgres 17; LLMs über Ollama auf dem Mac Studio (`192.168.80.30`, nur vom NAS erreichbar, `docs/mac-studio-llm.md`) | LAN (`n8n`, Editor hinter SSO; `/webhook*` ohne SSO); **Internet** nur `hooks.appsfab.org/webhook/` + `/webhook-test/` (Tunnel) | `fast/appdata/n8n` |
 | `14-plane` | Plane CE (Projekte/Issues/Kanban) + Postgres 17 + Valkey + RabbitMQ + MinIO (Silo); Login Keycloak davor + Plane-Konto (CE ohne OIDC), `stacks/14-plane/README.md` | LAN (`plane`, hinter SSO) | `fast/appdata/plane` |
+| `15-doku` | Homelab-Handbuch (MkDocs Material, aus `docs/` dieses Repos, baut `main` alle 5 min neu) + nginx | LAN (`doku`, hinter SSO) | – (Build im Docker-Volume) |
 | `20-observability` | VictoriaMetrics + Loki (Dateisystem, Container-Logs via Alloy) + Grafana + node-exporter + cadvisor + vmalert + Alertmanager (→ Telegram) + blackbox-exporter | LAN (`grafana`, Keycloak-OIDC) | `fast/appdata/{vm,loki,grafana}` |
 | `21-garage` | Garage (S3; Buckets: velero, artifacts, k3s-etcd-backups, longhorn-backup; `loki` ungenutzt) | LAN (`s3`) | `fast/appdata/garage/meta`, `data/garage/data` |
 | `22-harbor` | **Zot** (OCI-Registry). Ordnername historisch (Arcane-Pfad), Harbor wird nicht genutzt | LAN (`registry`); UI per Keycloak-SSO, Pull nur mit Login | `data/harbor/zot` |
@@ -56,69 +60,24 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 (privilegierter Docker-in-Docker-Runner, deshalb nicht auf dem NAS). Von Hand nach `vms/n8n-sandbox/README.md`.
 
 > **Neuer Stack ⇒ neue Arcane-Gitsync-App**, gleich wie das `name:`-Feld im compose benannt
-> (z. B. `registry-cache`), sonst entsteht Drift wie garage→garages3 (s. `## Konventionen`).
+> (z. B. `registry-cache`), sonst entsteht Drift wie garage→garages3 (s. `## Konventionen
 
-## Konventionen
+Die ausführlichen Regeln stehen im Handbuch unter
+[Architektur → Konventionen](docs/architektur/konventionen.md) und [Netzwerk & Domains](docs/architektur/netzwerk.md).
+Die wichtigsten in Kürze:
 
-- **Netze `edge-<stack>`:** von `00-traefik` angelegt, im Stack als `external`. Jeder web-exponierte Stack hängt
-  nur an seinem eigenen Netz, Traefik an allen → Backends erreichen sich nicht gegenseitig (kein Umgehen von
-  `sso@docker`). Geroutete Dienste setzen `traefik.docker.network=edge-<stack>`. Ausnahmen, bewusst:
-  blackbox (Probes, mehrere Netze), Forgejo zusätzlich in `edge-netboot` (Konsole klont direkt).
-  Server-seitige Aufrufe an `auth.appsfab.org`/`auth.lab.appsfab.org` laufen über Traefiks Netz-Aliase.
-  Neuer Stack ⇒ Netz in `00-traefik` ergänzen (Netz + Traefik-Attachment), Traefik zuerst deployen.
-- **Domains:** `*.lab.appsfab.org` = nur intern (Split-Horizon → Traefik `192.168.80.48`, macvlan `vlan80`;
-  der NAS-Host `.50` erreicht `.48` wegen Hairpin nicht → NAS-lokal `127.0.0.1:<port>`).
-  `*.appsfab.org` = öffentlich über den Cloudflare-Tunnel, **nur** `git.appsfab.org`, `auth.appsfab.org` und `hooks.appsfab.org` (nur `/webhook/` + `/webhook-test/` von n8n)
-  (`stacks/12-cloudflared/config.yml`; Cloudflares Gratis-Zertifikat deckt nur eine Ebene ab).
-  TLS: Let's-Encrypt-Wildcard via Cloudflare-DNS-01.
-- **SSO:** Keycloak-OIDC nativ, wo die App es kann; sonst Traefik-ForwardAuth; Login unter `auth.appsfab.org` (Admin-Konsole nur LAN: `auth.lab.appsfab.org`).
-- **Image-Versionen** sind gepinnt (kein `latest`). Renovate (nächtlich) mergt Patches automatisch, wenn
-  `validate` grün ist (Compose streng, Images existieren für `linux/amd64`); Minor/Major per Hand.
-- **Alerting:** vmalert → Alertmanager → Telegram (`stacks/20-observability/config/alerts.yml`), blackbox-Probes
-  für alle Dienste, Offsite-Backup-Alter über node-exporter-Textfile. Log-basierte Alarme (LogQL, z. B.
-  Keycloak-Fehlversuche und Brute-Force-Sperren) wertet der Loki-Ruler aus (`config/loki-rules/fake/`).
-- **Dashboards:** Grafana-Ordner *Homelab* (Übersicht, NAS-Host, Container & Stacks, Dienste, Alerts, Logs) wird von
-  `stacks/20-observability/build-dashboards.py` erzeugt (JSONs mitcommitten, CI prüft das); Ordner *Community* =
-  grafana.com-Dashboards via `fetch-dashboards.sh`. In der UI read-only, Änderungen nur über Git.
-- **Registry:** Zot verlangt Login. Menschen: Keycloak-SSO in der UI, CLI per Zot-API-Key; Robots im htpasswd
-  (`ci` = Push, `pull` = NAS/Cluster). Details `stacks/22-harbor/README.md`.
-- **Arcane setzt den Compose-Projektnamen, nicht `name:`.** Arcane startet jeden Stack als
-  `docker compose -p <slug> …`, wobei `<slug>` aus dem Anzeigenamen der Gitsync-App stammt
-  (z. B. „Garage S3" → `garages3`, „Registry ZOT" → `registryzot`). `-p` hat Vorrang vor dem
-  `name:`-Feld im `compose.yaml`, das damit unter Arcane rein kosmetisch ist. Dass die Live-Projekte
-  (Container `garages3-garage-1`, `registryzot-zot-1`) **nicht** zu `name: garage` bzw.
-  `name: registry` passen, ist deshalb **erwartet — kein Fehler**, sondern ein Artefakt der
-  Arcane-Projektbenennung. **Konsequenz:** Stacks niemals von Hand mit `docker compose up` **ohne**
-  `-p <slug>` starten. Sonst legt Compose ein zweites Projekt (Name aus `name:` bzw. dem
-  Verzeichnis-Basename) auf **denselben** Bind-Mounts an; bei zustandsbehafteten Stores
-  (Garage-LMDB unter `/mnt/data/garage`, Zot-Storage unter `/mnt/data/harbor/zot`) droht
-  Datenkorruption durch zwei Prozesse auf demselben Datenverzeichnis. Deployen läuft immer über Arcane.
+- **Netze `edge-<stack>`** legt `00-traefik` an; jeder Stack hängt nur an seinem eigenen. Neuer Stack ⇒ Netz zuerst in `00-traefik`.
+- **Domains:** `*.lab.appsfab.org` nur intern (Traefik `192.168.80.48`), `*.appsfab.org` öffentlich über den Tunnel,
+  und zwar **nur** `git`, `auth` und `hooks` (`stacks/12-cloudflared/config.yml`).
+- **SSO:** Keycloak-OIDC, wo die App es kann, sonst `sso@docker` (oauth2-proxy). Login unter `auth.appsfab.org`.
+- **Images gepinnt**, `mem_limit` überall, Renovate mergt Patches nach grünem `validate`.
+- **Arcane setzt den Compose-Projektnamen** aus dem Namen der Gitsync-App, nicht aus `name:`
+  (z. B. `garages3`, `registryzot`). Deshalb **nie** `docker compose up` ohne `-p <slug>`:
+  ein zweites Projekt auf denselben Bind-Mounts kann Garage- oder Zot-Daten zerstören.
+- **Revisionszähler:** Realm-Änderung ⇒ `KCC_REALM_REV`, Tunnel-Änderung ⇒ `CF_INGRESS_REV` hochzählen.
 
 ## Secrets
 
-**1Password (Vault `AppsFab`) ist die einzige Quelle der Wahrheit.** Im Repo steht nur, *welche*
-Secrets es gibt und *wo* sie in 1Password liegen; die Werte selbst nie.
-
-- **`.env.example`** listet **jede** Variable, die ein `compose.yaml` per `${VAR}` liest — Secrets
-  als `op://AppsFab/<item>/<feld>`-Referenz, unkritische Konfiguration als Klartext.
-  CI (`validate` → `scripts/check-env.sh`) schlägt fehl, wenn ein Stack eine Variable nutzt, die
-  dort fehlt.
-- **Arcane-Environment** ist nur die Laufzeit-Kopie. Befüllen bzw. nach einer Änderung neu setzen:
-  ```bash
-  scripts/render-env.sh keycloak      # braucht die 1Password CLI (`op`), angemeldet
-  ```
-  gibt genau die Variablen des Stacks aus → in **Arcane → Stack → Environment** einfügen →
-  Redeploy. Nie in eine Datei im Repo umleiten.
-- **Secret ändern/rotieren:** zuerst in 1Password, dann `render-env.sh` und in Arcane setzen.
-  Nie nur in Arcane ändern — sonst driftet die Quelle.
-- **Neue Variable:** in `compose.yaml` verwenden, in `.env.example` mit `op://`-Referenz eintragen,
-  Item/Feld in 1Password anlegen.
-- **Datei-Secrets** (cloudflared `credentials.json`, Zot-`htpasswd`, Netboot-Wipe-Key,
-  Forgejo `jwt/private.pem`, `restic-b2.env`) liegen auf dem NAS unter `fast/appdata/…` (`chmod 600`)
-  und als **1Password-Dokument**; die Zuordnung steht unten in `.env.example`.
-- **Realm-Client-Secrets** (`*_OIDC_CLIENT_SECRET`) gehören in die Env des `keycloak`-Stacks **und**
-  des jeweiligen Consumers — `keycloak-config-cli` substituiert sie beim Reconcile in den Realm
-  (`$(env:...)`). Fehlt eins, setzt kcc es auf leer. Siehe `stacks/02-keycloak/RECONCILE.md`.
-
-SOPS/age wurde 2026-11 entfernt: `secrets.enc.env` war unvollständig und wurde von Arcane nie
-gelesen (zwei Quellen → Drift). Der alte age-Key in 1Password kann archiviert werden.
+**1Password (Vault `AppsFab`) ist die einzige Quelle der Wahrheit.** `.env.example` listet jede Variable
+(Secrets als `op://`-Referenz, CI prüft das), `scripts/render-env.sh <stack>` erzeugt daraus die Arcane-Env.
+Ablauf, Datei-Secrets und Secrets, die man nie neu erzeugt: [Handbuch → Secrets](docs/sicherheit/secrets.md).

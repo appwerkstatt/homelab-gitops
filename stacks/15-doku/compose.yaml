@@ -1,0 +1,44 @@
+# 15-doku — Homelab-Handbuch (MkDocs Material) unter doku.lab.appsfab.org, hinter Keycloak (sso@docker).
+# Quelle: docs/ + mkdocs.yml dieses Repos. Der builder klont main von GitHub (öffentlich, kein Token),
+# baut alle DOKU_INTERVAL Sekunden neu, wenn sich der Commit geändert hat, und schaltet per Symlink um.
+# Ein kaputter Build lässt die alte Seite stehen (Log: "build of <rev> failed"). Keine persistenten Daten.
+# docs.lab ist Paperless, deshalb doku.lab.
+name: doku
+services:
+  doku-builder:
+    image: squidfunk/mkdocs-material:9.8.2   # gleiche Version wie docs/requirements.txt (CI)
+    entrypoint: ["sh", "/build.sh"]
+    environment:
+      DOKU_REPO: https://github.com/appwerkstatt/homelab-gitops.git
+      DOKU_INTERVAL: "300"
+      NO_MKDOCS_2_WARNING: "1"
+    volumes:
+      - ./build.sh:/build.sh:ro
+      - doku-site:/site
+    networks: [doku-build]          # nur ausgehend (GitHub), kein Traefik
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    restart: unless-stopped
+  doku-web:
+    image: nginx:1.31-alpine        # gleiche Linie wie 30-netboot
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - doku-site:/site:ro
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge-doku
+      - traefik.http.routers.doku.rule=Host(`doku.${LAB_DOMAIN}`)
+      - traefik.http.routers.doku.entrypoints=websecure
+      - traefik.http.routers.doku.tls.certresolver=le
+      - traefik.http.routers.doku.middlewares=sso@docker   # Keycloak-Login (Stack 03); Callback im Realm-Client oauth2-proxy
+      - traefik.http.services.doku.loadbalancer.server.port=8080
+    networks: [edge-doku]
+    mem_limit: 32m
+    restart: unless-stopped
+volumes:
+  doku-site:
+networks:
+  edge-doku:
+    external: true   # von 00-traefik angelegt; nur Traefik (und blackbox) teilt es mit diesem Stack
+  doku-build:

@@ -139,6 +139,11 @@
         icon: mdi-robot-outline
         href: https://docs-ai.lab.appsfab.org
         description: Auto-Tagging + RAG (Ollama, Mac Studio) · hinter SSO
+    - Homelab-Handbuch:
+        icon: mdi-book-open-variant
+        href: https://doku.lab.appsfab.org
+        description: Architektur, Dienste, Runbooks (MkDocs) · hinter SSO
+        # kein siteMonitor: hinter sso@docker; Verfügbarkeit prüft blackbox (doku-web /healthz)
 
 - Infrastruktur:
     - Traefik:

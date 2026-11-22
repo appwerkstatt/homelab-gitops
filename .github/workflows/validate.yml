@@ -1,7 +1,7 @@
 # validate.yml — Required Check für Renovate-Automerge: prüft, dass renovate.json valide
 # bleibt, jede Compose-Variable in .env.example (1Password-Liste) steht, jede
 # Compose-Stack-Datei ohne Warnungen interpoliert, neu eingetragene Image-Tags für
-# linux/amd64 existieren, die Alerting-Configs gültig sind und die Grafana-Dashboards zum Generator passen. Läuft auf jedem PR (also auch auf
+# linux/amd64 existieren, die Alerting-Configs gültig sind, das Handbuch (docs/) ohne kaputte Links baut und die Grafana-Dashboards zum Generator passen. Läuft auf jedem PR (also auch auf
 # Renovate-PRs, weil die per GitHub-App-Token geöffnet werden -> NICHT GITHUB_TOKEN -> triggert
 # Folge-Workflows). Der Job-Name "validate" IST der Status-Context, der in der Branch-
 # Protection als Pflicht eingetragen wird.
@@ -81,6 +81,18 @@ jobs:
           docker run --rm -v "$PWD/$cfg:/c:ro" "$al" fmt /c/config.alloy >/dev/null
           lk=$(grep -oE 'grafana/loki:[^ ]+' stacks/20-observability/compose.yaml)
           docker run --rm -v "$PWD/$cfg:/c:ro" "$lk" -config.file=/c/loki.yaml -verify-config
+
+      - name: Build handbook (mkdocs --strict, broken links fail)
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: |
+          python3 -m venv /tmp/mkdocs
+          /tmp/mkdocs/bin/pip install --quiet -r docs/requirements.txt
+          /tmp/mkdocs/bin/mkdocs build --strict --site-dir /tmp/site
+          # Image im Stack und CI-Version müssen gleich sein (sonst baut doku.lab anders als die CI)
+          want=$(grep -oE '^mkdocs-material==[0-9.]+' docs/requirements.txt | cut -d= -f3)
+          have=$(grep -oE 'squidfunk/mkdocs-material:[0-9.]+' stacks/15-doku/compose.yaml | cut -d: -f2)
+          [ "$want" = "$have" ] || { echo "::error::mkdocs-material: requirements.txt $want, 15-doku $have"; exit 1; }
 
       - name: Check Grafana dashboards match build-dashboards.py
         run: |

@@ -13,12 +13,20 @@ services:
       FORGEJO__server__ROOT_URL: https://git.appsfab.org/
       FORGEJO__server__SSH_DOMAIN: git.appsfab.org    # in den Klon-URLs angezeigter Host
       FORGEJO__server__SSH_PORT: "22"                 # Standard-SSH-Port (.48:22 via Traefik) -> keine :2222 in Klon-URLs
+      # Web-Login nur per SSO (Keycloak): Benutzername/Passwort-Formular ausgeblendet.
+      # Git über HTTPS/API mit Token (und Basic Auth) bleibt erlaubt -> ENABLE_BASIC_AUTHENTICATION.
+      # Notzugang, falls Keycloak down ist: Wert auf "true" setzen oder per CLI arbeiten
+      #   (docker exec -u git forgejo-forgejo-1 forgejo admin user ...).
+      FORGEJO__service__ENABLE_INTERNAL_SIGNIN: "false"
+      # Klassisches OpenID 2.0 ("Mit OpenID fortfahren") aus — Login nur über die Keycloak-Quelle.
+      FORGEJO__openid__ENABLE_OPENID_SIGNIN: "false"
+      FORGEJO__openid__ENABLE_OPENID_SIGNUP: "false"
       # kein SSH_LISTEN_PORT: das normale Forgejo-Image nutzt den Container-OpenSSH auf Port 22
       #
       # OIDC-Quelle gegen Keycloak — EINMALIG nach dem ersten Start (liegt danach in gitea.db, persistent):
       #   docker exec -u git forgejo-forgejo-1 forgejo admin auth add-oauth \
       #     --name keycloak --provider openidConnect --key forgejo --secret '<KC_FORGEJO_SECRET>' \
-      #     --auto-discover-url https://auth.lab.appsfab.org/realms/AppsFab/.well-known/openid-configuration \
+      #     --auto-discover-url https://auth.appsfab.org/realms/AppsFab/.well-known/openid-configuration \
       #     --scopes 'openid profile email' --group-claim-name groups --admin-group lab-admins
       # (--name=keycloak -> Callback /user/oauth2/keycloak/callback = Realm-Redirect-URI)
       # WICHTIG: 'groups' NICHT in --scopes (kein anforderbarer Scope, sondern Claim per Mapper) -> sonst invalid_scope.
@@ -30,23 +38,35 @@ services:
     volumes:
       - /mnt/fast/appdata/forgejo:/data       # enthält gitea.db + data/git + jwt/private.pem (migriert)
       - /etc/localtime:/etc/localtime:ro
-    # kein Host-Port-Mapping mehr — SSH läuft über Traefik (.48:2222), nicht über den NAS-Host (.50)
+    # kein Host-Port-Mapping — SSH läuft über Traefik (.48:22), nicht über den NAS-Host (.50)
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-forgejo
       # HTTPS (Web-UI + Git-over-HTTPS):
       - traefik.http.routers.forgejo.rule=Host(`git.appsfab.org`)
       - traefik.http.routers.forgejo.entrypoints=websecure
       - traefik.http.routers.forgejo.tls.certresolver=le
       - traefik.http.services.forgejo.loadbalancer.server.port=3000
-      # Git-over-SSH (TCP-Passthrough über Traefik-Entrypoint ssh = .48:2222):
+      # Login-Seite überspringen: /user/login direkt zur Keycloak-Quelle umleiten (nur SSO, siehe ENABLE_INTERNAL_SIGNIN).
+      # Query (z. B. redirect_to) wird mitgenommen. Rückbau: die forgejo-login/forgejo-sso-redirect-Labels entfernen.
+      - traefik.http.routers.forgejo-login.rule=Host(`git.appsfab.org`) && Path(`/user/login`)
+      - traefik.http.routers.forgejo-login.entrypoints=websecure
+      - traefik.http.routers.forgejo-login.tls.certresolver=le
+      - traefik.http.routers.forgejo-login.middlewares=forgejo-sso-redirect
+      - traefik.http.routers.forgejo-login.service=forgejo
+      - traefik.http.middlewares.forgejo-sso-redirect.redirectregex.regex=^https?://([^/]+)/user/login(.*)$$
+      - traefik.http.middlewares.forgejo-sso-redirect.redirectregex.replacement=https://$${1}/user/oauth2/keycloak$${2}
+      # Git-over-SSH (TCP-Passthrough über Traefik-Entrypoint ssh = .48:22):
       - traefik.tcp.routers.forgejo-ssh.rule=HostSNI(`*`)
       - traefik.tcp.routers.forgejo-ssh.entrypoints=ssh
       - traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh
       - traefik.tcp.services.forgejo-ssh.loadbalancer.server.port=22   # Container-OpenSSH lauscht auf 22
-    networks: [edge]
+    networks: [edge-forgejo, edge-netboot]   # edge-netboot: netboot-console klont/pusht direkt über http://forgejo:3000
     mem_limit: 1g
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-forgejo:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
+  edge-netboot:
+    external: true   # geteilt mit 30-netboot (console → forgejo:3000)

@@ -24,3 +24,23 @@ schema_config:
         period: 24h
 limits_config:
   retention_period: 744h     # 31 Tage
+# Retention greift NUR über den Compactor (retention_enabled). Ohne diesen Block löscht
+# Loki nie Chunks und /mnt/fast/appdata/loki wächst unbegrenzt.
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem   # Pflicht, sobald retention_enabled=true
+# Ruler: LogQL-Alarmregeln aus config/loki-rules/<tenant>/*.yml (ohne auth_enabled ist der Tenant "fake").
+# Feuernde Alerts gehen an denselben Alertmanager wie vmalert -> Telegram (+ n8n-Alert-Erklärer).
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /etc/loki/rules        # read-only Mount aus Git (compose.yaml)
+  rule_path: /loki/rules-temp           # Arbeitsverzeichnis des Rulers (beschreibbar)
+  alertmanager_url: http://alertmanager:9093
+  enable_api: true
+  enable_alertmanager_v2: true
+  evaluation_interval: 1m

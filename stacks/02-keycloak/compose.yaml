@@ -3,7 +3,7 @@ name: keycloak
 
 services:
   keycloak-db:
-    image: postgres:17.8-alpine          # Major 17 wie im Altsystem (Migration!) — NICHT auf 18 bumpen: pg_upgrade nötig (Incident 2026-06-05)
+    image: postgres:17.12-alpine          # Major 17 wie im Altsystem (Migration!) — NICHT auf 18 bumpen: pg_upgrade nötig (Incident 2026-06-05)
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: ${KC_DB_USER}
@@ -20,13 +20,17 @@ services:
       retries: 5
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.6.4
+    image: quay.io/keycloak/keycloak:26.8.2
     command:
       - start
       - --hostname=https://auth.${LAB_DOMAIN}
       - --proxy-headers=xforwarded
       - --http-enabled=true
       - --import-realm           # importiert realm/AppsFab-realm.json NUR falls Realm fehlt
+      # Keycloak-Events (Logins, Fehlversuche, Sperren) als Logzeilen -> Alloy -> Loki -> Alarm
+      # (stacks/20-observability/config/loki-rules/). Fehler loggt jboss-logging ohnehin als WARN; "info"
+      # holt auch Erfolgs-Events dazu, darunter USER_DISABLED_BY_TEMPORARY_LOCKOUT (Brute-Force-Sperre).
+      - --spi-events-listener--jboss-logging--success-level=info
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
@@ -43,11 +47,27 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
-      - traefik.http.routers.keycloak.rule=Host(`auth.${LAB_DOMAIN}`)
+      - traefik.docker.network=edge-keycloak
+      # Zwei Hosts, eine Instanz: auth.appsfab.org = öffentlicher Login (Realm AppsFab, frontendUrl
+      # im Realm-JSON → Issuer https://auth.appsfab.org/realms/AppsFab für ALLE Clients, LAN wie Internet);
+      # auth.${LAB_DOMAIN} = Server-Hostname, nur Admin-Konsole/master, nur LAN (kein öffentlicher DNS-Eintrag).
+      # Hintergrund: Cloudflares Gratis-Zertifikat deckt nur *.appsfab.org, nicht auth.lab.appsfab.org.
+      - traefik.http.routers.keycloak.rule=Host(`auth.${LAB_DOMAIN}`) || Host(`auth.appsfab.org`)
       - traefik.http.routers.keycloak.entrypoints=websecure
       - traefik.http.routers.keycloak.tls.certresolver=le
       - traefik.http.services.keycloak.loadbalancer.server.port=8080
-    networks: [edge, kc-internal]
+      # Admin-Konsole + master-Realm NUR aus dem LAN. Internet-Traffic kommt über den
+      # Cloudflare-Tunnel (Quell-IP = cloudflared im Netz edge-tunnel, 172.31.253.0/24) und wird hier mit 403
+      # abgewiesen; LAN-Clients erreichen Traefik direkt über macvlan .48 mit echter Quell-IP.
+      # Neue LAN-/VPN-Netze bei Bedarf in sourcerange ergänzen.
+      - traefik.http.routers.keycloak-admin.rule=(Host(`auth.${LAB_DOMAIN}`) || Host(`auth.appsfab.org`)) && (PathPrefix(`/admin`) || PathPrefix(`/realms/master`))
+      - traefik.http.routers.keycloak-admin.entrypoints=websecure
+      - traefik.http.routers.keycloak-admin.tls.certresolver=le
+      - traefik.http.routers.keycloak-admin.priority=100
+      - traefik.http.routers.keycloak-admin.service=keycloak
+      - traefik.http.routers.keycloak-admin.middlewares=kc-lan-only
+      - traefik.http.middlewares.kc-lan-only.ipallowlist.sourcerange=192.168.0.0/16,10.0.0.0/8
+    networks: [edge-keycloak, kc-internal]
     mem_limit: 1g
     restart: unless-stopped
 
@@ -91,12 +111,13 @@ services:
       # Bump on every realm/ change. A changed env value forces Compose to recreate this
       # one-shot (so it re-runs), AND touching compose.yaml guarantees Arcane redeploys the
       # stack (a realm-only file edit alone may not trigger either). See RECONCILE.md.
-      KCC_REALM_REV: "9"
+      KCC_REALM_REV: "16"
       # OIDC client secrets — resolved into the realm by $(env:...). Same vars the consumers read.
       GRAFANA_OIDC_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
       FORGEJO_OIDC_CLIENT_SECRET: ${FORGEJO_OIDC_CLIENT_SECRET}
       NETBOOT_OIDC_CLIENT_SECRET: ${NETBOOT_OIDC_CLIENT_SECRET}
       OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_PROXY_CLIENT_SECRET}
+      ZOT_OIDC_CLIENT_SECRET: ${ZOT_OIDC_CLIENT_SECRET}
       # cluster (M4a) OIDC client secrets — mirrored from 1Password into the Arcane env
       ARGOCD_OIDC_CLIENT_SECRET: ${ARGOCD_OIDC_CLIENT_SECRET}
       GRAFANA_K8S_OIDC_CLIENT_SECRET: ${GRAFANA_K8S_OIDC_CLIENT_SECRET}
@@ -109,6 +130,6 @@ services:
     mem_limit: 512m
 
 networks:
-  edge:
-    external: true
+  edge-keycloak:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
   kc-internal:

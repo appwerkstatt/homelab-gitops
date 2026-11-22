@@ -22,14 +22,19 @@ services:
       - /mnt/data/registry-cache:/var/lib/registry     # Cache-Blobs -> data-Pool
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-mirror
       - traefik.http.routers.regcache.rule=Host(`mirror.${LAB_DOMAIN}`)
       - traefik.http.routers.regcache.entrypoints=websecure
       - traefik.http.routers.regcache.tls.certresolver=le
+      # Kein offener Proxy: nur Quellen aus MIRROR_ALLOWED_CIDRS (VLAN Kubernetes + Trusted), Rest -> 403.
+      # Der NAS-Daemon nutzt 127.0.0.1:5001 direkt und ist davon nicht betroffen.
+      - traefik.http.routers.regcache.middlewares=regcache-allow
+      - traefik.http.middlewares.regcache-allow.ipallowlist.sourcerange=${MIRROR_ALLOWED_CIDRS}
       - traefik.http.services.regcache.loadbalancer.server.port=5000
-    networks: [edge]
+    networks: [edge-mirror]
     mem_limit: 256m
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-mirror:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack

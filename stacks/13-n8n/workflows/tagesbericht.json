@@ -1,0 +1,436 @@
+{
+  "name": "Homelab-Tagesbericht (Alerts + Renovate)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Täglich 7:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "chatId",
+              "value": "TELEGRAM_CHAT_ID",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "repo",
+              "value": "appwerkstatt/homelab-gitops",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "dashboardIssue",
+              "value": 11,
+              "type": "number"
+            },
+            {
+              "id": "c4",
+              "name": "vmUrl",
+              "value": "http://victoriametrics:8428",
+              "type": "string"
+            },
+            {
+              "id": "c5",
+              "name": "timezone",
+              "value": "Europe/Berlin",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.vmUrl }}/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "count_over_time(ALERTS{alertstate=\"firing\"}[24h])"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Alerts 24h",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.vmUrl }}/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "ALERTS{alertstate=\"firing\"}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Alerts jetzt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.github.com/repos/' + $('Config').first().json.repo + '/pulls' }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "state",
+              "value": "open"
+            },
+            {
+              "name": "per_page",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "PRs offen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.github.com/repos/' + $('Config').first().json.repo + '/pulls' }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "state",
+              "value": "closed"
+            },
+            {
+              "name": "sort",
+              "value": "updated"
+            },
+            {
+              "name": "direction",
+              "value": "desc"
+            },
+            {
+              "name": "per_page",
+              "value": "50"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "PRs geschlossen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.github.com/repos/' + $('Config').first().json.repo + '/issues/' + $('Config').first().json.dashboardIssue }}",
+        "sendQuery": false,
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Dependency Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.github.com/repos/' + $('Config').first().json.repo + '/actions/workflows/renovate.yml/runs' }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "Renovate-Lauf",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Baut den Tagesbericht aus VictoriaMetrics (ALERTS-Serie von vmalert) und der GitHub-API.\nconst cfg = $('Config').first().json;\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst since = Date.now() - 24 * 3600 * 1000;\nconst fmt = d => new Date(d).toLocaleString('de-DE', { timeZone: cfg.timezone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });\nconst dur = m => m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : m + ' min';\nconst sev = s => ({ critical: '🔴', warning: '🟠' }[s] || '🔵');\nconst target = l => l.instance || l.pool || l.name || l.job || '';\n\n// --- Alerts ---\nconst firingNow = ($('Alerts jetzt').first().json.data?.result) || [];\nconst fired24h = ($('Alerts 24h').first().json.data?.result) || [];\nconst key = l => [l.alertname, target(l)].join('|');\nconst nowKeys = new Set(firingNow.map(r => key(r.metric)));\nconst lines = ['<b>📋 Homelab-Tagesbericht ' + esc(new Date().toLocaleDateString('de-DE', { timeZone: cfg.timezone })) + '</b>', '', '<b>🚨 Alerts (24 h)</b>'];\nif (!fired24h.length && !firingNow.length) {\n  lines.push('✅ Keine Alerts.');\n} else {\n  const active = fired24h.filter(r => nowKeys.has(key(r.metric)));\n  const resolved = fired24h.filter(r => !nowKeys.has(key(r.metric)));\n  for (const r of firingNow.filter(r => !fired24h.some(f => key(f.metric) === key(r.metric)))) active.push({ metric: r.metric, value: [0, '1'] });\n  if (active.length) {\n    lines.push('Aktiv:');\n    for (const r of active) lines.push(sev(r.metric.severity) + ' ' + esc(r.metric.alertname) + ' ' + esc(target(r.metric)) + ' (seit ≥ ' + dur(Number(r.value[1])) + ')');\n  }\n  if (resolved.length) {\n    lines.push('Wieder gelöst:');\n    for (const r of resolved) lines.push('✔️ ' + esc(r.metric.alertname) + ' ' + esc(target(r.metric)) + ' (' + dur(Number(r.value[1])) + ' aktiv)');\n  }\n}\n\n// --- Renovate ---\nconst isBot = p => /renovate/i.test(p.user?.login || '');\nconst prLink = p => '<a href=\"' + p.html_url + '\">#' + p.number + '</a> ' + esc(p.title.replace(/^chore\\(deps\\): update /, ''));\nconst open = ($('PRs offen').first().json.body || []).filter(isBot);\nconst merged = ($('PRs geschlossen').first().json.body || []).filter(p => isBot(p) && p.merged_at && Date.parse(p.merged_at) >= since);\nconst body = $('Dependency Dashboard').first().json.body || '';\nconst section = name => {\n  const m = body.split(/^## /m).find(s => s.startsWith(name));\n  return m ? m.split('\\n').filter(l => /^ - \\[ \\] <!-- (approve|unschedule|retry|recreate)-branch/.test(l)).map(l => l.replace(/^ - \\[ \\] <!--.*?-->/, '').replace(/^chore\\(deps\\): update /, '')) : [];\n};\nconst pending = section('Pending Approval');\nconst waiting = section('Awaiting Schedule');\nconst errored = [...section('Errored'), ...section('PR Creation Errored')];\nconst problems = (body.split(/^## /m).find(s => s.startsWith('Repository Problems')) || '').split('\\n').filter(l => /^ - /.test(l)).map(l => l.replace(/^ - /, ''));\nconst run = ($('Renovate-Lauf').first().json.body?.workflow_runs || [])[0];\n\nlines.push('', '<b>📦 Renovate</b>');\nif (run) {\n  const ok = run.conclusion === 'success';\n  lines.push((ok ? '✅' : '❌') + ' Letzter Lauf: ' + fmt(run.created_at) + ' (<a href=\"' + run.html_url + '\">' + esc(run.conclusion || run.status) + '</a>)' + (Date.parse(run.created_at) < since ? ' ⚠️ älter als 24 h' : ''));\n}\nlines.push('Gemergt (24 h): ' + merged.length);\nfor (const p of merged.slice(0, 10)) lines.push('• ' + prLink(p));\nlines.push('Offene PRs: ' + open.length);\nfor (const p of open.slice(0, 10)) lines.push('• ' + prLink(p));\nif (pending.length) { lines.push('Wartet auf deine Freigabe (Major): ' + pending.length); for (const t of pending) lines.push('• ' + esc(t)); }\nif (waiting.length) lines.push('Wartet auf Zeitfenster: ' + waiting.length);\nif (errored.length) { lines.push('❌ Fehler: ' + errored.length); for (const t of errored) lines.push('• ' + esc(t)); }\nfor (const t of problems) lines.push('⚠️ ' + esc(t.replace(/^⚠️\\s*/, '')));\nlines.push('<a href=\"https://github.com/' + cfg.repo + '/issues/' + cfg.dashboardIssue + '\">Dependency Dashboard</a>');\n\nlet text = lines.join('\\n');\nif (text.length > 4000) text = text.slice(0, 3990) + '\\n…';\nreturn [{ json: { text } }];\n"
+      },
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "Bericht bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "a1000000-0000-4000-8000-00000000000a",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1980,
+        0
+      ],
+      "webhookId": "a1000000-0000-4000-8000-00000000000b"
+    }
+  ],
+  "connections": {
+    "Täglich 7:30": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Alerts 24h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alerts 24h": {
+      "main": [
+        [
+          {
+            "node": "Alerts jetzt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alerts jetzt": {
+      "main": [
+        [
+          {
+            "node": "PRs offen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PRs offen": {
+      "main": [
+        [
+          {
+            "node": "PRs geschlossen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PRs geschlossen": {
+      "main": [
+        [
+          {
+            "node": "Dependency Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dependency Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Renovate-Lauf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Renovate-Lauf": {
+      "main": [
+        [
+          {
+            "node": "Bericht bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bericht bauen": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

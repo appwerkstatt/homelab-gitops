@@ -27,11 +27,14 @@ zfs list -t snapshot -o name | grep auto-                    # snapshots materia
 ls -l /mnt/backup/dumps/truenas-config/                      # config tarballs
 ```
 
-## Alerts (channel = open decision, spec §10)
+## Alerts
 
-TrueNAS native Alert Services support Email/Slack/Telegram (not ntfy). Until the
-channel is chosen, alerts are visible in the TrueNAS UI. To wire delivery, see
-Task 7 of the Phase-1 plan (Email Alert Service via configured SMTP).
+Channel: **Telegram** via Alertmanager (stack `20-observability`, 2026-11). `backup-offsite.sh`
+writes `homelab_backup_last_success_timestamp_seconds` to the node-exporter textfile dir
+(`/mnt/fast/appdata/node-exporter/textfile/backup.prom`); vmalert fires `OffsiteBackupStale`
+after 36 h without a successful run. After updating the script, re-copy it to
+`/mnt/backup/scripts/nas-backup/` (see Deploy above). ZFS pool health and pool space are
+alerted from node-exporter as well. TrueNAS' own alert UI stays as a second line.
 
 ## Phase 2 — local cross-disk replication
 

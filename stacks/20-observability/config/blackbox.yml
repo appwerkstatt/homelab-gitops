@@ -1,0 +1,31 @@
+# Blackbox-Exporter-Module. Targets stehen in scrape.yml (job "probe-http" / "probe-tls").
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: []          # leer = 2xx
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+  # Registry mit Pflicht-Login: /v2/ antwortet ohne Credentials 401 = lebt
+  http_registry:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200, 401]
+      preferred_ip_protocol: ip4
+  tls_cert:
+    prober: tcp
+    timeout: 10s
+    tcp:
+      tls: true
+      preferred_ip_protocol: ip4
+  # Paperless (Django) prüft ALLOWED_HOSTS aus PAPERLESS_URL -> mit echtem Host-Header proben
+  http_paperless:
+    prober: http
+    timeout: 10s
+    http:
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+      headers:
+        Host: docs.lab.appsfab.org

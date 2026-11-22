@@ -18,12 +18,13 @@ services:
       - /mnt/data/garage/data:/var/lib/garage/data           # Objekt-Daten -> data-Pool (Mirror)
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-garage
       # S3-API (path-style: https://s3.lab.appsfab.org/<bucket>):
       - traefik.http.routers.garage-s3.rule=Host(`s3.${LAB_DOMAIN}`)
       - traefik.http.routers.garage-s3.entrypoints=websecure
       - traefik.http.routers.garage-s3.tls.certresolver=le
       - traefik.http.services.garage-s3.loadbalancer.server.port=3900
-    networks: [edge]
+    networks: [edge-garage]
     mem_limit: 512m
     restart: unless-stopped
 
@@ -34,5 +35,5 @@ services:
 # und 2026-06-05 aus Git entfernt.
 
 networks:
-  edge:
-    external: true
+  edge-garage:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack

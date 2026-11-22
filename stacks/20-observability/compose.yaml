@@ -4,7 +4,7 @@ name: observability
 
 services:
   victoriametrics:
-    image: victoriametrics/victoria-metrics:v1.155.0   # neuestes Community-Regular-Release (Stand 2026-05).
+    image: victoriametrics/victoria-metrics:v1.156.0   # neuestes Community-Regular-Release (Stand 2026-05).
     # ACHTUNG: LTS-Patch-Releases (v1.136.x .1+) sind NUR Enterprise-Images -> Community zieht die Regular-Linie; Renovate hält sie aktuell.
     command:
       - -storageDataPath=/storage
@@ -15,7 +15,8 @@ services:
     volumes:
       - /mnt/fast/appdata/vm:/storage
       - ./config/scrape.yml:/etc/vm/scrape.yml:ro
-    networks: [obs]
+    # edge-n8n: n8n liest per PromQL (Tagesbericht, stacks/13-n8n/workflows/). VM hat dort keinen Router.
+    networks: [obs, edge-n8n]
     mem_limit: 1g
     restart: unless-stopped
 
@@ -25,8 +26,38 @@ services:
     volumes:
       - /mnt/fast/appdata/loki:/loki
       - ./config/loki.yaml:/etc/loki/loki.yaml:ro
-    networks: [obs]
+      - ./config/loki-rules:/etc/loki/rules:ro    # LogQL-Alarme (Ruler) -> Alertmanager
+    # edge-n8n: n8n holt Logs für den Alert-Erklärer (stacks/13-n8n/workflows/). Loki hat dort keinen Router.
+    networks: [obs, edge-n8n]
     mem_limit: 512m
+    restart: unless-stopped
+
+  # Container-Logs des NAS -> Loki. Liest Docker nur über den eigenen read-only socket-proxy.
+  socket-proxy-logs:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    environment:
+      CONTAINERS: 1          # Container auflisten + Logs lesen
+      NETWORKS: 1            # discovery.docker liest die Netze für Labels (sonst 403)
+      POST: 0                # keine schreibenden Docker-API-Calls
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [logs-socket]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.22.0
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data      # Lese-Positionen je Container
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+    networks: [obs, logs-socket]
+    depends_on: [loki, socket-proxy-logs]
+    mem_limit: 256m
     restart: unless-stopped
 
   grafana:
@@ -40,9 +71,9 @@ services:
       GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
       GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
       GF_AUTH_GENERIC_OAUTH_SCOPES: openid profile email
-      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.${LAB_DOMAIN}/realms/AppsFab/protocol/openid-connect/auth
-      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.${LAB_DOMAIN}/realms/AppsFab/protocol/openid-connect/token
-      GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.${LAB_DOMAIN}/realms/AppsFab/protocol/openid-connect/userinfo
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/auth
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/token
+      GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/userinfo
       # RBAC: Keycloak-Gruppe lab-admins -> Grafana-Admin, sonst Viewer
       GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], 'lab-admins') && 'Admin' || 'Viewer'"
       GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "true"
@@ -51,21 +82,25 @@ services:
       - /mnt/fast/appdata/grafana:/var/lib/grafana    # grafana.db = migrierte Dashboards
       - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro   # VM + Loki deklarativ
       - ./config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/provider.yaml:ro        # Dashboard-Provider (IaC)
-      - ./config/dashboards:/etc/dashboards:ro                                                        # Dashboard-JSONs (IaC)
+      - ./config/dashboards:/etc/dashboards:ro                                                        # Dashboard-JSONs (IaC): community/ + homelab/
     mem_limit: 1g            # 512m lag bei 99 % (2026-11-22)
     depends_on: [victoriametrics, loki]
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-obs
       - traefik.http.routers.grafana.rule=Host(`grafana.${LAB_DOMAIN}`)
       - traefik.http.routers.grafana.entrypoints=websecure
       - traefik.http.routers.grafana.tls.certresolver=le
       - traefik.http.services.grafana.loadbalancer.server.port=3000
-    networks: [edge, obs]
+    networks: [edge-obs, obs]
     restart: unless-stopped
 
   node-exporter:
     image: prom/node-exporter:v1.12.1   # neuester Stand (07.04.2026)
-    command: [--path.rootfs=/host]
+    command:
+      - --path.rootfs=/host
+      # Textfile-Collector: Skripte (z.B. backup-offsite.sh) legen hier *.prom-Dateien ab
+      - --collector.textfile.directory=/host/mnt/fast/appdata/node-exporter/textfile
     volumes: ["/:/host:ro,rslave"]
     networks: [obs]
     mem_limit: 128m
@@ -77,6 +112,8 @@ services:
       - -logtostderr
       - -docker_only=true                # nur Container, keine rohen cgroups
       - -store_container_labels=false     # Container-Labels nicht als Metric-Labels (Kardinalität)
+      # ... außer dem Compose-Projekt (= Stack): Grafana gruppiert danach (Dashboard "Homelab · Container & Stacks")
+      - -whitelisted_container_labels=com.docker.compose.project
       - -housekeeping_interval=30s        # passt zum scrape_interval
       # verbose/selten genutzte Collectors aus -> /metrics deutlich kleiner:
       - -disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp,percpu
@@ -89,29 +126,100 @@ services:
     mem_limit: 256m
     restart: unless-stopped
 
-  # --- VORERST DEAKTIVIERT: Configs fehlen (waren "aus Altsystem übernehmen") ---
-  # Wieder aktivieren, sobald config/alertmanager.yml bzw. config/otel.yaml vorliegen
-  # (aus Phase-0-Backup zurückholen oder frisch schreiben). Beide sind fürs
-  # Kern-Monitoring (Metriken/Logs/Dashboards/OIDC) NICHT erforderlich.
-  #
-  # alertmanager:
-  #   image: prom/alertmanager:v0.31.1
-  #   volumes:
-  #     - ./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-  #   networks: [obs]
-  #   mem_limit: 128m
-  #   restart: unless-stopped
+  # --- Alerting: vmalert wertet config/alerts.yml gegen VictoriaMetrics aus und schickt an
+  # Alertmanager; der stellt per Telegram zu. Secrets (Bot-Token, Chat-ID) aus 1Password via
+  # Arcane-Env (scripts/render-env.sh observability). ---
+  vmalert:
+    image: victoriametrics/vmalert:v1.155.0      # gleiche Linie wie victoriametrics
+    command:
+      - -datasource.url=http://victoriametrics:8428
+      - -remoteWrite.url=http://victoriametrics:8428   # Alert-State als ALERTS-Serie (Grafana, Restarts)
+      - -remoteRead.url=http://victoriametrics:8428    # State nach Restart wiederherstellen
+      - -notifier.url=http://alertmanager:9093
+      - -rule=/etc/vmalert/alerts.yml
+      - -evaluationInterval=1m
+      - -external.url=https://grafana.${LAB_DOMAIN}
+    volumes:
+      - ./config/alerts.yml:/etc/vmalert/alerts.yml:ro
+    networks: [obs]
+    depends_on: [victoriametrics, alertmanager]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.35.0             # busybox-Variante (sh nötig fürs Rendern unten)
+    # Alertmanager kann keine Env-Variablen in der Config -> beim Start aus dem Template rendern.
+    # $$ = literales $ für Compose (sonst interpoliert Compose selbst).
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        sed -e "s|__TELEGRAM_BOT_TOKEN__|$$TELEGRAM_BOT_TOKEN|" -e "s|__TELEGRAM_CHAT_ID__|$$TELEGRAM_CHAT_ID|"
+        -e "s|__N8N_ALERT_WEBHOOK_TOKEN__|$$N8N_ALERT_WEBHOOK_TOKEN|"
+        /etc/alertmanager/alertmanager.tmpl.yml > /tmp/alertmanager.yml &&
+        exec /bin/alertmanager --config.file=/tmp/alertmanager.yml
+        --storage.path=/alertmanager --web.external-url=http://alertmanager:9093
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      N8N_ALERT_WEBHOOK_TOKEN: ${N8N_ALERT_WEBHOOK_TOKEN}
+    volumes:
+      - ./config/alertmanager.tmpl.yml:/etc/alertmanager/alertmanager.tmpl.yml:ro
+      # Silences + Notification-Log. Image läuft als nobody -> Verzeichnis einmalig anlegen:
+      #   install -d -o 65534 -g 65534 /mnt/fast/appdata/alertmanager
+      - /mnt/fast/appdata/alertmanager:/alertmanager
+    # edge-n8n: zusätzlicher Webhook an n8n (Alert-Erklärer)
+    networks: [obs, edge-n8n]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  # Blackbox: prüft die Dienste direkt über deren edge-<stack>-Netze (intern, ohne Hairpin) und das Wildcard-Cert
+  # über den Traefik-Alias auth.${LAB_DOMAIN}. Targets in config/scrape.yml.
+  blackbox:
+    image: prom/blackbox-exporter:v0.29.1
+    command: [--config.file=/etc/blackbox/blackbox.yml]
+    volumes:
+      - ./config/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    # Einziger Backend-Container mit Zugang zu mehreren Stack-Netzen: probt die Dienste direkt
+    # (ohne Traefik). Nur ausgehende Probes, kein Traefik-Router.
+    networks: [obs, edge-obs, edge-keycloak, edge-forgejo, edge-sso, edge-garage, edge-zot, edge-mirror, edge-paperless, edge-n8n]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  # --- VORERST DEAKTIVIERT: Config fehlt (war "aus Altsystem übernehmen") ---
+  # Wieder aktivieren, sobald config/otel.yaml vorliegt. Fürs Kern-Monitoring nicht nötig.
   #
   # otel-collector:
   #   image: otel/opentelemetry-collector-contrib:0.146.0
   #   command: [--config=/etc/otel/config.yaml]
   #   volumes:
   #     - ./config/otel.yaml:/etc/otel/config.yaml:ro
-  #   networks: [obs, edge]
+  #   networks: [obs, edge-obs]
   #   mem_limit: 256m
   #   restart: unless-stopped
 
 networks:
-  edge:
+  edge-obs:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
+  # nur für blackbox (Probes); edge-n8n zusätzlich für victoriametrics, loki und alertmanager (n8n):
+  edge-keycloak:
+    external: true
+  edge-forgejo:
+    external: true
+  edge-sso:
+    external: true
+  edge-garage:
+    external: true
+  edge-zot:
+    external: true
+  edge-mirror:
+    external: true
+  edge-paperless:
+    external: true
+  edge-n8n:
     external: true
   obs:
+  logs-socket:
+    internal: true   # nur alloy <-> socket-proxy-logs
+
+volumes:
+  alloy-data:

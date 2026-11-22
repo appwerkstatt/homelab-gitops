@@ -153,7 +153,7 @@ Gegenprobe vom Mac oder einem anderen Gerät: Port 8080 auf der VM-IP in VLAN 40
   `ghcr.io/n8n-io/n8n-sandbox-service-api`, nur Stable), neu rendern/kopieren, auf der VM
   `docker compose pull && docker compose up -d`. Renovate deckt das nicht ab (Variable statt Tag).
   Debian selbst: `unattended-upgrades` einschalten.
-- **Zertifikate** (mTLS API ↔ Runner) erneuern sich nicht. Läuft der Runner nicht mehr an:
+- **Zertifikate** (mTLS API ↔ Runner) erneuern sich nicht; die ersten (2026-11-22) gelten bis 2029-02-24. Läuft der Runner nicht mehr an:
   `docker compose down && docker volume rm n8n-sandbox_sandbox-tls && docker compose up -d`.
 - **Schlüssel rotieren:** in 1Password neu erzeugen, neu rendern/kopieren, `docker compose up -d`,
   danach `render-env.sh n8n` + Recreate in Arcane (der API-Key steht auf beiden Seiten).

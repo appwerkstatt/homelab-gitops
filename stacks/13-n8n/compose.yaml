@@ -138,5 +138,5 @@ services:
 
 networks:
   edge-n8n:
-    external: true   # von 00-traefik angelegt; nur Traefik (und blackbox für Probes) teilt es mit diesem Stack
+    external: true   # von 00-traefik angelegt; geteilt mit Traefik, blackbox (Probes) und victoriametrics (Abfragen)
   n8n-internal:

@@ -15,7 +15,8 @@ services:
     volumes:
       - /mnt/fast/appdata/vm:/storage
       - ./config/scrape.yml:/etc/vm/scrape.yml:ro
-    networks: [obs]
+    # edge-n8n: n8n liest per PromQL (Tagesbericht, stacks/13-n8n/workflows/). VM hat dort keinen Router.
+    networks: [obs, edge-n8n]
     mem_limit: 1g
     restart: unless-stopped
 
@@ -164,7 +165,7 @@ services:
 networks:
   edge-obs:
     external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
-  # nur für blackbox (Probes):
+  # nur für blackbox (Probes); edge-n8n zusätzlich für victoriametrics (n8n-Abfragen):
   edge-keycloak:
     external: true
   edge-forgejo:

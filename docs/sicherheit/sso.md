@@ -8,9 +8,9 @@ flowchart LR
   user[Browser] --> traefik[Traefik]
   traefik -->|OIDC-fähig| app1[Grafana · Forgejo · Zot · Netboot]
   app1 -->|OIDC| kc[Keycloak<br/>auth.appsfab.org]
-  traefik -->|sso@docker| o2p[oauth2-proxy]
+  traefik -->|"sso@docker"| o2p[oauth2-proxy]
   o2p -->|OIDC| kc
-  o2p -->|202 ok| app2[Homepage · n8n · Plane · Handbuch · paperless-ai · Traefik-Dashboard]
+  o2p -->|"202 ok"| app2[Homepage · n8n · Plane · Handbuch · paperless-ai · Traefik-Dashboard]
 ```
 
 ## Ein Issuer für alles

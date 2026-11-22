@@ -27,7 +27,7 @@ flowchart LR
 
   gh -- pull main --> arcane
   arcane -- docker compose --> stacks
-  op -. render-env.sh .-> arcane
+  op -.->|render-env.sh| arcane
   internet --> cf -- Tunnel --> stacks
   clients -- "*.lab.appsfab.org" --> traefik --> stacks
   stacks --- zfs

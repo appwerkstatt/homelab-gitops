@@ -18,7 +18,7 @@ services:
       - traefik.http.services.homepage.loadbalancer.server.port=3000
       # Optional hinter SSO: traefik.http.routers.homepage.middlewares=sso@docker
     networks: [edge]
-    mem_limit: 128m
+    mem_limit: 256m          # 128m lag bei 97 % (2026-11-22)
     restart: unless-stopped
 
 networks:

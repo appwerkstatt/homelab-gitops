@@ -26,6 +26,7 @@ services:
     volumes:
       - /mnt/fast/appdata/loki:/loki
       - ./config/loki.yaml:/etc/loki/loki.yaml:ro
+      - ./config/loki-rules:/etc/loki/rules:ro    # LogQL-Alarme (Ruler) -> Alertmanager
     # edge-n8n: n8n holt Logs für den Alert-Erklärer (stacks/13-n8n/workflows/). Loki hat dort keinen Router.
     networks: [obs, edge-n8n]
     mem_limit: 512m

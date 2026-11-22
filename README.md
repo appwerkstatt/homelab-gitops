@@ -74,7 +74,8 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 - **Image-Versionen** sind gepinnt (kein `latest`). Renovate (nächtlich) mergt Patches automatisch, wenn
   `validate` grün ist (Compose streng, Images existieren für `linux/amd64`); Minor/Major per Hand.
 - **Alerting:** vmalert → Alertmanager → Telegram (`stacks/20-observability/config/alerts.yml`), blackbox-Probes
-  für alle Dienste, Offsite-Backup-Alter über node-exporter-Textfile.
+  für alle Dienste, Offsite-Backup-Alter über node-exporter-Textfile. Log-basierte Alarme (LogQL, z. B.
+  Keycloak-Fehlversuche und Brute-Force-Sperren) wertet der Loki-Ruler aus (`config/loki-rules/fake/`).
 - **Dashboards:** Grafana-Ordner *Homelab* (Übersicht, NAS-Host, Container & Stacks, Dienste, Alerts, Logs) wird von
   `stacks/20-observability/build-dashboards.py` erzeugt (JSONs mitcommitten, CI prüft das); Ordner *Community* =
   grafana.com-Dashboards via `fetch-dashboards.sh`. In der UI read-only, Änderungen nur über Git.

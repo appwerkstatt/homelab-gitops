@@ -28,9 +28,8 @@ SPECS = [
     # Tier 3 — reproducible: daily only
     ("data/provisioning",   True,  "3",    (1, "WEEK"), None),
     ("data/media",          True,  "3",    (1, "WEEK"), None),
-    # Zot: nur selbst gebaute Images, aus Forgejo neu baubar -> kein Replika/Offsite, nur Schutz
-    # gegen versehentliches Löschen/Überschreiben.
-    ("data/harbor",         True,  "3",    (1, "WEEK"), None),
+    # data/harbor (Zot) fehlt bewusst: kein eigenes Dataset (Ordner im data-Root), und dort liegen
+    # nur selbst gebaute Images, die aus Forgejo neu baubar sind.
 ]
 
 

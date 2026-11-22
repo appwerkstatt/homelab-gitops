@@ -58,10 +58,10 @@ zfs list -r -o name,used,readonly,encryptionroot backup/replica
 ## Phase 3 — offsite (restic → Backblaze B2)
 
 `backup-offsite.sh` (TrueNAS cron, 03:30 daily) takes app-consistent dumps —
-`pg_dump` of keycloak + paperless (via `docker exec`, local trust) and `forgejo dump`
+`pg_dump` of keycloak + paperless + plane (via `docker exec`, local trust) and `forgejo dump`
 (tar.zst) into `/mnt/backup/dumps/<app>/` — then runs `restic` (`docker run --rm
 restic/restic`) to back up the **Tier-1 set** (`/mnt/backup/dumps` incl. the TrueNAS
-config-export, `/mnt/data/paperless/{media,export}`, `/mnt/data/homes`,
+config-export, `/mnt/data/paperless/{media,export}`, `/mnt/fast/appdata/plane/uploads`, `/mnt/data/homes`,
 `/mnt/backup/HomeFolders`) to B2. Encrypted + deduplicated; retention 14 daily / 8 weekly
 / 12 monthly. Bulk (Time Machine, media) stays local by design (100-Mbit uplink).
 

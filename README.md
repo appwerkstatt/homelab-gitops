@@ -21,7 +21,7 @@ GitHub (dieses Repo)
    └─> Arcane (TrueNAS-App, manuell installiert)
          └─> 00-traefik         (legt die Netze "edge-<stack>" an, TLS via DNS-01)
                └─> 01-forgejo + 02-keycloak   (Identity/Infra-Fundament)
-                     └─> Rest:  03-oauth2-proxy · 11-paperless · 12-cloudflared · 13-n8n · 20-observability
+                     └─> Rest:  03-oauth2-proxy · 11-paperless · 12-cloudflared · 13-n8n · 14-plane · 20-observability
                                 21-garage · 22-harbor (= Zot) · 23-registry-cache · 30-netboot · 40-homepage
 ```
 
@@ -44,6 +44,7 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 | `11-paperless` | Paperless-ngx + Postgres 17 + Redis + paperless-ai (Ollama auf `192.168.80.30`) | LAN (`docs`; `docs-ai` hinter SSO) | `fast/appdata/paperless`, `data/paperless` |
 | `12-cloudflared` | Cloudflare-Tunnel (nur Hosts aus `config.yml`, Rest 404) | – | `fast/appdata/cloudflared` |
 | `13-n8n` | n8n + Postgres 17; LLMs über Ollama auf dem Mac Studio (`192.168.80.30`, nur vom NAS erreichbar, `docs/mac-studio-llm.md`) | LAN (`n8n`, Editor hinter SSO; `/webhook*` ohne SSO); **Internet** nur `hooks.appsfab.org/webhook/` + `/webhook-test/` (Tunnel) | `fast/appdata/n8n` |
+| `14-plane` | Plane CE (Projekte/Issues/Kanban) + Postgres 17 + Valkey + RabbitMQ + MinIO (Silo); Login Keycloak davor + Plane-Konto (CE ohne OIDC), `stacks/14-plane/README.md` | LAN (`plane`, hinter SSO) | `fast/appdata/plane` |
 | `20-observability` | VictoriaMetrics + Loki (Dateisystem, Container-Logs via Alloy) + Grafana + node-exporter + cadvisor + vmalert + Alertmanager (→ Telegram) + blackbox-exporter | LAN (`grafana`, Keycloak-OIDC) | `fast/appdata/{vm,loki,grafana}` |
 | `21-garage` | Garage (S3; Buckets: velero, artifacts, k3s-etcd-backups, longhorn-backup; `loki` ungenutzt) | LAN (`s3`) | `fast/appdata/garage/meta`, `data/garage/data` |
 | `22-harbor` | **Zot** (OCI-Registry). Ordnername historisch (Arcane-Pfad), Harbor wird nicht genutzt | LAN (`registry`); UI per Keycloak-SSO, Pull nur mit Login | `data/harbor/zot` |

@@ -119,6 +119,11 @@
         description: Workflows + LLMs (Mac Studio) · im Aufbau
         # siteMonitor erst nach dem Deploy des n8n-Stacks einschalten (vorher 404 = rot):
         # siteMonitor: https://n8n.lab.appsfab.org/
+    - Plane:
+        icon: plane.png
+        href: https://plane.lab.appsfab.org
+        description: Projekte, Issues, Kanban · hinter SSO
+        # kein siteMonitor: hinter sso@docker liefert der Check nur den Login-Redirect; Verfügbarkeit prüft blackbox
 
 - Dokumente:
     - Paperless:

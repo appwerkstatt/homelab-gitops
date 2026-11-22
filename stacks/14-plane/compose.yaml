@@ -1,0 +1,239 @@
+# 14-plane — Projekt- und Aufgabenverwaltung (Plane Community Edition, Jira-/Kanban-Ersatz).
+# Nur LAN: plane.lab.appsfab.org, komplett hinter Keycloak (sso@docker, Gruppe lab-users), kein Tunnel-Eintrag.
+# Danach Plane-eigener Login: Die Community-Edition kann kein OIDC (nur Pro). Optional ohne zweites Passwort
+# über "Gitea"-OAuth gegen Forgejo (das selbst nur per Keycloak anmeldet) -> README.md, Schritt 6.
+#
+# Aufbau wie das offizielle Community-Compose (deployments/cli/community/docker-compose.yml, v1.5.0), aber:
+#   - kein plane-proxy (Caddy): Traefik routet die Pfade direkt (Tabelle unten), spart einen Proxy-Hop
+#   - kein "space" (öffentlich geteilte Seiten unter /spaces) — intern hinter SSO sinnlos, spart ~200 MB
+#   - Celery-Worker mit --concurrency=2 statt "ein Prozess pro CPU-Thread"
+#   - Valkey ohne Persistenz (nur Cache), Postgres 17 wie die anderen Stacks
+# Routing (alles Host plane.lab, alles hinter sso@docker):
+#   /api/ /auth/ /static/ -> plane-api:8000   /god-mode -> plane-admin:3000   /live/ -> plane-live:3000
+#   /uploads              -> plane-minio:9000 /         -> plane-web:3000
+#
+# Vor dem ersten Deploy: stacks/14-plane/README.md (1Password-Item, Datasets, Arcane-App).
+name: plane
+
+x-plane-env: &plane-env
+  # --- URLs (Cookies werden "Secure", weil https) ---
+  WEB_URL: https://plane.${LAB_DOMAIN}
+  CORS_ALLOWED_ORIGINS: https://plane.${LAB_DOMAIN}
+  DEBUG: "0"
+  NUM_PROXIES: "1"                      # genau Traefik davor -> X-Forwarded-For für das Rate-Limit
+  GUNICORN_WORKERS: "1"
+  FILE_SIZE_LIMIT: "10485760"           # 10 MB pro Anhang
+  SECRET_KEY: ${PLANE_SECRET_KEY}
+  LIVE_SERVER_SECRET_KEY: ${PLANE_LIVE_SECRET_KEY}
+  # --- Postgres (ohne DATABASE_URL baut Plane die Verbindung aus diesen Variablen; Passwort braucht kein URL-Escaping) ---
+  POSTGRES_HOST: plane-db
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: plane
+  POSTGRES_USER: ${PLANE_DB_USER}
+  POSTGRES_PASSWORD: ${PLANE_DB_PASSWORD}
+  # --- Cache + Queue ---
+  REDIS_URL: redis://plane-redis:6379/
+  RABBITMQ_HOST: plane-mq
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: plane
+  RABBITMQ_PASSWORD: ${PLANE_MQ_PASSWORD}
+  RABBITMQ_VHOST: plane
+  # --- Anhänge: stack-eigenes MinIO (Silo-Fork wie upstream), Bucket legt die API beim Start an ---
+  USE_MINIO: "1"
+  MINIO_ENDPOINT_SSL: "1"               # signierte Upload-/Download-URLs als https://plane.lab/uploads/...
+  AWS_REGION: ""
+  AWS_ACCESS_KEY_ID: ${PLANE_S3_ACCESS_KEY}
+  AWS_SECRET_ACCESS_KEY: ${PLANE_S3_SECRET_KEY}
+  AWS_S3_ENDPOINT_URL: http://plane-minio:9000
+  AWS_S3_BUCKET_NAME: uploads
+  TZ: ${TZ}
+
+services:
+  plane-db:
+    image: postgres:17.12-alpine          # gleiche Linie wie Keycloak/Paperless/n8n; Major-Bump nur mit pg_upgrade
+    environment:
+      POSTGRES_DB: plane
+      POSTGRES_USER: ${PLANE_DB_USER}
+      POSTGRES_PASSWORD: ${PLANE_DB_PASSWORD}
+    command: postgres -c max_connections=200
+    volumes:
+      - /mnt/fast/appdata/plane/db:/var/lib/postgresql/data
+    networks: [plane-internal]
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PLANE_DB_USER} -d plane"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  plane-redis:
+    image: valkey/valkey:8.1.12-alpine
+    command: valkey-server --save "" --appendonly no --maxmemory 96mb --maxmemory-policy allkeys-lru
+    networks: [plane-internal]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  plane-mq:
+    image: rabbitmq:3.13.7-alpine         # Linie wie upstream; 4.x erst, wenn Plane es offiziell nutzt
+    hostname: plane-mq                    # RabbitMQ legt die Daten unter dem Knotennamen ab -> fester Hostname
+    environment:
+      RABBITMQ_DEFAULT_USER: plane
+      RABBITMQ_DEFAULT_PASS: ${PLANE_MQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: plane
+    volumes:
+      - mq-data:/var/lib/rabbitmq         # nur Warteschlangen, nichts Sicherungswürdiges
+    networks: [plane-internal]
+    mem_limit: 256m
+    restart: unless-stopped
+
+  plane-minio:
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z   # MinIO-Fork, den das offizielle Plane-Compose nutzt
+    command: server /export
+    environment:
+      MINIO_ROOT_USER: ${PLANE_S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${PLANE_S3_SECRET_KEY}
+      MINIO_BROWSER: "off"                # keine Konsole, nur die S3-API für Plane
+    volumes:
+      - /mnt/fast/appdata/plane/uploads:/export
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge-plane
+      # Browser lädt Anhänge über signierte URLs direkt hier hoch/herunter (Host bleibt plane.lab -> Signatur passt)
+      - traefik.http.routers.plane-uploads.rule=Host(`plane.${LAB_DOMAIN}`) && PathPrefix(`/uploads`)
+      - traefik.http.routers.plane-uploads.entrypoints=websecure
+      - traefik.http.routers.plane-uploads.tls.certresolver=le
+      - traefik.http.routers.plane-uploads.middlewares=sso@docker
+      - traefik.http.services.plane-uploads.loadbalancer.server.port=9000
+    networks: [edge-plane, plane-internal]
+    mem_limit: 256m
+    restart: unless-stopped
+
+  # Einmaliger Job pro Deploy: Django-Migrationen. api/worker warten selbst darauf (wait_for_migrations).
+  plane-migrator:
+    image: makeplane/plane-backend:v1.5.0
+    command: ./bin/docker-entrypoint-migrator.sh
+    environment: *plane-env
+    depends_on:
+      plane-db:
+        condition: service_healthy
+    networks: [plane-internal]
+    mem_limit: 512m
+    restart: on-failure:3
+
+  plane-api:
+    image: makeplane/plane-backend:v1.5.0
+    command: ./bin/docker-entrypoint-api.sh
+    environment: *plane-env
+    depends_on:
+      plane-db:
+        condition: service_healthy
+      plane-redis:
+        condition: service_started
+      plane-mq:
+        condition: service_started
+      plane-minio:
+        condition: service_started
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge-plane
+      - traefik.http.routers.plane-api.rule=Host(`plane.${LAB_DOMAIN}`) && (PathPrefix(`/api/`) || PathPrefix(`/auth/`) || PathPrefix(`/static/`))
+      - traefik.http.routers.plane-api.entrypoints=websecure
+      - traefik.http.routers.plane-api.tls.certresolver=le
+      - traefik.http.routers.plane-api.middlewares=sso@docker
+      - traefik.http.services.plane-api.loadbalancer.server.port=8000
+    # edge-plane: Traefik-Router + serverseitiger Forgejo-Login (git.appsfab.org über Traefik-Alias, s. 00-traefik)
+    networks: [edge-plane, plane-internal]
+    mem_limit: 768m
+    restart: unless-stopped
+
+  plane-worker:
+    image: makeplane/plane-backend:v1.5.0
+    # = bin/docker-entrypoint-worker.sh, aber mit 2 statt "Anzahl CPU-Threads" Prozessen (RAM)
+    command: ["sh", "-c", "python manage.py wait_for_db && python manage.py wait_for_migrations && exec celery -A plane worker -l info --concurrency=2"]
+    environment: *plane-env
+    depends_on:
+      plane-db:
+        condition: service_healthy
+      plane-redis:
+        condition: service_started
+      plane-mq:
+        condition: service_started
+    networks: [plane-internal]
+    mem_limit: 768m
+    restart: unless-stopped
+
+  plane-beat:
+    image: makeplane/plane-backend:v1.5.0
+    command: ./bin/docker-entrypoint-beat.sh
+    environment: *plane-env
+    depends_on:
+      plane-db:
+        condition: service_healthy
+      plane-mq:
+        condition: service_started
+    networks: [plane-internal]
+    mem_limit: 384m
+    restart: unless-stopped
+
+  # Echtzeit-Zusammenarbeit im Editor (Seiten, Beschreibungen) per WebSocket unter /live/
+  plane-live:
+    image: makeplane/plane-live:v1.5.0
+    environment:
+      API_BASE_URL: http://plane-api:8000
+      CORS_ALLOWED_ORIGINS: https://plane.${LAB_DOMAIN}
+      LIVE_SERVER_SECRET_KEY: ${PLANE_LIVE_SECRET_KEY}
+      REDIS_URL: redis://plane-redis:6379/
+    depends_on:
+      plane-api:
+        condition: service_started
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge-plane
+      - traefik.http.routers.plane-live.rule=Host(`plane.${LAB_DOMAIN}`) && PathPrefix(`/live/`)
+      - traefik.http.routers.plane-live.entrypoints=websecure
+      - traefik.http.routers.plane-live.tls.certresolver=le
+      - traefik.http.routers.plane-live.middlewares=sso@docker
+      - traefik.http.services.plane-live.loadbalancer.server.port=3000
+    networks: [edge-plane, plane-internal]
+    mem_limit: 384m
+    restart: unless-stopped
+
+  # Instanz-Verwaltung ("God Mode": Admin anlegen, Login-Methoden, SMTP, Telemetrie) unter /god-mode
+  plane-admin:
+    image: makeplane/plane-admin:v1.5.0
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge-plane
+      - traefik.http.routers.plane-admin.rule=Host(`plane.${LAB_DOMAIN}`) && PathPrefix(`/god-mode`)
+      - traefik.http.routers.plane-admin.entrypoints=websecure
+      - traefik.http.routers.plane-admin.tls.certresolver=le
+      - traefik.http.routers.plane-admin.middlewares=sso@docker
+      - traefik.http.services.plane-admin.loadbalancer.server.port=3000
+    networks: [edge-plane]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  # Web-App (statisch, Caddy im Image); spricht die API relativ über denselben Host an
+  plane-web:
+    image: makeplane/plane-frontend:v1.5.0
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge-plane
+      # Callback /oauth2/callback steht im Realm-Client oauth2-proxy (02-keycloak/realm)
+      - traefik.http.routers.plane.rule=Host(`plane.${LAB_DOMAIN}`)
+      - traefik.http.routers.plane.entrypoints=websecure
+      - traefik.http.routers.plane.tls.certresolver=le
+      - traefik.http.routers.plane.middlewares=sso@docker
+      - traefik.http.services.plane.loadbalancer.server.port=3000
+    networks: [edge-plane]
+    mem_limit: 64m
+    restart: unless-stopped
+
+networks:
+  edge-plane:
+    external: true   # von 00-traefik angelegt; geteilt mit Traefik und blackbox (Probes)
+  plane-internal:
+
+volumes:
+  mq-data:

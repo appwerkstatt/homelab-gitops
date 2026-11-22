@@ -41,7 +41,7 @@ mkdir -p "$DUMPS/keycloak" "$DUMPS/paperless" "$DUMPS/forgejo" "$DUMPS/plane"
 
 dump_pg() {   # $1=container  $2=app  — uses the container's own POSTGRES_USER/DB (local trust)
   local tmp="$DUMPS/$2/.${ts}.sql.zst.tmp"
-  docker exec "$1" sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | zstd -qc > "$tmp"
+  docker exec "$1" sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | zstd -qc --rsyncable > "$tmp"
   mv "$tmp" "$DUMPS/$2/${ts}.sql.zst"
 }
 dump_pg keycloak-keycloak-db-1 keycloak
@@ -51,9 +51,12 @@ if docker inspect -f '{{.State.Running}}' plane-plane-db-1 2>/dev/null | grep -q
   dump_pg plane-plane-db-1 plane
 fi
 
-# forgejo (sqlite + repos + config) — its own consistent dump, tar.zst to stdout
+# forgejo (sqlite + repos + config) — its own consistent dump, als unkomprimiertes tar auf
+# stdout und erst hier mit zstd --rsyncable gepackt: so bleiben unveränderte Teile auch im
+# komprimierten Stream byte-gleich und restic dedupliziert sie. (Mit `--type tar.zst` war
+# jeder Tages-Dump für restic komplett neu -> B2 wuchs pro Nacht um die volle Dump-Größe.)
 ftmp="$DUMPS/forgejo/.${ts}.tar.zst.tmp"
-docker exec -u git forgejo-forgejo-1 forgejo dump --type tar.zst --quiet --file - > "$ftmp"
+docker exec -u git forgejo-forgejo-1 forgejo dump --type tar --quiet --file - | zstd -qc --rsyncable > "$ftmp"
 mv "$ftmp" "$DUMPS/forgejo/${ts}.tar.zst"
 
 # local dump retention: keep 14 days (offsite retention is restic's, below)
@@ -63,7 +66,17 @@ find "$DUMPS" -type f \( -name '*.sql.zst' -o -name '*.tar.zst' \) -mtime +14 -d
 restic_run snapshots >/dev/null 2>&1 || restic_run init
 restic_run backup --host nas --tag nas-offsite \
   /data/dumps /data/paperless-media /data/paperless-export /data/homes /data/HomeFolders /data/plane-uploads
-restic_run forget --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune
+# --group-by host,tags: restic gruppiert sonst nach host+paths. Jede neue Quelle (z. B.
+# plane-uploads, 2026-11) eröffnet dann eine neue Gruppe, und die alte behält ihre
+# 14+8+12 Snapshots für immer.
+restic_run forget --host nas --tag nas-offsite --group-by host,tags \
+  --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune
+
+# sonntags Integritätsprüfung inkl. 5 % der Daten (Rest rotiert über die Wochen). Schlägt
+# sie fehl, bricht set -e ab -> kein Erfolgs-Zeitstempel -> OffsiteBackupStale.
+if [ "$(date +%u)" = 7 ]; then
+  restic_run check --read-data-subset=5%
+fi
 
 hc           # success ping
 

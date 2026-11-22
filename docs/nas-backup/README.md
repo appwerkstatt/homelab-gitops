@@ -63,7 +63,9 @@ zfs list -r -o name,used,readonly,encryptionroot backup/replica
 restic/restic`) to back up the **Tier-1 set** (`/mnt/backup/dumps` incl. the TrueNAS
 config-export, `/mnt/data/paperless/{media,export}`, `/mnt/fast/appdata/plane/uploads`, `/mnt/data/homes`,
 `/mnt/backup/HomeFolders`) to B2. Encrypted + deduplicated; retention 14 daily / 8 weekly
-/ 12 monthly. Bulk (Time Machine, media) stays local by design (100-Mbit uplink).
+/ 12 monthly, grouped by host+tag (adding a source doesn't orphan old snapshots). Dumps are
+packed with `zstd --rsyncable` so restic can dedupe them across days. Sundays also run
+`restic check --read-data-subset=5%`. Bulk (Time Machine, media) stays local by design (100-Mbit uplink).
 
 ### One-time B2 setup
 1. Create a **private B2 bucket** (e.g. `appsfab-nas-offsite`).

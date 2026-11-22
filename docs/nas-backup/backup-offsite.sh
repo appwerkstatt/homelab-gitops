@@ -51,7 +51,7 @@ trap 'hc /fail' ERR        # ping the dead-man's-switch on any failure (if confi
 find "$DUMPS" -type f -name '.*.tmp' -mtime +1 -delete 2>/dev/null || true
 
 # --- 1) app-consistent DB dumps -> $DUMPS/<app>/<ts> (also snapshotted+replicated locally) ---
-mkdir -p "$DUMPS/keycloak" "$DUMPS/paperless" "$DUMPS/forgejo" "$DUMPS/plane"
+mkdir -p "$DUMPS/keycloak" "$DUMPS/paperless" "$DUMPS/forgejo" "$DUMPS/plane" "$DUMPS/n8n"
 
 dump_pg() {   # $1=container  $2=app  — uses the container's own POSTGRES_USER/DB (local trust)
   local tmp="$DUMPS/$2/.${ts}.sql.zst.tmp"
@@ -63,6 +63,11 @@ dump_pg paperless-paperless-db-1 paperless
 # Arcane-App "plane" (stacks/14-plane); übersprungen, solange der Stack nicht läuft (sonst bricht set -e alles ab)
 if docker inspect -f '{{.State.Running}}' plane-plane-db-1 2>/dev/null | grep -q true; then
   dump_pg plane-plane-db-1 plane
+fi
+# Arcane-App "n8n" (stacks/13-n8n): Workflows liegen auch im Repo, Credentials/Executions nur in
+# der DB. Ohne N8N_ENCRYPTION_KEY (1Password homelab-n8n) sind die Credentials im Dump unlesbar.
+if docker inspect -f '{{.State.Running}}' n8n-n8n-db-1 2>/dev/null | grep -q true; then
+  dump_pg n8n-n8n-db-1 n8n
 fi
 
 # forgejo (sqlite + repos + config) — its own consistent dump, als unkomprimiertes tar auf

@@ -24,7 +24,7 @@ services:
       - traefik.http.routers.homepage.middlewares=sso@docker   # Keycloak-Login (Stack 03); Callback im Realm-Client oauth2-proxy
     # Nur edge-home: Status-Checks und Widgets laufen über Traefik (FQDN-Aliase in 00-traefik, edge-home).
     networks: [edge-home]
-    mem_limit: 128m
+    mem_limit: 256m          # 128m lag bei 97 % (2026-11-22)
     restart: unless-stopped
 
 networks:

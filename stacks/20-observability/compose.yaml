@@ -83,7 +83,7 @@ services:
       - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro   # VM + Loki deklarativ
       - ./config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/provider.yaml:ro        # Dashboard-Provider (IaC)
       - ./config/dashboards:/etc/dashboards:ro                                                        # Dashboard-JSONs (IaC): community/ + homelab/
-    mem_limit: 512m
+    mem_limit: 1g            # 512m lag bei 99 % (2026-11-22)
     depends_on: [victoriametrics, loki]
     labels:
       - traefik.enable=true

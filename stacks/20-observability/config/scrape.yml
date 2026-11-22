@@ -58,14 +58,16 @@ scrape_configs:
       - targets: ["http://paperless:8000/"]
     relabel_configs: *blackbox_relabel
 
-  # Ollama auf dem Mac Studio (LLM-Backend für n8n + paperless-ai). Kein Container, sondern ein
+  # LLM-Server auf dem Mac Studio: Ollama (n8n-Workflows + paperless-ai) und LM Studio (n8n-Assistent). Kein Container, sondern ein
   # Host im LAN: blackbox erreicht ihn über das NAT des NAS (.50) — das ist auch die einzige
   # Quelle, die die Mac-Firewall durchlässt (docs/mac-studio-llm.md). Eigener Job, weil eigener Alert.
   - job_name: probe-llm
     metrics_path: /probe
     params: { module: [http_2xx] }
     static_configs:
-      - targets: ["http://192.168.80.30:11434/api/version"]
+      - targets:
+          - http://192.168.80.30:11434/api/version   # Ollama (paperless-ai, n8n-Workflows)
+          - http://192.168.80.30:1234/v1/models      # LM Studio (n8n-Assistent)
     relabel_configs: *blackbox_relabel
 
   # Wildcard-Zertifikat (Traefik) über den edge-Alias auth.lab.appsfab.org -> Traefik:443.

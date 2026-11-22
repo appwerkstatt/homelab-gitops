@@ -46,3 +46,37 @@ Einrichtung nach dem Import:
    (der erste `ping` kommt an, wird aber nicht gemeldet).
 
 Weitere Repos: Workflow duplizieren und im Trigger das Repository ändern.
+
+## alert-erklaerer.json: Alert-Erklärer (Loki + LM Studio → Telegram)
+
+Bei jedem Alert mit severity warning oder critical schickt Alertmanager zusätzlich zur normalen
+Telegram-Meldung einen Webhook an n8n (`http://n8n:5678/webhook/alert-erklaerer`, intern über `edge-n8n`).
+Der Workflow läuft dann so:
+
+1. Er holt die passenden Container-Logs aus Loki, ab 15 min vor Alert-Beginn. Bei cadvisor-Alerts ist das
+   der Container aus dem Label `name`. Bei Probes ist es der Dienstname aus `instance`. Sonst sind es die
+   Fehlerzeilen aller Container. Die Logs schickt Alloy (`20-observability`) nach Loki.
+2. LM Studio auf dem Mac Studio (`prism-ml/bonsai-27b`) erklärt in drei Abschnitten, was los ist, was die
+   wahrscheinliche Ursache ist und was die nächsten Schritte sind.
+3. Die Antwort kommt als zweite Telegram-Nachricht mit 🧠.
+
+Ein Alert wird höchstens alle 12 h erklärt (`dedupeHours`), auch wenn Alertmanager ihn wiederholt.
+Ist LM Studio nicht erreichbar, kommt die Meldung trotzdem, nur ohne Erklärung.
+
+Einrichtung, **vor** dem Merge des zugehörigen PRs, damit Alertmanager nicht ins Leere sendet:
+
+1. 1Password: `op item edit homelab-alerting --vault AppsFab "n8n-webhook-token[password]=$(openssl rand -hex 32)"`
+2. Workflow importieren. Im Node **Alert-Webhook** ein Credential *Header Auth* anlegen:
+   Name `Authorization`, Value `Bearer <Token aus Schritt 1>`.
+3. Im Node **Telegram** das Telegram-Credential wählen, im Node **Config** die `chatId` eintragen.
+4. Workflow auf **Active** stellen.
+5. Nach dem Merge: `scripts/render-env.sh observability` → Arcane → observability → Environment → **Recreate**.
+
+Testen ohne echten Alert (vom NAS aus, Token einsetzen):
+
+```bash
+docker exec "$(docker ps -qf name=alertmanager)" wget -qO- --header "Authorization: Bearer <Token>" \
+  --header "Content-Type: application/json" --post-data '{"alerts":[{"status":"firing","fingerprint":"test1",
+  "startsAt":"'"$(date -u +%FT%TZ)"'","labels":{"alertname":"ContainerRestartLoop","severity":"warning",
+  "name":"n8n"},"annotations":{"summary":"Test"}}]}' http://n8n:5678/webhook/alert-erklaerer
+```

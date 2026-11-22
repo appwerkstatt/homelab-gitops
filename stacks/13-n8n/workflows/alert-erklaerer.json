@@ -1,0 +1,299 @@
+{
+  "name": "Alert-Erklärer (Loki + LM Studio -> Telegram)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "alert-erklaerer",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "c3000000-0000-4000-8000-000000000001",
+      "name": "Alert-Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "c3000000-0000-4000-8000-000000000101"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "k1",
+              "name": "chatId",
+              "value": "TELEGRAM_CHAT_ID",
+              "type": "string"
+            },
+            {
+              "id": "k2",
+              "name": "lokiUrl",
+              "value": "http://loki:3100",
+              "type": "string"
+            },
+            {
+              "id": "k3",
+              "name": "lmUrl",
+              "value": "http://192.168.80.30:1234/v1",
+              "type": "string"
+            },
+            {
+              "id": "k4",
+              "name": "model",
+              "value": "prism-ml/bonsai-27b",
+              "type": "string"
+            },
+            {
+              "id": "k5",
+              "name": "logMinutesBefore",
+              "value": 15,
+              "type": "number"
+            },
+            {
+              "id": "k6",
+              "name": "maxLogLines",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "k7",
+              "name": "dedupeHours",
+              "value": 12,
+              "type": "number"
+            },
+            {
+              "id": "k8",
+              "name": "timezone",
+              "value": "Europe/Berlin",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3000000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nimmt den Alertmanager-Webhook auseinander: nur firing, jede Meldung höchstens einmal je dedupeHours\n// (Alertmanager wiederholt offene Alerts alle 12 h). Baut pro Alert die passende Loki-Abfrage.\nconst cfg = $('Config').first().json;\nconst body = $('Alert-Webhook').first().json.body || {};\nconst seen = $getWorkflowStaticData('global');\nseen.fp = seen.fp || {};\nconst now = Date.now();\nfor (const k of Object.keys(seen.fp)) if (now - seen.fp[k] > cfg.dedupeHours * 3600e3) delete seen.fp[k];\n\nconst clean = s => String(s || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '');\nconst hostOf = inst => String(inst || '').replace(/^[a-z]+:\\/\\//, '').split(/[:/]/)[0];\nconst ERR = '(?i)(error|err=|fatal|panic|fail|exception|refused|timeout|oom|killed)';\n\nconst out = [];\nfor (const a of body.alerts || []) {\n  if (a.status !== 'firing') continue;\n  const fp = a.fingerprint || JSON.stringify(a.labels);\n  if (seen.fp[fp]) continue;\n  seen.fp[fp] = now;\n\n  const l = a.labels || {};\n  const host = hostOf(l.instance);\n  let logql, scope;\n  if (l.name) {                                   // cadvisor-Alerts: Containername steht im Label\n    logql = '{container=\"' + clean(l.name) + '\"}';\n    scope = 'Container ' + l.name;\n  } else if (host && !/^\\d+(\\.\\d+){3}$/.test(host) && !host.includes('.')) {   // Docker-Dienstname (z. B. n8n, node-exporter)\n    const svc = clean(host);\n    logql = '{container=~\"(?i).*' + svc + '.*\"}';\n    scope = 'Container mit \"' + svc + '\" im Namen';\n  } else {                                        // IP/Domain (Mac Studio, TLS-Probes) oder Host-Alert: Fehler aller Container\n    logql = '{host=\"truenas\"} |~ \"' + ERR + '\"';\n    scope = 'Fehlermeldungen aller Container';\n  }\n  const startMs = Math.max(Date.parse(a.startsAt || now) - cfg.logMinutesBefore * 60e3, now - 3 * 3600e3);\n  out.push({ json: {\n    alertname: l.alertname, severity: l.severity, labels: l, annotations: a.annotations || {},\n    startsAt: a.startsAt, logql, scope,\n    start: String(startMs) + '000000', end: String(now) + '000000',\n  } });\n}\nreturn out;\n"
+      },
+      "id": "c3000000-0000-4000-8000-000000000003",
+      "name": "Alerts aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.lokiUrl }}/loki/api/v1/query_range",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.logql }}"
+            },
+            {
+              "name": "start",
+              "value": "={{ $json.start }}"
+            },
+            {
+              "name": "end",
+              "value": "={{ $json.end }}"
+            },
+            {
+              "name": "limit",
+              "value": "200"
+            },
+            {
+              "name": "direction",
+              "value": "backward"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "c3000000-0000-4000-8000-000000000004",
+      "name": "Loki-Logs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Baut aus Alert + Logs die Anfrage an LM Studio (OpenAI-kompatibel).\nconst cfg = $('Config').first().json;\nconst a = $('Alerts aufbereiten').item.json;\nconst rows = [];\nfor (const s of $json.data?.result || []) for (const [ts, line] of s.values || []) rows.push([Number(ts.slice(0, 13)), s.stream?.container || '?', line]);\nrows.sort((x, y) => x[0] - y[0]);\nconst fmt = ms => new Date(ms).toLocaleTimeString('de-DE', { timeZone: cfg.timezone });\nlet logs = rows.slice(-cfg.maxLogLines).map(([ms, c, l]) => fmt(ms) + ' ' + c + ': ' + l.replace(/\\s+$/, '').slice(0, 300)).join('\\n');\nif (logs.length > 7000) logs = '…' + logs.slice(-7000);\nconst lokiError = $json.error ? (' (Loki-Fehler: ' + ($json.error.message || JSON.stringify($json.error)).slice(0, 200) + ')') : '';\n\nconst system = [\n  'Du bist SRE für ein privates Homelab und erklärst Alerts kurz und konkret auf Deutsch.',\n  'Umgebung: TrueNAS-NAS (Docker). Jeder Stack ist ein Compose-Projekt aus dem Git-Repo homelab-gitops, das Arcane automatisch deployt',\n  '(Neustart: Arcane -> Stack -> Redeploy/Recreate; Env-Variablen kommen aus 1Password über scripts/render-env.sh).',\n  'Stacks: traefik (Reverse Proxy, TLS), keycloak + oauth2-proxy (SSO), forgejo, paperless (+ paperless-ai), cloudflared (Tunnel),',\n  'n8n (+ Postgres, SearXNG), observability (VictoriaMetrics, vmalert, Alertmanager, Loki, Alloy, Grafana, blackbox, node-exporter, cadvisor),',\n  'garage (S3), zot/harbor (Registry), registry-cache, netboot, homepage. ZFS-Pools unter /mnt/fast, /mnt/data, /mnt/backup.',\n  'LLMs laufen auf einem Mac Studio (192.168.80.30: Ollama :11434, LM Studio :1234), Doku docs/mac-studio-llm.md.',\n  'Offsite-Backup: restic -> Backblaze B2 per Cron (docs/nas-backup/backup-offsite.sh).',\n  'Antworte in genau drei Abschnitten, insgesamt höchstens 900 Zeichen, ohne Einleitung:',\n  '**Was ist los:** ein Satz.',\n  '**Wahrscheinliche Ursache:** aus den Logs abgeleitet. Zitiere die entscheidende Logzeile kurz. Geben die Logs nichts her, sag das ehrlich und nenne die plausibelste Ursache als Vermutung.',\n  '**Nächste Schritte:** höchstens drei, konkret (Befehl oder Klickpfad).',\n].join('\\n');\n\nconst user = [\n  'Alert: ' + a.alertname + ' (severity ' + a.severity + '), aktiv seit ' + a.startsAt,\n  'Zusammenfassung: ' + (a.annotations.summary || '-'),\n  'Labels: ' + JSON.stringify(a.labels),\n  '',\n  'Logs (' + a.scope + ', ' + rows.length + ' Zeilen, letzte ' + cfg.maxLogLines + ')' + lokiError + ':',\n  logs || '(keine Logzeilen gefunden)',\n].join('\\n');\n\nreturn { json: {\n  ...a, logCount: rows.length,\n  payload: { model: cfg.model, temperature: 0.2, max_tokens: 800,\n             messages: [{ role: 'system', content: system }, { role: 'user', content: user }] },\n} };\n"
+      },
+      "id": "c3000000-0000-4000-8000-000000000005",
+      "name": "Prompt bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.lmUrl }}/chat/completions",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "c3000000-0000-4000-8000-000000000006",
+      "name": "LM Studio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// LLM-Antwort -> Telegram-HTML. Fällt das LLM aus, kommt trotzdem eine Meldung mit den Eckdaten.\nconst a = $('Prompt bauen').item.json;\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nlet txt = $json.choices?.[0]?.message?.content || '';\ntxt = txt.replace(/<think>[\\s\\S]*?<\\/think>/g, '').trim();\nconst html = txt\n  ? esc(txt).replace(/\\*\\*(.+?)\\*\\*/g, '<b>$1</b>').replace(/\\x60([^\\x60\\n]+)\\x60/g, '<code>$1</code>').replace(/^#+\\s*/gm, '')\n  : '⚠️ Keine Erklärung, LM Studio nicht erreichbar oder leere Antwort' + ($json.error ? ': ' + esc(($json.error.message || '').slice(0, 200)) : '') + '.';\nconst icon = { critical: '🔴', warning: '🟠' }[a.severity] || '🔵';\nlet text = '🧠 ' + icon + ' <b>' + esc(a.alertname) + '</b>\\n<i>' + esc(a.annotations.summary || '') + '</i>\\n\\n' + html\n  + '\\n\\n📜 ' + a.logCount + ' Logzeilen · <code>' + esc(a.logql) + '</code>';\nif (text.length > 4000) text = text.slice(0, 3990) + '…';\nreturn { json: { text } };\n"
+      },
+      "id": "c3000000-0000-4000-8000-000000000007",
+      "name": "Antwort formatieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "c3000000-0000-4000-8000-000000000008",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        0
+      ],
+      "webhookId": "c3000000-0000-4000-8000-000000000102"
+    }
+  ],
+  "connections": {
+    "Alert-Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Alerts aufbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alerts aufbereiten": {
+      "main": [
+        [
+          {
+            "node": "Loki-Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loki-Logs": {
+      "main": [
+        [
+          {
+            "node": "Prompt bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt bauen": {
+      "main": [
+        [
+          {
+            "node": "LM Studio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Studio": {
+      "main": [
+        [
+          {
+            "node": "Antwort formatieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Antwort formatieren": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

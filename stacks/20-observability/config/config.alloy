@@ -1,0 +1,40 @@
+// Grafana Alloy: schickt die Logs aller Docker-Container des NAS nach Loki.
+// Zugriff auf Docker nur lesend über socket-proxy-logs (wie bei Traefik), nie direkt am Socket.
+// Labels in Loki: container, compose_project, compose_service, host="truenas".
+
+discovery.docker "containers" {
+  host             = "tcp://socket-proxy-logs:2375"
+  refresh_interval = "30s"
+}
+
+discovery.relabel "containers" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "tcp://socket-proxy-logs:2375"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  labels        = { host = "truenas" }
+  forward_to    = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

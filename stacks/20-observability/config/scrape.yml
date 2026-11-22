@@ -38,6 +38,7 @@ scrape_configs:
           - http://n8n:5678/healthz
           - http://plane-api:8000/api/instances/   # Plane-API (öffentliche Instanz-Infos, braucht DB)
           - http://plane-web:3000/                 # Plane-Web-App
+          - http://doku-web:8080/healthz           # Homelab-Handbuch (15-doku)
     relabel_configs: &blackbox_relabel
       - source_labels: [__address__]
         target_label: __param_target

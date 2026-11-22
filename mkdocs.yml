@@ -1,0 +1,136 @@
+# MkDocs-Konfiguration für das Homelab-Handbuch (Quelle: docs/).
+# Lokal ansehen:  pip install -r docs/requirements.txt && mkdocs serve
+# CI baut mit --strict (.github/workflows/validate.yml): kaputte interne Links lassen den Build scheitern.
+site_name: Homelab-Handbuch
+site_description: Architektur, Dienste und Betrieb des AppsFab-Homelabs (TrueNAS + Arcane GitOps)
+site_author: Christian
+repo_url: https://github.com/appwerkstatt/homelab-gitops
+repo_name: appwerkstatt/homelab-gitops
+edit_uri: edit/main/docs/
+docs_dir: docs
+copyright: Homelab AppsFab · Quelle der Wahrheit ist dieses Git-Repo
+
+# Interne Arbeitsdokumente (Pläne/Specs) bleiben im Repo, aber nicht in der Navigation.
+not_in_nav: |
+  /plans/
+  /specs/
+  /nas-backup/*.py
+  /nas-backup/*.sh
+
+exclude_docs: |
+  requirements.txt
+  nas-backup/restic-b2.env.example
+
+validation:
+  nav:
+    omitted_files: info
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: info
+
+theme:
+  name: material
+  language: de
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle: { icon: material/weather-night, name: Dunkles Design }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle: { icon: material/weather-sunny, name: Helles Design }
+  icon:
+    logo: material/server-network
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search:
+      lang: de
+
+nav:
+  - Start: index.md
+  - Architektur:
+      - architektur/index.md
+      - Netzwerk & Domains: architektur/netzwerk.md
+      - Speicher (ZFS): architektur/speicher.md
+      - Konventionen: architektur/konventionen.md
+  - Dienste:
+      - dienste/index.md
+      - 00 Traefik: dienste/traefik.md
+      - 01 Forgejo: dienste/forgejo.md
+      - 02 Keycloak: dienste/keycloak.md
+      - 03 oauth2-proxy: dienste/oauth2-proxy.md
+      - 11 Paperless: dienste/paperless.md
+      - 12 Cloudflare-Tunnel: dienste/cloudflared.md
+      - 13 n8n: dienste/n8n.md
+      - 14 Plane: dienste/plane.md
+      - 15 Handbuch: dienste/doku.md
+      - 20 Observability: dienste/observability.md
+      - 21 Garage (S3): dienste/garage.md
+      - 22 Zot (Registry): dienste/zot.md
+      - 23 Registry-Cache: dienste/registry-cache.md
+      - 30 Netboot: dienste/netboot.md
+      - 40 Homepage: dienste/homepage.md
+  - Sicherheit:
+      - sicherheit/index.md
+      - Login & SSO: sicherheit/sso.md
+      - Secrets (1Password): sicherheit/secrets.md
+  - Backup:
+      - backup/index.md
+      - Wiederherstellung: backup/restore.md
+      - Skripte (midclt-as-code): nas-backup/README.md
+  - Monitoring:
+      - monitoring/index.md
+      - Alarme: monitoring/alerts.md
+  - Betrieb:
+      - betrieb/index.md
+      - Deploy & Updates: betrieb/deploy.md
+      - Neuen Stack anlegen: betrieb/neuer-stack.md
+      - Neuaufbau (DR): betrieb/neuaufbau.md
+      - Fehlersuche: betrieb/fehlersuche.md
+  - Außerhalb des NAS:
+      - extern/index.md
+      - Mac Studio (LLM): mac-studio-llm.md
+      - n8n-Sandbox-VM: extern/n8n-sandbox.md
+      - Kubernetes-Cluster: extern/cluster.md
+  - Roadmap:
+      - roadmap.md
+      - "Idee: RustFS statt Garage": ideas/2026-11-21-rustfs-statt-garage.md

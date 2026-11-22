@@ -71,6 +71,14 @@
         "pgsty/silo"
       ],
       "versioning": "regex:^RELEASE\\.(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})T\\d{2}-\\d{2}-\\d{2}Z$"
+    },
+    {
+      "description": "Handbuch: mkdocs-material als Docker-Image (15-doku) und PyPI-Paket (docs/requirements.txt, CI) gemeinsam heben",
+      "matchPackageNames": [
+        "squidfunk/mkdocs-material",
+        "mkdocs-material"
+      ],
+      "groupName": "mkdocs-material"
     }
   ],
   "customManagers": [

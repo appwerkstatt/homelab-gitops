@@ -79,6 +79,7 @@ services:
           - auth.${LAB_DOMAIN}
           - auth.appsfab.org
           - git.appsfab.org
+      edge-doku: { aliases: *traefik_aliases }
       edge-tunnel: { aliases: *traefik_aliases }
       edge-obs: { aliases: *traefik_aliases }
       edge-garage: { aliases: *traefik_aliases }
@@ -117,6 +118,8 @@ networks:
     name: edge-n8n          # 13-n8n
   edge-plane:
     name: edge-plane          # 14-plane
+  edge-doku:
+    name: edge-doku          # 15-doku (Handbuch)
   edge-tunnel:
     name: edge-tunnel          # 12-cloudflared
     # Feste Range: Tunnel-Traffic muss AUSSERHALB von 192.168/16 + 10/8 liegen, sonst hielte das

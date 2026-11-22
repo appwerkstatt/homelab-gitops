@@ -21,12 +21,15 @@ SPECS = [
     # Tier 2 — important/large: daily + weekly. fast/appdata = the LIVE app data
     # (keycloak/paperless/forgejo DBs, _secrets, …); NOT the stale pre-migration
     # fast/docker/appdata, which is deliberately not backed up (cleanup pending).
+    # fast/ix-apps fehlt bewusst: TrueNAS 25.10 führt es als internes Dataset (pool.dataset.query
+    # liefert es nicht), und dort liegen nur Images + unwichtige Named Volumes (rabbitmq, alloy, zot-oidc).
     ("fast/appdata",        True,  "3",    (1, "WEEK"), (4, "WEEK")),
-    ("fast/ix-apps",        True,  "3",    (1, "WEEK"), (4, "WEEK")),
     ("data/makerlab",       True,  "3",    (1, "WEEK"), (4, "WEEK")),
     # Tier 3 — reproducible: daily only
     ("data/provisioning",   True,  "3",    (1, "WEEK"), None),
     ("data/media",          True,  "3",    (1, "WEEK"), None),
+    # data/harbor (Zot) fehlt bewusst: kein eigenes Dataset (Ordner im data-Root), und dort liegen
+    # nur selbst gebaute Images, die aus Forgejo neu baubar sind.
 ]
 
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Holt Standard-Community-Dashboards von grafana.com nach config/dashboards/
+# Holt Standard-Community-Dashboards von grafana.com nach config/dashboards/community/
 # und setzt die Datasource-UID auf "victoriametrics" (bzw. "loki"), damit sie
 # per Provisioning OHNE Import-Assistent laufen.
 #
 # Einmalig (oder zum Aktualisieren) auf dem NAS ausführen, danach die JSONs committen.
-#   bash stacks/20-observability/fetch-dashboards.sh && git add stacks/20-observability/config/dashboards
+#   bash stacks/20-observability/fetch-dashboards.sh && git add stacks/20-observability/config/dashboards/community
 #
 # Neues Dashboard aufnehmen: Zeile in DASH ergänzen (name=grafana.com-ID), Skript erneut laufen lassen.
 set -euo pipefail
-cd "$(dirname "$0")/config/dashboards"
+cd "$(dirname "$0")/config/dashboards/community"
 
 # "Dateiname:grafana.com-ID" (portabel, kein assoziatives Array -> läuft auch auf macOS bash 3.2)
 DASH="
@@ -29,4 +29,4 @@ for entry in $DASH; do
           -e 's/${DS_LOKI}/loki/g' \
     > "${name}.json"
 done
-echo "Fertig. JSONs liegen in config/dashboards/ — jetzt committen."
+echo "Fertig. JSONs liegen in config/dashboards/community/ — jetzt committen."

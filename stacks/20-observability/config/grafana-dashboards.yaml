@@ -1,17 +1,29 @@
 # Grafana-Dashboard-Provisioning (deklarativ, GitOps).
-# Lädt alle *.json aus /etc/dashboards in den Ordner "Standard".
 # allowUiUpdates:false + disableDeletion:true -> Dashboards sind in der UI read-only;
-# Änderungen laufen über Git (JSON in config/dashboards/), nicht über die UI.
+# Änderungen laufen über Git, nicht über die UI.
+#   community/ -> Ordner "Community": fertige Dashboards von grafana.com (fetch-dashboards.sh)
+#   homelab/   -> Ordner "Homelab":   eigene Dashboards, erzeugt von build-dashboards.py
 apiVersion: 1
 
 providers:
   - name: IaC
     orgId: 1
-    folder: Standard
+    folder: Community
     type: file
     disableDeletion: true
     allowUiUpdates: false
     updateIntervalSeconds: 30
     options:
-      path: /etc/dashboards
+      path: /etc/dashboards/community
+      foldersFromFilesStructure: false
+
+  - name: Homelab
+    orgId: 1
+    folder: Homelab
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/dashboards/homelab
       foldersFromFilesStructure: false

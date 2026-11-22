@@ -27,17 +27,20 @@ zfs list -t snapshot -o name | grep auto-                    # snapshots materia
 ls -l /mnt/backup/dumps/truenas-config/                      # config tarballs
 ```
 
-## Alerts (channel = open decision, spec §10)
+## Alerts
 
-TrueNAS native Alert Services support Email/Slack/Telegram (not ntfy). Until the
-channel is chosen, alerts are visible in the TrueNAS UI. To wire delivery, see
-Task 7 of the Phase-1 plan (Email Alert Service via configured SMTP).
+Channel: **Telegram** via Alertmanager (stack `20-observability`, 2026-11). `backup-offsite.sh`
+writes `homelab_backup_last_success_timestamp_seconds` to the node-exporter textfile dir
+(`/mnt/fast/appdata/node-exporter/textfile/backup.prom`); vmalert fires `OffsiteBackupStale`
+after 36 h without a successful run. After updating the script, re-copy it to
+`/mnt/backup/scripts/nas-backup/` (see Deploy above). ZFS pool health and pool space are
+alerted from node-exporter as well. TrueNAS' own alert UI stays as a second line.
 
 ## Phase 2 — local cross-disk replication
 
 `replication-tasks.py` (run by `deploy.sh`) creates one LOCAL PUSH replication task per
 Tier 1+2 source on the `fast`/`data` mirrors → `backup/replica/<source>` on the separate
-6 TB `backup` disk (Copy 2 of 3-2-1), daily at 04:00, replicating the Phase-1 `auto-`
+6 TB `backup` disk (Copy 2 of 3-2-1), daily at 04:30 (not 04:00: the daily middlewared-restart cron runs then and kills running replications), replicating the Phase-1 `auto-`
 snapshots, destination `readonly`.
 
 **Encryption:** the `backup` pool is encrypted and `data`/`fast` are not, so each replica
@@ -55,12 +58,14 @@ zfs list -r -o name,used,readonly,encryptionroot backup/replica
 ## Phase 3 — offsite (restic → Backblaze B2)
 
 `backup-offsite.sh` (TrueNAS cron, 03:30 daily) takes app-consistent dumps —
-`pg_dump` of keycloak + paperless (via `docker exec`, local trust) and `forgejo dump`
+`pg_dump` of keycloak + paperless + plane + n8n (via `docker exec`, local trust) and `forgejo dump`
 (tar.zst) into `/mnt/backup/dumps/<app>/` — then runs `restic` (`docker run --rm
 restic/restic`) to back up the **Tier-1 set** (`/mnt/backup/dumps` incl. the TrueNAS
-config-export, `/mnt/data/paperless/{media,export}`, `/mnt/data/homes`,
+config-export, `/mnt/data/paperless/{media,export}`, `/mnt/fast/appdata/plane/uploads`, `/mnt/data/homes`,
 `/mnt/backup/HomeFolders`) to B2. Encrypted + deduplicated; retention 14 daily / 8 weekly
-/ 12 monthly. Bulk (Time Machine, media) stays local by design (100-Mbit uplink).
+/ 12 monthly, grouped by host+tag (adding a source doesn't orphan old snapshots). Dumps are
+packed with `zstd --rsyncable` so restic can dedupe them across days. Sundays also run
+`restic check --read-data-subset=5%`. Bulk (Time Machine, media) stays local by design (100-Mbit uplink).
 
 ### One-time B2 setup
 1. Create a **private B2 bucket** (e.g. `appsfab-nas-offsite`).

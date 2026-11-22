@@ -4,6 +4,9 @@ Infrastruktur-als-Code für das TrueNAS-Homelab (UGREEN DXP4800 Plus, TrueNAS 25
 **Dies ist die externe Wahrheit** — das NAS ist nur die austauschbare Ausführungsumgebung.
 Verwaltet von **Arcane** (TrueNAS-App), das dieses Repo überwacht und Stacks per GitOps deployt.
 
+**Handbuch:** <https://doku.lab.appsfab.org> (LAN, hinter SSO) bzw. als Markdown unter [`docs/`](docs/index.md).
+Architektur, alle Dienste, Backup/Restore, Alarme und Runbooks stehen dort.
+
 > Entstanden nach einer Update-Katastrophe (Custom-Docker am System vorbei → vom Update zerlegt).
 > Lehre: kein Docker am TrueNAS-System vorbei, alles als Code, Daten getrennt von Definition.
 
@@ -12,75 +15,69 @@ Verwaltet von **Arcane** (TrueNAS-App), das dieses Repo überwacht und Stacks pe
 1. **Kein Custom-Docker.** Container laufen über die TrueNAS-App-Engine; Arcane verwaltet die Stacks, ohne den Daemon umzukonfigurieren.
 2. **Alles als Code.** Jeder Stack ist ein `stacks/<n>-<name>/compose.yaml`. Was nicht hier steht, existiert nicht.
 3. **Daten getrennt.** Persistente Daten liegen auf eigenen Datasets (`/mnt/fast/appdata/<dienst>`, `/mnt/data/...`), niemals im Repo.
-4. **Secrets verschlüsselt.** Niemals Klartext-Secrets committen — siehe `.sops.yaml` / `.env.example`.
+4. **Secrets in 1Password.** Niemals Klartext-Secrets committen. Das Repo enthält nur die Liste (`.env.example` mit `op://`-Referenzen), die Werte liegen in 1Password.
 
 ## Bootstrap-Reihenfolge
 
 ```
 GitHub (dieses Repo)
    └─> Arcane (TrueNAS-App, manuell installiert)
-         └─> 00-traefik         (legt das externe Netz "edge" an, TLS via DNS-01)
+         └─> 00-traefik         (legt die Netze "edge-<stack>" an, TLS via DNS-01)
                └─> 01-forgejo + 02-keycloak   (Identity/Infra-Fundament)
-                     └─> Rest:  11-paperless · 12-cloudflared · 20-observability
-                                03-oauth2-proxy · 21-garage · 22-harbor · 30-netboot · 40-homepage
+                     └─> Rest:  03-oauth2-proxy · 11-paperless · 12-cloudflared · 13-n8n · 14-plane · 15-doku · 20-observability
+                                21-garage · 22-harbor (= Zot) · 23-registry-cache · 30-netboot · 40-homepage
 ```
 
 1. **Arcane** als TrueNAS-App installieren (App-Pool = `fast`), dieses Repo als GitOps-Quelle hinterlegen.
-2. **00-traefik** zuerst — erstellt das gemeinsame Docker-Netz `edge` und holt das Wildcard-Zertifikat.
+2. **00-traefik** zuerst — erstellt die Docker-Netze `edge-<stack>` und holt das Wildcard-Zertifikat.
 3. **01-forgejo** + **02-keycloak** — danach kann GitHub optional nach Forgejo gespiegelt werden (GitHub bleibt die Wahrheit).
    - Realm-Änderungen reconcilen über `keycloak-config-cli` bei jedem Redeploy — siehe `stacks/02-keycloak/RECONCILE.md` (inkl. einmaliger Secret-Migration).
 4. Restliche Stacks. Daten vorher gemäß Runbook Phase 3 migrieren (Keycloak/Paperless = PG 17, Forgejo/Grafana/paperless-ai = Dateien/SQLite).
 
 ## Stacks
 
-| Stack | Dienste | Daten-Dataset |
-|-------|---------|---------------|
-| `00-traefik` | Traefik 3.6.8 (Reverse Proxy, ACME DNS-01) | `fast/appdata/traefik` |
-| `01-forgejo` | Forgejo 14.0.2 (SQLite) | `fast/appdata/forgejo` |
-| `02-keycloak` | Keycloak 26.5.4 + Postgres 17.8 (Realm-as-Code via keycloak-config-cli, Passkeys) | `fast/appdata/keycloak` |
-| `03-oauth2-proxy` | oauth2-proxy — Traefik-ForwardAuth gegen Keycloak | – (zustandslos) |
-| `11-paperless` | Paperless-ngx 2.20.7 + Postgres 17.8 + Redis + paperless-ai 3.0.9 | `fast/appdata/paperless`, `data/paperless` |
-| `12-cloudflared` | Cloudflared 2026.2.0 (Tunnel) | `fast/appdata/cloudflared` |
-| `20-observability` | VictoriaMetrics + Loki + Grafana 12.3.3 + node-exporter + cadvisor + alertmanager + otel-collector | `fast/appdata/{vm,loki,grafana}` |
-| `21-garage` | Garage v2.3.0 (S3: loki, velero, artifacts) — schlank, aktiv gepflegt | `fast/appdata/garage/meta`, `data/garage/data` |
-| `22-harbor` | Harbor (Registry + Trivy) — via offiziellem Installer | `data/harbor` |
-| `23-registry-cache` | registry:2 (proxy) — Pull-Through-Cache für Docker Hub (docker.io), getrennt von der privaten Registry | `data/registry-cache` |
-| `30-netboot` | dnsmasq (macvlan `.49`) + nginx + Go-Konsole — **Custom-App** | `data/provisioning` |
-| `40-homepage` | Homepage-Dashboard (Config-as-Code, zentrale Einstiegsseite) | – (Config im Repo) |
+Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml` (Renovate hält sie aktuell).
+
+| Stack | Dienste | Erreichbar | Daten-Dataset |
+|-------|---------|------------|---------------|
+| `00-traefik` | Traefik (macvlan `.48`, ACME DNS-01) + docker-socket-proxy (read-only) | LAN; Dashboard hinter SSO | `fast/appdata/traefik` |
+| `01-forgejo` | Forgejo (SQLite); Web-Login nur per Keycloak-SSO, Git-SSH über Traefik `.48:22` | **Internet** (`git.appsfab.org`, Tunnel) | `fast/appdata/forgejo` |
+| `02-keycloak` | Keycloak + Postgres 17 + keycloak-config-cli (Realm-as-Code, Passkeys) | **Internet** (`auth.appsfab.org`, Login); Admin nur LAN (`auth.lab.appsfab.org`) | `fast/appdata/keycloak` |
+| `03-oauth2-proxy` | oauth2-proxy — Traefik-ForwardAuth (`sso@docker`) gegen Keycloak | intern | – (zustandslos) |
+| `11-paperless` | Paperless-ngx + Postgres 17 + Redis + paperless-ai (Ollama auf `192.168.80.30`) | LAN (`docs`; `docs-ai` hinter SSO) | `fast/appdata/paperless`, `data/paperless` |
+| `12-cloudflared` | Cloudflare-Tunnel (nur Hosts aus `config.yml`, Rest 404) | – | `fast/appdata/cloudflared` |
+| `13-n8n` | n8n + Postgres 17; LLMs über Ollama auf dem Mac Studio (`192.168.80.30`, nur vom NAS erreichbar, `docs/mac-studio-llm.md`) | LAN (`n8n`, Editor hinter SSO; `/webhook*` ohne SSO); **Internet** nur `hooks.appsfab.org/webhook/` + `/webhook-test/` (Tunnel) | `fast/appdata/n8n` |
+| `14-plane` | Plane CE (Projekte/Issues/Kanban) + Postgres 17 + Valkey + RabbitMQ + MinIO (Silo); Login Keycloak davor + Plane-Konto (CE ohne OIDC), `stacks/14-plane/README.md` | LAN (`plane`, hinter SSO) | `fast/appdata/plane` |
+| `15-doku` | Homelab-Handbuch (MkDocs Material, aus `docs/` dieses Repos, baut `main` alle 5 min neu) + nginx | LAN (`doku`, hinter SSO) | – (Build im Docker-Volume) |
+| `20-observability` | VictoriaMetrics + Loki (Dateisystem, Container-Logs via Alloy) + Grafana + node-exporter + cadvisor + vmalert + Alertmanager (→ Telegram) + blackbox-exporter | LAN (`grafana`, Keycloak-OIDC) | `fast/appdata/{vm,loki,grafana}` |
+| `21-garage` | Garage (S3; Buckets: velero, artifacts, k3s-etcd-backups, longhorn-backup; `loki` ungenutzt) | LAN (`s3`) | `fast/appdata/garage/meta`, `data/garage/data` |
+| `22-harbor` | **Zot** (OCI-Registry). Ordnername historisch (Arcane-Pfad), Harbor wird nicht genutzt | LAN (`registry`); UI per Keycloak-SSO, Pull nur mit Login | `data/harbor/zot` |
+| `23-registry-cache` | registry (proxy) — Pull-Through-Cache für Docker Hub, getrennt von Zot | LAN (`mirror`, nur VLAN 80 + 10) | `data/registry-cache` |
+| `30-netboot` | dnsmasq (macvlan `.49`) + nginx (`.47`) + Go-Konsole — **Custom-App** | LAN (`netboot`, Keycloak-OIDC) | `data/provisioning` |
+| `40-homepage` | Homepage-Dashboard (Config-as-Code) | LAN (`home`, hinter SSO) | – (Config im Repo) |
+
+**Außerhalb von Arcane:** `vms/n8n-sandbox` — Code-Sandbox des n8n-Assistenten in einer eigenen VM
+(privilegierter Docker-in-Docker-Runner, deshalb nicht auf dem NAS). Von Hand nach `vms/n8n-sandbox/README.md`.
 
 > **Neuer Stack ⇒ neue Arcane-Gitsync-App**, gleich wie das `name:`-Feld im compose benannt
-> (z. B. `registry-cache`), sonst entsteht Drift wie garage→garages3 (s. `## Konventionen`).
+> (z. B. `registry-cache`), sonst entsteht Drift wie garage→garages3 (s. `## Konventionen
 
-## Konventionen
+Die ausführlichen Regeln stehen im Handbuch unter
+[Architektur → Konventionen](docs/architektur/konventionen.md) und [Netzwerk & Domains](docs/architektur/netzwerk.md).
+Die wichtigsten in Kürze:
 
-- **Netz `edge`:** extern, von `00-traefik` angelegt; alle web-exponierten Stacks hängen sich daran und werden per Traefik-Labels geroutet.
-- **Domain:** `*.lab.appsfab.org` (Split-Horizon → `192.168.80.50`), Wildcard-TLS via Cloudflare-DNS-01.
-- **SSO:** Keycloak-OIDC nativ, wo die App es kann; sonst Traefik-ForwardAuth (`auth.lab.appsfab.org`).
-- **Image-Versionen** sind gepinnt (kein `latest`) — Updates bewusst per PR/Commit (Renovate optional).
-- **Arcane setzt den Compose-Projektnamen, nicht `name:`.** Arcane startet jeden Stack als
-  `docker compose -p <slug> …`, wobei `<slug>` aus dem Anzeigenamen der Gitsync-App stammt
-  (z. B. „Garage S3" → `garages3`, „Registry ZOT" → `registryzot`). `-p` hat Vorrang vor dem
-  `name:`-Feld im `compose.yaml`, das damit unter Arcane rein kosmetisch ist. Dass die Live-Projekte
-  (Container `garages3-garage-1`, `registryzot-zot-1`) **nicht** zu `name: garage` bzw.
-  `name: registry` passen, ist deshalb **erwartet — kein Fehler**, sondern ein Artefakt der
-  Arcane-Projektbenennung. **Konsequenz:** Stacks niemals von Hand mit `docker compose up` **ohne**
-  `-p <slug>` starten. Sonst legt Compose ein zweites Projekt (Name aus `name:` bzw. dem
-  Verzeichnis-Basename) auf **denselben** Bind-Mounts an; bei zustandsbehafteten Stores
-  (Garage-LMDB unter `/mnt/data/garage`, Zot-Storage unter `/mnt/data/harbor/zot`) droht
-  Datenkorruption durch zwei Prozesse auf demselben Datenverzeichnis. Deployen läuft immer über Arcane.
+- **Netze `edge-<stack>`** legt `00-traefik` an; jeder Stack hängt nur an seinem eigenen. Neuer Stack ⇒ Netz zuerst in `00-traefik`.
+- **Domains:** `*.lab.appsfab.org` nur intern (Traefik `192.168.80.48`), `*.appsfab.org` öffentlich über den Tunnel,
+  und zwar **nur** `git`, `auth` und `hooks` (`stacks/12-cloudflared/config.yml`).
+- **SSO:** Keycloak-OIDC, wo die App es kann, sonst `sso@docker` (oauth2-proxy). Login unter `auth.appsfab.org`.
+- **Images gepinnt**, `mem_limit` überall, Renovate mergt Patches nach grünem `validate`.
+- **Arcane setzt den Compose-Projektnamen** aus dem Namen der Gitsync-App, nicht aus `name:`
+  (z. B. `garages3`, `registryzot`). Deshalb **nie** `docker compose up` ohne `-p <slug>`:
+  ein zweites Projekt auf denselben Bind-Mounts kann Garage- oder Zot-Daten zerstören.
+- **Revisionszähler:** Realm-Änderung ⇒ `KCC_REALM_REV`, Tunnel-Änderung ⇒ `CF_INGRESS_REV` hochzählen.
 
 ## Secrets
 
-Niemals Klartext committen. Zwei Wege (siehe `.env.example`):
-- **SOPS + age** (empfohlen): `secrets.enc.env` verschlüsselt im Repo, age-Key auf dem NAS + in 1Password.
-- **Arcane-Environment**: Variablen außerhalb des Repos in Arcane pflegen.
-
-**Entschlüsselte Secrets auf dem NAS absichern:** Die zur Laufzeit entschlüsselte `secrets.env`
-(bzw. der age-Key) gehört auf ein eigenes Dataset `fast/appdata/_secrets` mit `chmod 600` und
-Owner `apps`. Dieses Dataset von Snapshot-Cloud-Syncs ausschließen, damit Secrets nicht
-unbeabsichtigt in B2/Backups landen.
-
-Aus dem alten System zu übernehmen (in 1Password, dann neu setzen): Forgejo `jwt/private.pem`,
-`cloudflared/credentials.json`, `paperless-ai/.env`, DB-Passwörter. **Realm-Client-Secrets**
-(`*_OIDC_CLIENT_SECRET`) einmalig erzeugen und in der Arcane-Env setzen — `keycloak-config-cli`
-substituiert sie beim Reconcile in den Realm (`$(env:...)`), kein UI-Schritt. Siehe `stacks/02-keycloak/RECONCILE.md`.
+**1Password (Vault `AppsFab`) ist die einzige Quelle der Wahrheit.** `.env.example` listet jede Variable
+(Secrets als `op://`-Referenz, CI prüft das), `scripts/render-env.sh <stack>` erzeugt daraus die Arcane-Env.
+Ablauf, Datei-Secrets und Secrets, die man nie neu erzeugt: [Handbuch → Secrets](docs/sicherheit/secrets.md).

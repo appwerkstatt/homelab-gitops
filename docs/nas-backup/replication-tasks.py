@@ -16,7 +16,9 @@ import subprocess
 import sys
 
 NAMING = "auto-%Y-%m-%d_%H-%M"
-SCHEDULE = {"minute": "0", "hour": "4", "dom": "*", "month": "*", "dow": "*"}  # daily 04:00, after snapshots
+# daily 04:30, after snapshots. NICHT 04:00: dort startet der Cron "Daily middlewared restart"
+# (25.10-Workaround) neu und bricht laufende Replikationen ab (Replikas hingen so ab 2026-11-08).
+SCHEDULE = {"minute": "30", "hour": "4", "dom": "*", "month": "*", "dow": "*"}
 
 # Tier 1+2 sources on the fast/data mirrors. backup-pool-resident datasets are excluded
 # (same single disk = no resilience gain); Tier 3 is snapshot-only (spec §3).

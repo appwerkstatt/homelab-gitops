@@ -1,4 +1,4 @@
-# 00-traefik — Reverse Proxy + Wildcard-TLS (DNS-01) + erstellt das Netz "edge".
+# 00-traefik — Reverse Proxy + Wildcard-TLS (DNS-01) + erstellt die Netze "edge-<stack>".
 # Härtung: Traefik spricht NICHT direkt mit dem Docker-Socket, sondern über einen
 # read-only socket-proxy (kein Host-Root-Risiko). Dashboard hinter SSO.
 name: traefik
@@ -19,16 +19,21 @@ services:
     restart: unless-stopped
 
   traefik:
-    image: traefik:v3.7.17
+    image: traefik:v3.7.19
     command:
       - --providers.docker=true
       - --providers.docker.endpoint=tcp://socket-proxy:2375    # statt direktem Socket
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=edge
+      # kein globales providers.docker.network: jeder geroutete Dienst setzt traefik.docker.network=edge-<stack>
       - --entrypoints.web.address=:80
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
+      # Eigener Entrypoint NUR für den Cloudflare-Tunnel (cloudflared -> traefik:8443). Dort hören ausschließlich
+      # die öffentlichen Router (git, auth, hooks: entrypoints=websecure,tunnel). Alle *.lab-Router stehen nur auf
+      # websecure und sind über den Tunnel damit unerreichbar, auch bei einem Fehler in config.yml
+      # (Security-Check 2026-11-22, M1). Auf .48:8443 im LAN sieht man nur dieselben öffentlichen Router.
+      - --entrypoints.tunnel.address=:8443
       - --entrypoints.ssh.address=:22            # Git-over-SSH (.48:22 via TCP-Passthrough; kein Konflikt mit NAS-sshd auf .50)
       - --certificatesresolvers.le.acme.dnschallenge=true
       - --certificatesresolvers.le.acme.dnschallenge.provider=cloudflare
@@ -57,23 +62,89 @@ services:
     networks:
       vlan80:
         ipv4_address: 192.168.80.48   # eigene VLAN-IP; *.lab.appsfab.org zeigt hierauf
-      edge:
-        # cross-stack erreichbar (cloudflared, Backends). Die FQDN-Aliase loesen das
-        # macvlan-Hairpin-Problem: serverseitige Container-Calls (OIDC-Discovery/Token/JWKS)
-        # an die oeffentliche FQDN wuerden sonst auf .48 zeigen und scheitern (no route to host,
-        # Host<->macvlan-Kind ist gesperrt). Ueber den Alias bleibt der Verkehr im edge-Bridge-Netz:
-        # Docker-DNS -> Traefik-Bridge-IP -> SNI bleibt auth.* (Wildcard-Cert) -> Host-Routing an Keycloak.
-        # Weitere intern serverseitig aufgerufene Hosts hier nachtragen (i.d.R. nur Keycloak noetig).
+      # Netze pro Stack (SECURITY.md G): Traefik ist der EINZIGE Container in allen (plus blackbox für
+      # Probes), Backends sehen sich gegenseitig nicht. Die FQDN-Aliase lösen das macvlan-Hairpin-Problem:
+      # serverseitige Container-Calls (OIDC-Discovery/Token/JWKS) an auth.* würden sonst auf .48 zeigen und
+      # scheitern (Host<->macvlan-Kind gesperrt). Über den Alias: Docker-DNS -> Traefik-Bridge-IP -> SNI auth.*
+      # -> Host-Routing an Keycloak. Weitere intern serverseitig aufgerufene Hosts hier nachtragen.
+      edge-forgejo:
+        aliases: &traefik_aliases
+          - traefik
+          - auth.${LAB_DOMAIN}
+          - auth.appsfab.org      # Realm-Issuer (frontendUrl)
+      edge-keycloak: { aliases: *traefik_aliases }
+      edge-sso: { aliases: *traefik_aliases }
+      edge-paperless: { aliases: *traefik_aliases }
+      edge-n8n: { aliases: *traefik_aliases }
+      # edge-plane zusätzlich git.appsfab.org: optionaler Plane-Login über Forgejo ("Gitea"-OAuth), die Plane-API
+      # holt Token und Benutzer serverseitig bei Forgejo (stacks/14-plane/README.md).
+      edge-plane:
         aliases:
           - traefik
           - auth.${LAB_DOMAIN}
+          - auth.appsfab.org
+          - git.appsfab.org
+      edge-doku: { aliases: *traefik_aliases }
+      edge-tunnel: { aliases: *traefik_aliases }
+      edge-obs: { aliases: *traefik_aliases }
+      edge-garage: { aliases: *traefik_aliases }
+      edge-zot: { aliases: *traefik_aliases }
+      edge-mirror: { aliases: *traefik_aliases }
+      edge-netboot: { aliases: *traefik_aliases }
+      # edge-home bekommt zusätzlich die FQDNs, die Homepage für siteMonitor/Widgets aufruft (40-homepage/config/services.yaml).
+      edge-home:
+        aliases:
+          - traefik
+          - auth.${LAB_DOMAIN}
+          - auth.appsfab.org
+          - git.appsfab.org
+          - grafana.${LAB_DOMAIN}
+          - registry.${LAB_DOMAIN}
+          - docs.${LAB_DOMAIN}
+          - traefik.${LAB_DOMAIN}
+          - netboot.${LAB_DOMAIN}
+          - s3.${LAB_DOMAIN}
+          - n8n.${LAB_DOMAIN}
       socket: {}
     mem_limit: 256m
     restart: unless-stopped
 
 networks:
-  edge:
-    name: edge          # erstellt das externe Netz; andere Stacks nutzen es als external
+  # Netze pro Stack — hier angelegt (Traefik deployt zuerst), in den Stacks als external genutzt.
+  edge-forgejo:
+    name: edge-forgejo          # 01-forgejo (+ netboot-console für git clone/push)
+  edge-keycloak:
+    name: edge-keycloak          # 02-keycloak
+  edge-sso:
+    name: edge-sso          # 03-oauth2-proxy
+  edge-paperless:
+    name: edge-paperless          # 11-paperless
+  edge-n8n:
+    name: edge-n8n          # 13-n8n
+  edge-plane:
+    name: edge-plane          # 14-plane
+  edge-doku:
+    name: edge-doku          # 15-doku (Handbuch)
+  edge-tunnel:
+    name: edge-tunnel          # 12-cloudflared
+    # Feste Range: Tunnel-Traffic muss AUSSERHALB von 192.168/16 + 10/8 liegen, sonst hielte das
+    # LAN-only-ipallowlist (keycloak-admin) Internet-Anfragen für LAN. Bei Konflikt schlägt der Deploy fehl
+    # (laut), statt still unsicher zu werden.
+    ipam:
+      config:
+        - subnet: 172.31.253.0/24
+  edge-obs:
+    name: edge-obs          # 20-observability (grafana, blackbox)
+  edge-garage:
+    name: edge-garage          # 21-garage
+  edge-zot:
+    name: edge-zot          # 22-harbor (Zot)
+  edge-mirror:
+    name: edge-mirror          # 23-registry-cache
+  edge-netboot:
+    name: edge-netboot          # 30-netboot (console)
+  edge-home:
+    name: edge-home          # 40-homepage
   socket:               # privates Netz nur zwischen Traefik und socket-proxy
   vlan80:
     name: vlan80        # macvlan; andere Stacks (z.B. Netboot) nutzen es als external

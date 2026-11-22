@@ -4,7 +4,7 @@ name: paperless
 
 services:
   paperless-db:
-    image: postgres:17.8-alpine          # NICHT auf 18 bumpen: pg_upgrade nötig (Incident 2026-06-05)
+    image: postgres:17.12-alpine          # NICHT auf 18 bumpen: pg_upgrade nötig (Incident 2026-06-05)
     environment:
       POSTGRES_DB: paperless
       POSTGRES_USER: ${PAPERLESS_DB_USER}
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   paperless-redis:
-    image: redis:8.10-alpine   # Minor-Tag bewusst: immer gültig + neuester 7.4-Patch; zustandsloser Celery-Broker
+    image: redis:8.10-alpine   # Minor-Tag bewusst: immer gültig + neuester 8.10-Patch; zustandsloser Celery-Broker
     volumes:
       - /mnt/fast/appdata/paperless/redis:/data
     networks: [pl-internal]
@@ -48,16 +48,17 @@ services:
     depends_on: [paperless-db, paperless-redis]
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-paperless
       - traefik.http.routers.paperless.rule=Host(`docs.${LAB_DOMAIN}`)
       - traefik.http.routers.paperless.entrypoints=websecure
       - traefik.http.routers.paperless.tls.certresolver=le
       - traefik.http.services.paperless.loadbalancer.server.port=8000
-    networks: [edge, pl-internal]
+    networks: [edge-paperless, pl-internal]
     mem_limit: 1g
     restart: unless-stopped
 
   paperless-ai:
-    image: clusterzx/paperless-ai:3.0.9       # bestätigt (Docker Hub); aktuelle Stable
+    image: clusterzx/paperless-ai:4.4.0       # bestätigt (Docker Hub); aktuelle Stable
     environment:
       PAPERLESS_API_URL: http://paperless:8000/api
       PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_KEY}   # in Paperless erzeugen (Profil -> API-Token)
@@ -70,15 +71,19 @@ services:
     depends_on: [paperless]
     labels:
       - traefik.enable=true
+      - traefik.docker.network=edge-paperless
       - traefik.http.routers.paperless-ai.rule=Host(`docs-ai.${LAB_DOMAIN}`)
       - traefik.http.routers.paperless-ai.entrypoints=websecure
       - traefik.http.routers.paperless-ai.tls.certresolver=le
+      - traefik.http.routers.paperless-ai.middlewares=sso@docker   # Keycloak-Login (Stack 03); Callback im Realm-Client oauth2-proxy
       - traefik.http.services.paperless-ai.loadbalancer.server.port=3000
-    networks: [edge, pl-internal]
-    mem_limit: 512m
+    networks: [edge-paperless, pl-internal]
+    # v4 rechnet RAG-Embeddings lokal (Xenova multilingual-e5-small, 3 Threads) -> 512m reichte
+    # nicht (OOM-Kill des node-Prozesses beim Embedding, Restart-Loop 2026-11-21).
+    mem_limit: 2g
     restart: unless-stopped
 
 networks:
-  edge:
-    external: true
+  edge-paperless:
+    external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
   pl-internal:

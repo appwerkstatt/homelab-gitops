@@ -43,19 +43,19 @@ TrueNAS → *Network → Interfaces → Add*:
 
 ## 3. Netzwerk in der VM
 
-Interfacenamen prüfen (`ip -br link`): NIC 1 ist meist `enp1s0`, NIC 2 `enp2s0`. Unten ggf. anpassen.
+Interfacenamen prüfen (`ip -br link`): NIC 1 (br88) ist `ens3`, NIC 2 (enp6s0) `ens4` (so bei der ersten Installation 2026-11-22).
 
 `/etc/network/interfaces.d/sandbox-link`:
 
 ```
-auto enp1s0
-iface enp1s0 inet static
+auto ens3
+iface ens3 inet static
     address 10.88.88.2/30
     # KEIN gateway: Default-Route bleibt auf NIC 2 (Internet)
 ```
 
 ```bash
-sudo ifup enp1s0
+sudo ifup ens3
 ping -c1 10.88.88.1          # NAS antwortet
 ```
 
@@ -85,14 +85,14 @@ Docker umgeht ufw, deshalb Regeln in der Kette `DOCKER-USER`. Sie greift für al
 
 ```bash
 # NIC 1 (zum NAS): nur das NAS darf auf 8080, Container dürfen dort nichts Neues aufmachen
-sudo iptables -I DOCKER-USER 1 -i enp1s0 -p tcp ! -s 10.88.88.1 -j DROP
-sudo iptables -I DOCKER-USER 2 -o enp1s0 -m conntrack ! --ctstate ESTABLISHED,RELATED -j DROP
+sudo iptables -I DOCKER-USER 1 -i ens3 -p tcp ! -s 10.88.88.1 -j DROP
+sudo iptables -I DOCKER-USER 2 -o ens3 -m conntrack ! --ctstate ESTABLISHED,RELATED -j DROP
 # NIC 2 (Internet): von außen nichts rein, nach innen in keine privaten Netze (LAN, Docker-Netze des NAS)
-sudo iptables -I DOCKER-USER 3 -i enp2s0 -m conntrack ! --ctstate ESTABLISHED,RELATED -j DROP
-sudo iptables -I DOCKER-USER 4 -o enp2s0 -d 192.168.0.0/16 -j DROP
-sudo iptables -I DOCKER-USER 5 -o enp2s0 -d 10.0.0.0/8 -j DROP
-sudo iptables -I DOCKER-USER 6 -o enp2s0 -d 172.16.0.0/12 -j DROP
-sudo iptables -I DOCKER-USER 7 -o enp2s0 -d 100.64.0.0/10 -j DROP
+sudo iptables -I DOCKER-USER 3 -i ens4 -m conntrack ! --ctstate ESTABLISHED,RELATED -j DROP
+sudo iptables -I DOCKER-USER 4 -o ens4 -d 192.168.0.0/16 -j DROP
+sudo iptables -I DOCKER-USER 5 -o ens4 -d 10.0.0.0/8 -j DROP
+sudo iptables -I DOCKER-USER 6 -o ens4 -d 172.16.0.0/12 -j DROP
+sudo iptables -I DOCKER-USER 7 -o ens4 -d 100.64.0.0/10 -j DROP
 sudo netfilter-persistent save
 sudo iptables -L DOCKER-USER -n -v --line-numbers
 ```

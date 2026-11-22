@@ -107,7 +107,9 @@ groups:
   - name: alerting-pipeline
     rules:
       - alert: AlertmanagerNotificationsFailing
-        expr: increase(alertmanager_notifications_failed_total[15m]) > 0
+        # webhook = n8n-Alert-Erklärer: Fällt der aus (n8n down/Workflow inaktiv), kommen die Alerts trotzdem
+        # per Telegram; ohne den Filter gäbe es dann zu jedem Alert noch einen zweiten.
+        expr: increase(alertmanager_notifications_failed_total{integration!="webhook"}[15m]) > 0
         labels: { severity: warning }
         annotations:
           summary: "Alertmanager kann {{ $labels.integration }} nicht zustellen (Telegram-Token/Chat-ID prüfen)"

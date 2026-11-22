@@ -26,8 +26,36 @@ services:
     volumes:
       - /mnt/fast/appdata/loki:/loki
       - ./config/loki.yaml:/etc/loki/loki.yaml:ro
-    networks: [obs]
+    # edge-n8n: n8n holt Logs für den Alert-Erklärer (stacks/13-n8n/workflows/). Loki hat dort keinen Router.
+    networks: [obs, edge-n8n]
     mem_limit: 512m
+    restart: unless-stopped
+
+  # Container-Logs des NAS -> Loki. Liest Docker nur über den eigenen read-only socket-proxy.
+  socket-proxy-logs:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    environment:
+      CONTAINERS: 1          # Container auflisten + Logs lesen
+      POST: 0                # keine schreibenden Docker-API-Calls
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [logs-socket]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.22.0
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data      # Lese-Positionen je Container
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+    networks: [obs, logs-socket]
+    depends_on: [loki, socket-proxy-logs]
+    mem_limit: 256m
     restart: unless-stopped
 
   grafana:
@@ -122,18 +150,21 @@ services:
     command:
       - >-
         sed -e "s|__TELEGRAM_BOT_TOKEN__|$$TELEGRAM_BOT_TOKEN|" -e "s|__TELEGRAM_CHAT_ID__|$$TELEGRAM_CHAT_ID|"
+        -e "s|__N8N_ALERT_WEBHOOK_TOKEN__|$$N8N_ALERT_WEBHOOK_TOKEN|"
         /etc/alertmanager/alertmanager.tmpl.yml > /tmp/alertmanager.yml &&
         exec /bin/alertmanager --config.file=/tmp/alertmanager.yml
         --storage.path=/alertmanager --web.external-url=http://alertmanager:9093
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      N8N_ALERT_WEBHOOK_TOKEN: ${N8N_ALERT_WEBHOOK_TOKEN}
     volumes:
       - ./config/alertmanager.tmpl.yml:/etc/alertmanager/alertmanager.tmpl.yml:ro
       # Silences + Notification-Log. Image läuft als nobody -> Verzeichnis einmalig anlegen:
       #   install -d -o 65534 -g 65534 /mnt/fast/appdata/alertmanager
       - /mnt/fast/appdata/alertmanager:/alertmanager
-    networks: [obs]
+    # edge-n8n: zusätzlicher Webhook an n8n (Alert-Erklärer)
+    networks: [obs, edge-n8n]
     mem_limit: 128m
     restart: unless-stopped
 
@@ -165,7 +196,7 @@ services:
 networks:
   edge-obs:
     external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
-  # nur für blackbox (Probes); edge-n8n zusätzlich für victoriametrics (n8n-Abfragen):
+  # nur für blackbox (Probes); edge-n8n zusätzlich für victoriametrics, loki und alertmanager (n8n):
   edge-keycloak:
     external: true
   edge-forgejo:
@@ -183,3 +214,8 @@ networks:
   edge-n8n:
     external: true
   obs:
+  logs-socket:
+    internal: true   # nur alloy <-> socket-proxy-logs
+
+volumes:
+  alloy-data:

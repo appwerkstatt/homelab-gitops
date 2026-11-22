@@ -1,4 +1,4 @@
-# Alertmanager-Config (Template). __TELEGRAM_*__ werden beim Container-Start per sed aus der
+# Alertmanager-Config (Template). __TELEGRAM_*__ und __N8N_ALERT_WEBHOOK_TOKEN__ werden beim Container-Start per sed aus der
 # Env ersetzt (siehe compose.yaml) -> keine Secrets in Git. Werte: 1Password homelab-alerting.
 route:
   receiver: telegram
@@ -7,11 +7,17 @@ route:
   group_interval: 5m
   repeat_interval: 12h
   routes:
+    # Alert-Erklärer: warning/critical zusätzlich an n8n (Logs + LLM -> Telegram). continue = danach normal weiter.
+    - matchers: [severity=~"warning|critical"]
+      receiver: n8n-alert-explainer
+      continue: true
     # Info-Alerts gesammelt und seltener
     - matchers: [severity="info"]
       receiver: telegram
       group_by: [alertname]
       repeat_interval: 24h
+    # Alles andere (Pflicht, weil die n8n-Route oben schon matcht und der Parent dann nicht mehr greift)
+    - receiver: telegram
 
 inhibit_rules:
   # Ist ein Dienst-Probe rot, weil der ganze Scrape-Target weg ist, nicht doppelt melden
@@ -30,3 +36,13 @@ receivers:
           {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} <b>{{ .CommonLabels.alertname }}</b>{{ if eq .Status "resolved" }} (resolved){{ end }}
           {{ range .Alerts }}• {{ .Annotations.summary }}
           {{ end }}
+
+  - name: n8n-alert-explainer
+    webhook_configs:
+      - url: http://n8n:5678/webhook/alert-erklaerer     # über edge-n8n, nicht über den Tunnel
+        send_resolved: false
+        max_alerts: 5
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: "__N8N_ALERT_WEBHOOK_TOKEN__"     # 1Password homelab-alerting/n8n-webhook-token

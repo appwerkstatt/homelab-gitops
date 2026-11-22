@@ -44,7 +44,7 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
 | `11-paperless` | Paperless-ngx + Postgres 17 + Redis + paperless-ai (Ollama auf `192.168.80.30`) | LAN (`docs`; `docs-ai` hinter SSO) | `fast/appdata/paperless`, `data/paperless` |
 | `12-cloudflared` | Cloudflare-Tunnel (nur Hosts aus `config.yml`, Rest 404) | – | `fast/appdata/cloudflared` |
 | `13-n8n` | n8n + Postgres 17; LLMs über Ollama auf dem Mac Studio (`192.168.80.30`, nur vom NAS erreichbar, `docs/mac-studio-llm.md`) | LAN (`n8n`, Editor hinter SSO; `/webhook*` ohne SSO); **Internet** nur `hooks.appsfab.org/webhook/` + `/webhook-test/` (Tunnel) | `fast/appdata/n8n` |
-| `20-observability` | VictoriaMetrics + Loki (Dateisystem) + Grafana + node-exporter + cadvisor + vmalert + Alertmanager (→ Telegram) + blackbox-exporter | LAN (`grafana`, Keycloak-OIDC) | `fast/appdata/{vm,loki,grafana}` |
+| `20-observability` | VictoriaMetrics + Loki (Dateisystem, Container-Logs via Alloy) + Grafana + node-exporter + cadvisor + vmalert + Alertmanager (→ Telegram) + blackbox-exporter | LAN (`grafana`, Keycloak-OIDC) | `fast/appdata/{vm,loki,grafana}` |
 | `21-garage` | Garage (S3; Buckets: velero, artifacts, k3s-etcd-backups, longhorn-backup; `loki` ungenutzt) | LAN (`s3`) | `fast/appdata/garage/meta`, `data/garage/data` |
 | `22-harbor` | **Zot** (OCI-Registry). Ordnername historisch (Arcane-Pfad), Harbor wird nicht genutzt | LAN (`registry`); UI per Keycloak-SSO, Pull nur mit Login | `data/harbor/zot` |
 | `23-registry-cache` | registry (proxy) — Pull-Through-Cache für Docker Hub, getrennt von Zot | LAN (`mirror`, nur VLAN 80 + 10) | `data/registry-cache` |

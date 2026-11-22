@@ -40,7 +40,7 @@ alerted from node-exporter as well. TrueNAS' own alert UI stays as a second line
 
 `replication-tasks.py` (run by `deploy.sh`) creates one LOCAL PUSH replication task per
 Tier 1+2 source on the `fast`/`data` mirrors → `backup/replica/<source>` on the separate
-6 TB `backup` disk (Copy 2 of 3-2-1), daily at 04:00, replicating the Phase-1 `auto-`
+6 TB `backup` disk (Copy 2 of 3-2-1), daily at 04:30 (not 04:00: the daily middlewared-restart cron runs then and kills running replications), replicating the Phase-1 `auto-`
 snapshots, destination `readonly`.
 
 **Encryption:** the `backup` pool is encrypted and `data`/`fast` are not, so each replica

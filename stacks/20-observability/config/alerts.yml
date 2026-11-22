@@ -104,6 +104,14 @@ groups:
         annotations:
           summary: "Kein Backup-Status vom Offsite-Job — läuft backup-offsite.sh (neue Version) per Cron?"
 
+      # backup-offsite.sh schreibt pro Replika den Zeitpunkt des neuesten Snapshots auf backup/replica
+      # (Textfile backup-replica.prom). Replikation läuft täglich 04:30, gemessen wird 03:30.
+      - alert: ReplicaBackupStale
+        expr: time() - homelab_backup_last_success_timestamp_seconds{backup=~"replica-.*"} > 50 * 3600
+        labels: { severity: warning }
+        annotations:
+          summary: "Lokale Replika {{ $labels.backup }}: neuester Snapshot ist {{ $value | humanizeDuration }} alt"
+
   - name: alerting-pipeline
     rules:
       - alert: AlertmanagerNotificationsFailing

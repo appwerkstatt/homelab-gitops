@@ -31,6 +31,20 @@ restic_run() {   # one-shot restic container with B2 env + the Tier-1 sources (r
 }
 
 hc /start
+
+# --- 0) Frische der lokalen Replikas fürs Alerting (vmalert ReplicaBackupStale): Zeitpunkt des
+#     neuesten Snapshots je Replika. Nicht fatal und vor restic, damit der Wert auch kommt, wenn
+#     der Offsite-Teil scheitert.
+TEXTFILE_DIR=/mnt/fast/appdata/node-exporter/textfile
+mkdir -p "$TEXTFILE_DIR"
+{
+  echo '# HELP homelab_backup_last_success_timestamp_seconds Unix time of the last successful backup run.'
+  echo '# TYPE homelab_backup_last_success_timestamp_seconds gauge'
+  for r in data/paperless data/homes data/makerlab fast/appdata; do
+    t="$(zfs list -Hp -t snapshot -o creation -s creation -d1 "backup/replica/$r" 2>/dev/null | tail -1)"
+    [ -n "$t" ] && echo "homelab_backup_last_success_timestamp_seconds{backup=\"replica-${r//\//-}\"} $t"
+  done
+} > "$TEXTFILE_DIR/.backup-replica.prom.tmp" && mv "$TEXTFILE_DIR/.backup-replica.prom.tmp" "$TEXTFILE_DIR/backup-replica.prom" || true
 trap 'hc /fail' ERR        # ping the dead-man's-switch on any failure (if configured)
 
 # clean stale temp dumps from a prior aborted run
@@ -82,8 +96,6 @@ hc           # success ping
 
 # Erfolg für das Alerting festhalten (node-exporter Textfile-Collector -> vmalert
 # OffsiteBackupStale). Atomar via tmp+mv, damit node-exporter nie eine halbe Datei liest.
-TEXTFILE_DIR=/mnt/fast/appdata/node-exporter/textfile
-mkdir -p "$TEXTFILE_DIR"
 printf '# HELP homelab_backup_last_success_timestamp_seconds Unix time of the last successful backup run.\n# TYPE homelab_backup_last_success_timestamp_seconds gauge\nhomelab_backup_last_success_timestamp_seconds{backup="offsite"} %s\n' "$(date +%s)" \
   > "$TEXTFILE_DIR/.backup.prom.tmp" && mv "$TEXTFILE_DIR/.backup.prom.tmp" "$TEXTFILE_DIR/backup.prom"
 echo "offsite backup complete: $ts"

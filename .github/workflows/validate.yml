@@ -1,7 +1,7 @@
 # validate.yml — Required Check für Renovate-Automerge: prüft, dass renovate.json valide
 # bleibt, jede Compose-Variable in .env.example (1Password-Liste) steht, jede
 # Compose-Stack-Datei ohne Warnungen interpoliert, neu eingetragene Image-Tags für
-# linux/amd64 existieren und die Alerting-Configs gültig sind. Läuft auf jedem PR (also auch auf
+# linux/amd64 existieren, die Alerting-Configs gültig sind und die Grafana-Dashboards zum Generator passen. Läuft auf jedem PR (also auch auf
 # Renovate-PRs, weil die per GitHub-App-Token geöffnet werden -> NICHT GITHUB_TOKEN -> triggert
 # Folge-Workflows). Der Job-Name "validate" IST der Status-Context, der in der Branch-
 # Protection als Pflicht eingetragen wird.
@@ -79,3 +79,12 @@ jobs:
           docker run --rm -v "$PWD/$cfg:/c:ro" "$bb" --config.file=/c/blackbox.yml --config.check
           al=$(grep -oE 'grafana/alloy:[^ ]+' stacks/20-observability/compose.yaml)
           docker run --rm -v "$PWD/$cfg:/c:ro" "$al" fmt /c/config.alloy >/dev/null
+
+      - name: Check Grafana dashboards match build-dashboards.py
+        run: |
+          python3 stacks/20-observability/build-dashboards.py
+          if [ -n "$(git status --porcelain -- stacks/20-observability/config/dashboards/homelab)" ]; then
+            git status --short -- stacks/20-observability/config/dashboards/homelab
+            echo "::error::Dashboard-JSONs veraltet: build-dashboards.py laufen lassen und die JSONs mitcommitten"
+            exit 1
+          fi

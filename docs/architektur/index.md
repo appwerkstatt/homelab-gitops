@@ -70,7 +70,7 @@ flowchart LR
     1. Nur `git.appsfab.org`, `auth.appsfab.org` und `hooks.appsfab.org` haben öffentliche DNS-Einträge
        (CNAME auf den Cloudflare-Tunnel).
     2. `cloudflared` auf dem NAS hält eine ausgehende Verbindung zu Cloudflare und reicht nur diese drei Hosts
-       an `https://traefik:443` weiter; alles andere bekommt 404.
+       an `https://traefik:8443` weiter (Entrypoint `tunnel`, nur öffentliche Router); alles andere bekommt 404.
     3. Tunnel-Verkehr kommt aus dem Netz `edge-tunnel` (`172.31.253.0/24`). Weil das außerhalb der
        LAN-Allowlists liegt, sind Keycloak-Admin-Konsole und `master`-Realm von außen gesperrt (403).
 

@@ -15,7 +15,7 @@
 |---|---|
 | VictoriaMetrics | Metrikspeicher (PromQL-kompatibel), 12 Monate Aufbewahrung |
 | node-exporter | Host-Metriken des NAS, dazu Textfile-Metriken der Backup-Skripte |
-| cadvisor | Container-Metriken, mit Compose-Projekt als Label (Gruppierung nach Stack) |
+| cadvisor | Container-Metriken, mit Compose-Projekt als Label (Gruppierung nach Stack); Docker-API nur über `socket-proxy-logs` |
 | blackbox-exporter | Health-Probes aller Dienste direkt über deren `edge`-Netze, TLS-Check, Mac-Studio-Probes |
 | Loki | Logspeicher auf dem Dateisystem, 31 Tage Aufbewahrung (Compactor) |
 | Alloy (+ socket-proxy-logs) | schickt alle Container-Logs des NAS nach Loki |

@@ -112,6 +112,16 @@ sudo iptables -I INPUT 1 -p tcp --dport 22 ! -s 10.88.88.1 -j DROP
 sudo netfilter-persistent save
 ```
 
+### Gegenstück auf dem NAS (Pflicht)
+
+Die Regeln oben filtern nur Container. Kommt Code bis auf die VM selbst durch, kann er als root in der VM jede
+Regel löschen; der Security-Check vom 22.11.2026 fand von der VM aus SSH, SMB, NFS, Web-UI und Arcane des NAS
+offen (H5). Deshalb filtert das **NAS** die Bridge `br88`: nur Antworten auf NAS-Verbindungen, nichts Neues.
+Skript und Einrichtung: [`docs/nas-firewall/`](../../docs/nas-firewall/README.md).
+
+Noch offen: Über NIC 2 (VLAN 40) erreicht die VM das übrige LAN, z. B. den Mac Studio und die UniFi-Oberfläche.
+Das schließt nur eine UniFi-Regel (VM-IP in VLAN 40 nur ins Internet) oder später ein eigenes VLAN „Sandbox“.
+
 ## 6. Secrets und Start
 
 Auf dem **Mac** (einmalig das 1Password-Item anlegen, dann rendern und kopieren):

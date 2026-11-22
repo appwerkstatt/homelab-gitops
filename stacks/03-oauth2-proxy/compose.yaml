@@ -31,8 +31,9 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=edge-sso
-      # /oauth2/* auf allen Lab-Hosts zum Proxy routen (Login-/Callback-Endpunkte):
-      - traefik.http.routers.oauth2-proxy.rule=Host(`auth-proxy.${LAB_DOMAIN}`) || PathPrefix(`/oauth2`)
+      # /oauth2/* auf allen Lab-Hosts zum Proxy routen (Login-/Callback-Endpunkte). NUR *.lab: vorher matchte
+      # PathPrefix(`/oauth2`) jeden Host, also auch git/auth/hooks.appsfab.org aus dem Internet (Security-Check 2026-11-22, M1).
+      - traefik.http.routers.oauth2-proxy.rule=Host(`auth-proxy.${LAB_DOMAIN}`) || (HostRegexp(`^[a-z0-9-]+\.lab\.appsfab\.org$$`) && PathPrefix(`/oauth2`))
       - traefik.http.routers.oauth2-proxy.entrypoints=websecure
       - traefik.http.routers.oauth2-proxy.tls.certresolver=le
       - traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180

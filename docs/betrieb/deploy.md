@@ -47,8 +47,11 @@ Dienst, damit Client und Secret schon existieren.
 
 ## Renovate
 
-- GitHub-App, läuft nachts zwischen 02:00 und 06:00 (Europe/Berlin).
-- **Patch und Digest** werden nach grünem `validate` automatisch gemergt und damit sofort deployt.
+- GitHub-App, der Workflow startet nachts (GitHub führt den Cron oft Stunden zu spät aus).
+- **Patch und Digest** werden nach grünem `validate` automatisch gemergt und damit sofort deployt, und zwar
+  zu jeder Uhrzeit, aber erst **3 Tage nach dem Upstream-Release** (`minimumReleaseAge`, gegen manipulierte
+  Releases). Einen dringenden Sicherheits-Patch holt man früher über das Häkchen im Dependency-Dashboard.
+- GitHub Actions sind auf Commit-Digests gepinnt (`helpers:pinGitHubActionDigests`).
 - **Minor** als PR zum Prüfen, **Major** erst nach Freigabe im Dependency-Dashboard.
 - **Postgres und Redis**: Majors sind abgeschaltet (Datenmigration nötig, Vorfall 2026-06-05).
 - Gruppen: alle `makeplane/*`-Images gemeinsam; SearXNG mit eigenem Versionsschema.

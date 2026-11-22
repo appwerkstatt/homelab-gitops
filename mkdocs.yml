@@ -16,6 +16,7 @@ not_in_nav: |
   /specs/
   /nas-backup/*.py
   /nas-backup/*.sh
+  /nas-firewall/*.sh
 
 exclude_docs: |
   requirements.txt
@@ -113,6 +114,7 @@ nav:
       - sicherheit/index.md
       - Login & SSO: sicherheit/sso.md
       - Secrets (1Password): sicherheit/secrets.md
+      - NAS-Firewall: nas-firewall/README.md
   - Backup:
       - backup/index.md
       - Wiederherstellung: backup/restore.md

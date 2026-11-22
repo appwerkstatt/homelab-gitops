@@ -32,12 +32,14 @@ services:
     mem_limit: 512m
     restart: unless-stopped
 
-  # Container-Logs des NAS -> Loki. Liest Docker nur über den eigenen read-only socket-proxy.
+  # Container-Logs des NAS -> Loki (alloy) und Container-Metadaten für cadvisor. Beide lesen Docker nur über
+  # diesen read-only socket-proxy.
   socket-proxy-logs:
     image: tecnativa/docker-socket-proxy:v0.5.0
     environment:
       CONTAINERS: 1          # Container auflisten + Logs lesen
       NETWORKS: 1            # discovery.docker liest die Netze für Labels (sonst 403)
+      INFO: 1                # cadvisor fragt beim Start /info ab (Docker-Version, Storage-Treiber)
       POST: 0                # keine schreibenden Docker-API-Calls
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -115,14 +117,18 @@ services:
       # ... außer dem Compose-Projekt (= Stack): Grafana gruppiert danach (Dashboard "Homelab · Container & Stacks")
       - -whitelisted_container_labels=com.docker.compose.project
       - -housekeeping_interval=30s        # passt zum scrape_interval
+      # Docker-API nur über den read-only socket-proxy, NICHT über /var/run/docker.sock: ein Unix-Socket ist auch
+      # bei ":ro"-Mount voll beschreibbar, ein kompromittierter cadvisor wäre sonst Root auf dem NAS
+      # (Security-Check 2026-11-22, M6). Ohne /var/run findet cadvisor auch kein containerd/crio und bleibt bei Docker.
+      - -docker=tcp://socket-proxy-logs:2375
       # verbose/selten genutzte Collectors aus -> /metrics deutlich kleiner:
       - -disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp,percpu
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
-    networks: [obs]
+    networks: [obs, logs-socket]
+    depends_on: [socket-proxy-logs]
     mem_limit: 256m
     restart: unless-stopped
 
@@ -223,7 +229,7 @@ networks:
     external: true
   obs:
   logs-socket:
-    internal: true   # nur alloy <-> socket-proxy-logs
+    internal: true   # nur alloy/cadvisor <-> socket-proxy-logs
 
 volumes:
   alloy-data:

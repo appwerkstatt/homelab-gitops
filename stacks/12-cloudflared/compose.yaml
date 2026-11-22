@@ -11,7 +11,7 @@ services:
       # ändert, und cloudflared liest config.yml nur beim Start (Bind-Mount, kein Reload) —
       # ohne Bump läuft der Tunnel mit den alten Ingress-Regeln weiter (Vorfall 2026-11-21:
       # auth.appsfab.org → 404 vom Catch-all). Gleiches Muster wie KCC_REALM_REV (02-keycloak).
-      CF_INGRESS_REV: "3"
+      CF_INGRESS_REV: "4"
     volumes:
       - /mnt/fast/appdata/cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
       - ./config.yml:/etc/cloudflared/config.yml:ro       # explizite Ingress-Regeln (Repo)

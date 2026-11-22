@@ -14,7 +14,10 @@
 
 - **socket-proxy** (`tecnativa/docker-socket-proxy`): Traefik liest Docker-Labels nur über diesen
   read-only-Proxy (`POST=0`), nicht direkt vom Socket.
-- **Entrypoints**: `:80` (leitet auf HTTPS um), `:443`, `:22` (TCP-Passthrough zu Forgejo).
+- **Entrypoints**: `:80` (leitet auf HTTPS um), `:443` (`websecure`), `:22` (TCP-Passthrough zu Forgejo) und
+  `:8443` (`tunnel`). Auf `tunnel` landet nur cloudflared, und dort hören nur die öffentlichen Router
+  (`entrypoints=websecure,tunnel`: Forgejo, Keycloak, n8n-Hooks). `*.lab`-Router stehen nur auf `websecure` und
+  sind so aus dem Internet unerreichbar, selbst wenn `config.yml` einen Host zu viel durchließe.
 - **Zertifikate**: Resolver `le`, Let's Encrypt per DNS-01 über Cloudflare. Wildcard `*.lab.appsfab.org`.
 - **Netze**: Traefik hängt an jedem `edge-<stack>` und trägt dort die Aliase `auth.appsfab.org` und
   `auth.lab.appsfab.org` (gegen das [Hairpin-Problem](../architektur/netzwerk.md#traefik-auf-eigener-ip-macvlan)).

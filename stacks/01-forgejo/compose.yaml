@@ -14,10 +14,13 @@ services:
       FORGEJO__server__SSH_DOMAIN: git.appsfab.org    # in den Klon-URLs angezeigter Host
       FORGEJO__server__SSH_PORT: "22"                 # Standard-SSH-Port (.48:22 via Traefik) -> keine :2222 in Klon-URLs
       # Web-Login nur per SSO (Keycloak): Benutzername/Passwort-Formular ausgeblendet.
-      # Git über HTTPS/API mit Token (und Basic Auth) bleibt erlaubt -> ENABLE_BASIC_AUTHENTICATION.
       # Notzugang, falls Keycloak down ist: Wert auf "true" setzen oder per CLI arbeiten
       #   (docker exec -u git forgejo-forgejo-1 forgejo admin user ...).
       FORGEJO__service__ENABLE_INTERNAL_SIGNIN: "false"
+      # Kein Passwort per Basic Auth auf API und Git-over-HTTPS (Security-Check 2026-11-22, H1): sonst gingen lokale
+      # Passwörter aus dem Internet an Keycloak/Passkey/2FA und jeder Brute-Force-Sperre vorbei. Tokens funktionieren weiter
+      # (PAT als Passwort oder "Authorization: token …", z. B. FORGEJO_TOKEN der Netboot-Konsole), SSH ebenso.
+      FORGEJO__service__ENABLE_BASIC_AUTHENTICATION: "false"
       # Klassisches OpenID 2.0 ("Mit OpenID fortfahren") aus — Login nur über die Keycloak-Quelle.
       FORGEJO__openid__ENABLE_OPENID_SIGNIN: "false"
       FORGEJO__openid__ENABLE_OPENID_SIGNUP: "false"
@@ -44,13 +47,13 @@ services:
       - traefik.docker.network=edge-forgejo
       # HTTPS (Web-UI + Git-over-HTTPS):
       - traefik.http.routers.forgejo.rule=Host(`git.appsfab.org`)
-      - traefik.http.routers.forgejo.entrypoints=websecure
+      - traefik.http.routers.forgejo.entrypoints=websecure,tunnel   # tunnel = öffentlich über cloudflared (00-traefik)
       - traefik.http.routers.forgejo.tls.certresolver=le
       - traefik.http.services.forgejo.loadbalancer.server.port=3000
       # Login-Seite überspringen: /user/login direkt zur Keycloak-Quelle umleiten (nur SSO, siehe ENABLE_INTERNAL_SIGNIN).
       # Query (z. B. redirect_to) wird mitgenommen. Rückbau: die forgejo-login/forgejo-sso-redirect-Labels entfernen.
       - traefik.http.routers.forgejo-login.rule=Host(`git.appsfab.org`) && Path(`/user/login`)
-      - traefik.http.routers.forgejo-login.entrypoints=websecure
+      - traefik.http.routers.forgejo-login.entrypoints=websecure,tunnel   # tunnel = öffentlich über cloudflared (00-traefik)
       - traefik.http.routers.forgejo-login.tls.certresolver=le
       - traefik.http.routers.forgejo-login.middlewares=forgejo-sso-redirect
       - traefik.http.routers.forgejo-login.service=forgejo

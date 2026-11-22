@@ -110,7 +110,7 @@ services:
       # Alles andere auf diesem Host hat keinen Router -> Traefik 404 (kein Editor, keine API von außen).
       # Einstufiger Name, weil Cloudflares Gratis-Zertifikat nur *.appsfab.org abdeckt.
       - traefik.http.routers.n8n-hooks.rule=Host(`hooks.appsfab.org`) && (PathPrefix(`/webhook/`) || PathPrefix(`/webhook-test/`))
-      - traefik.http.routers.n8n-hooks.entrypoints=websecure
+      - traefik.http.routers.n8n-hooks.entrypoints=websecure,tunnel   # tunnel = öffentlich über cloudflared (00-traefik)
       - traefik.http.routers.n8n-hooks.tls.certresolver=le
       - traefik.http.routers.n8n-hooks.middlewares=n8n-hooks-ratelimit
       - traefik.http.routers.n8n-hooks.service=n8n

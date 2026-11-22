@@ -29,6 +29,11 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
+      # Eigener Entrypoint NUR für den Cloudflare-Tunnel (cloudflared -> traefik:8443). Dort hören ausschließlich
+      # die öffentlichen Router (git, auth, hooks: entrypoints=websecure,tunnel). Alle *.lab-Router stehen nur auf
+      # websecure und sind über den Tunnel damit unerreichbar, auch bei einem Fehler in config.yml
+      # (Security-Check 2026-11-22, M1). Auf .48:8443 im LAN sieht man nur dieselben öffentlichen Router.
+      - --entrypoints.tunnel.address=:8443
       - --entrypoints.ssh.address=:22            # Git-over-SSH (.48:22 via TCP-Passthrough; kein Konflikt mit NAS-sshd auf .50)
       - --certificatesresolvers.le.acme.dnschallenge=true
       - --certificatesresolvers.le.acme.dnschallenge.provider=cloudflare

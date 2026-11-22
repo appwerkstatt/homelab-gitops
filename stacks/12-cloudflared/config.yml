@@ -5,10 +5,12 @@ tunnel: 61570dd5-74aa-409e-8963-1ef61a368753
 credentials-file: /etc/cloudflared/credentials.json
 
 # Nach jeder Änderung hier: CF_INGRESS_REV in compose.yaml hochzählen (sonst kein Neustart).
+# Ziel ist immer traefik:8443 (Entrypoint "tunnel"): dort hören NUR Router mit entrypoints=websecure,tunnel,
+# *.lab-Dienste sind darüber nicht erreichbar (00-traefik). Ein neuer öffentlicher Host braucht beides.
 ingress:
   # --- explizit veröffentlichte Dienste (nur was WIRKLICH öffentlich sein muss) ---
   - hostname: git.appsfab.org
-    service: https://traefik:443
+    service: https://traefik:8443
     originRequest:
       originServerName: git.appsfab.org      # SNI, damit Traefik das richtige Cert liefert
 
@@ -16,13 +18,13 @@ ingress:
   # Traefik routet auf diesem Host NUR /webhook/ + /webhook-test/ (Router n8n-hooks, 13-n8n), alles andere -> 404.
   # Absicherung pro Workflow: Header-Auth bzw. Signaturprüfung im Webhook-Node.
   - hostname: hooks.appsfab.org
-    service: https://traefik:443
+    service: https://traefik:8443
     originRequest:
       originServerName: hooks.appsfab.org     # SNI → Traefik liefert das LE-Cert für hooks.appsfab.org
 
   # Weitere Hosts NUR bei echtem Bedarf freischalten (Beispiel, bewusst auskommentiert):
   # - hostname: docs.appsfab.org
-  #   service: https://traefik:443
+  #   service: https://traefik:8443
   #   originRequest:
   #     originServerName: docs.lab.appsfab.org
 
@@ -31,7 +33,7 @@ ingress:
   # dort KEIN Zertifikat → TLS-Abbruch). auth.lab.appsfab.org bleibt rein intern (Admin-Konsole, LAN).
   # /admin + /realms/master liefern über den Tunnel 403 (Traefik-Router keycloak-admin, ipallowlist).
   - hostname: auth.appsfab.org
-    service: https://traefik:443
+    service: https://traefik:8443
     originRequest:
       originServerName: auth.appsfab.org       # SNI → Traefik liefert das LE-Cert für auth.appsfab.org
 

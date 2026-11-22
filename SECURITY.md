@@ -1,6 +1,6 @@
 # Security- & Best-Practice-Review
 
-Stand: 2026-11-21 (Erstreview 2026-05-25). Review der `homelab-gitops`-Stacks + `cluster-integration`.
+Stand: 2026-11-22 (Erstreview 2026-05-25, Security-Check 2026-11-22). Review der `homelab-gitops`-Stacks + `cluster-integration`.
 Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 
 ## Behoben
@@ -28,6 +28,12 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | 19 | Forgejo mit lokalem Passwort-Login aus dem Internet | 🟡 | 2026-11: Web-Login nur per Keycloak-SSO (`ENABLE_INTERNAL_SIGNIN=false`, `/user/login` → Keycloak) |
 | 20 | Renovate-Automerge ohne echte Prüfung | 🟡 | 2026-11: `validate` prüft Compose streng (Warnung = Fehler) und dass jedes geänderte Image für `linux/amd64` existiert |
 | 21 | Gemeinsames Docker-Netz `edge`: jeder Web-Container erreichte jeden anderen direkt (an `sso@docker` vorbei) | 🟡 | 2026-11: Netze `edge-<stack>`, nur Traefik (und blackbox für Probes) in mehreren; `edge-tunnel` fest `172.31.253.0/24` außerhalb der LAN-Allowlist |
+| 22 | Forgejo nahm aus dem Internet Passwörter per Basic Auth an (API, Git-over-HTTPS) → an Keycloak/Passkey/2FA vorbei | 🔴 | 2026-11-22: `ENABLE_BASIC_AUTHENTICATION=false`; nur noch Tokens und SSH |
+| 23 | Patches blieben liegen (Renovate-Fenster 2–6 Uhr, GitHub-Cron Stunden zu spät): Forgejo, n8n, cloudflared | 🔴 | 2026-11-22: Automerge „at any time“; dazu `minimumReleaseAge` 3 Tage gegen manipulierte Releases, Actions per Digest |
+| 24 | Tunnel und LAN auf demselben Traefik-Entrypoint; oauth2-proxy-Router (`PathPrefix(/oauth2)`) auf jedem Host, also auch öffentlich | 🟡 | 2026-11-22: Entrypoint `tunnel` (:8443) nur für öffentliche Router, cloudflared zeigt darauf; oauth2-proxy nur `*.lab` |
+| 25 | Sandbox-VM erreichte das NAS (SSH, SMB, NFS, UI, Arcane) — Filter nur in der VM, die ein Ausbruch übernimmt | 🔴 | 2026-11-22: [NAS-Firewall](docs/nas-firewall/README.md) auf `br88` (nur Antworten); Weg über VLAN 40 siehe I |
+| 26 | Arcane (Docker = Root) und VM-VNC aus allen Netzen erreichbar | 🔴 | 2026-11-22: NAS-Firewall, nur VLAN 10; Arcane kann nicht hinter Traefik (startet Traefik selbst) |
+| 27 | cadvisor mit `/var/run:ro` = voller Docker-Socket (ro schützt Sockets nicht) | 🟡 | 2026-11-22: cadvisor über `socket-proxy-logs` (`POST=0`) |
 
 ## Verbleibend — beim Deploy / bewusst akzeptiert
 
@@ -40,11 +46,17 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | E | `backup`-Pool ohne Redundanz (Single-Disk) | 🟢 | bekannt; keine Live-RWX-Daten drauf (Phase 4 verschiebt k8s-NFS auf `data`) |
 | F | Version-Pins von VictoriaMetrics/Garage/Zot/dnsmasq | 🟢 | Renovate hält sie aktuell (auch das restic-Image in `docs/nas-backup/backup-offsite.sh`, Regex-Manager) |
 | H | Garage (`data/garage`: etcd- + Longhorn-Backups des Clusters) ohne Snapshot/Replikation/Offsite | 🟡 | offen |
+| I | Sandbox-VM über VLAN 40 im übrigen LAN (Mac Studio, UniFi-UI); VLAN 40 → 80 in UniFi offen | 🔴 | offen: UniFi-Regel (VM-IP nur Internet), später VLAN „Sandbox“ |
+| J | Mac Studio: Ollama/LM Studio ohne Auth, pf aus `docs/mac-studio-llm.md` noch nicht eingerichtet | 🔴 | zurückgestellt (Christian, 2026-11-22) |
+| K | TrueNAS: 2FA aus, SSH mit Passwort, UI auch per HTTP ohne Umleitung | 🟡 | offen: in TrueNAS einschalten (2FA, HTTPS-Umleitung, `ssh.update passwordauth=false`) |
+| L | Cluster-VLAN 80 = NAS-Management, Traefik, Mac Studio | 🟡 | vor dem Cluster-Neuaufbau UniFi-Regeln |
+| M | Öffentliches Repo ohne Secret Scanning/Push Protection/Dependabot-Alerts; alte SOPS-Secrets in der Historie | 🟡 | offen: in GitHub einschalten; age-Key vernichten oder alte Secrets rotieren |
+| N | VictoriaMetrics/Loki/Alertmanager ohne Auth im Netz `edge-n8n` (Silences/Löschen möglich) | 🟢 | offen: Alertmanager Basic Auth, vmauth read-only |
 
 ## Grundsätzlich gut (bestätigt)
 
 - Keine Klartext-Secrets im Repo (`${VARS}` + `op://`-Referenzen), `.gitignore` greift; Werte nur in 1Password.
 - Datenbanken nur in internen Netzen (kein Port-Mapping), Web-Dienste nur über Traefik.
-- Image-Pinning durchgängig; Daten getrennt von Stack-Definition (eigene Datasets).
+- Image-Pinning durchgängig (Tag), Actions per Digest; Daten getrennt von Stack-Definition (eigene Datasets).
 - IaC offsite bei GitHub → die Reproduzierbarkeit, die die Update-Katastrophe verhindert.
 - Ressourcen-Limits auf allen Services → kein einzelner Container kann das 24-GB-NAS lahmlegen.

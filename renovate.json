@@ -2,7 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended",
-    ":dependencyDashboard"
+    ":dependencyDashboard",
+    "helpers:pinGitHubActionDigests"
   ],
   "timezone": "Europe/Berlin",
   "schedule": [
@@ -17,7 +18,7 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "Patch + Digest automatisch mergen nach grünem validate-Check (cluster-style; Minor/Major bleiben manuell)",
+      "description": "Patch + Digest automatisch mergen nach grünem validate-Check (Minor/Major bleiben manuell). Jederzeit statt im Nachtfenster: GitHub startet den Cron 5–8 h zu spät, Patches blieben sonst liegen (Security-Check 2026-11-22, H2). 3 Tage Wartezeit gegen manipulierte Upstream-Releases (M5); dringende Fixes per Häkchen im Dependency Dashboard.",
       "matchUpdateTypes": [
         "patch",
         "digest",
@@ -26,7 +27,12 @@
       ],
       "automerge": true,
       "automergeType": "pr",
-      "platformAutomerge": true
+      "platformAutomerge": true,
+      "schedule": [
+        "at any time"
+      ],
+      "minimumReleaseAge": "3 days",
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
       "description": "Stateful DBs: KEINE Major-Bumps via Renovate (brauchen pg_upgrade/Daten-Migration, kein Tag-Swap) — siehe postgres-18-Incident 2026-06-05",

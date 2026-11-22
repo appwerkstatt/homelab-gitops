@@ -79,6 +79,8 @@ jobs:
           docker run --rm -v "$PWD/$cfg:/c:ro" "$bb" --config.file=/c/blackbox.yml --config.check
           al=$(grep -oE 'grafana/alloy:[^ ]+' stacks/20-observability/compose.yaml)
           docker run --rm -v "$PWD/$cfg:/c:ro" "$al" fmt /c/config.alloy >/dev/null
+          lk=$(grep -oE 'grafana/loki:[^ ]+' stacks/20-observability/compose.yaml)
+          docker run --rm -v "$PWD/$cfg:/c:ro" "$lk" -config.file=/c/loki.yaml -verify-config
 
       - name: Check Grafana dashboards match build-dashboards.py
         run: |

@@ -1,0 +1,47 @@
+# LogQL-Alarme auf die Keycloak-Events (Loki-Ruler, Format wie vmalert/Prometheus).
+# Quelle: Keycloaks Event-Listener "jboss-logging" schreibt jedes Event als Logzeile, z.B.
+#   WARN  [org.keycloak.events] ... type="LOGIN_ERROR", realmName="AppsFab", clientId="grafana",
+#         userId="…", ipAddress="…", error="invalid_user_credentials", …
+#   INFO  [org.keycloak.events] ... type="USER_DISABLED_BY_TEMPORARY_LOCKOUT", realmName="AppsFab",
+#         userId="…", reason="brute_force_attack detected", num_failures="10", …
+# (Erfolgs-Events wie die Sperre loggt Keycloak nur mit --spi-events-listener--jboss-logging--success-level=info,
+# gesetzt in stacks/02-keycloak/compose.yaml.) Alloy liefert die Container-Logs mit compose_service; auf compose_project
+# filtern wir bewusst nicht, weil Arcane den Projektnamen aus dem App-Namen bildet (README, „Arcane setzt den Compose-Projektnamen").
+#
+# Hinweis IP: Logins aus dem Internet kommen über cloudflared -> Traefik. Solange Traefik dem Tunnel
+# keine X-Forwarded-For-Header glaubt, steht dort die cloudflared-Adresse (172.31.253.x), nicht die
+# echte Client-IP. Darum zählt der Fehlversuch-Alarm pro Realm, nicht pro IP.
+groups:
+  - name: keycloak
+    interval: 1m
+    rules:
+      - alert: KeycloakLoginFailures
+        # Falsches Passwort/OTP/Passkey, unbekannter User usw. Anfragen an ein bereits gesperrtes Konto
+        # zählen hier nicht mit (die meldet KeycloakUserLockedOut).
+        expr: |
+          sum by (realm) (
+            count_over_time(
+              {host="truenas", compose_service="keycloak"} |= `[org.keycloak.events]`
+                |= `type="LOGIN_ERROR"` != `error="user_temporarily_disabled"`
+                | regexp `realmName="(?P<realm>[^"]*)"`
+              [15m]
+            )
+          ) >= 5
+        labels: { severity: warning }
+        annotations:
+          summary: "Keycloak: {{ $value }} fehlgeschlagene Logins in 15 min im Realm {{ $labels.realm }} (Details: Grafana → Explore → Loki, {compose_service=\"keycloak\"} |= \"LOGIN_ERROR\")"
+
+      - alert: KeycloakUserLockedOut
+        # Brute-Force-Schutz hat ein Konto vorübergehend gesperrt (10 Fehlversuche, siehe Realm-JSON).
+        expr: |
+          sum by (realm, user_id) (
+            count_over_time(
+              {host="truenas", compose_service="keycloak"} |= `[org.keycloak.events]`
+                |= `type="USER_DISABLED_BY_TEMPORARY_LOCKOUT"`
+                | regexp `realmName="(?P<realm>[^"]*)".*userId="(?P<user_id>[^"]*)"`
+              [10m]
+            )
+          ) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: "Keycloak: Konto {{ $labels.user_id }} im Realm {{ $labels.realm }} wegen Brute-Force gesperrt (bis 15 min). Warst du das nicht, läuft ein Angriff — Details in Loki, {compose_service=\"keycloak\"} |= \"LOCKOUT\""

@@ -27,6 +27,10 @@ services:
       - --proxy-headers=xforwarded
       - --http-enabled=true
       - --import-realm           # importiert realm/AppsFab-realm.json NUR falls Realm fehlt
+      # Keycloak-Events (Logins, Fehlversuche, Sperren) als Logzeilen -> Alloy -> Loki -> Alarm
+      # (stacks/20-observability/config/loki-rules/). Fehler loggt jboss-logging ohnehin als WARN; "info"
+      # holt auch Erfolgs-Events dazu, darunter USER_DISABLED_BY_TEMPORARY_LOCKOUT (Brute-Force-Sperre).
+      - --spi-events-listener--jboss-logging--success-level=info
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
@@ -107,7 +111,7 @@ services:
       # Bump on every realm/ change. A changed env value forces Compose to recreate this
       # one-shot (so it re-runs), AND touching compose.yaml guarantees Arcane redeploys the
       # stack (a realm-only file edit alone may not trigger either). See RECONCILE.md.
-      KCC_REALM_REV: "15"
+      KCC_REALM_REV: "16"
       # OIDC client secrets — resolved into the realm by $(env:...). Same vars the consumers read.
       GRAFANA_OIDC_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET}
       FORGEJO_OIDC_CLIENT_SECRET: ${FORGEJO_OIDC_CLIENT_SECRET}

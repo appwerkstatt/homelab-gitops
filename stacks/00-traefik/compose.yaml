@@ -71,6 +71,14 @@ services:
       edge-sso: { aliases: *traefik_aliases }
       edge-paperless: { aliases: *traefik_aliases }
       edge-n8n: { aliases: *traefik_aliases }
+      # edge-plane zusätzlich git.appsfab.org: optionaler Plane-Login über Forgejo ("Gitea"-OAuth), die Plane-API
+      # holt Token und Benutzer serverseitig bei Forgejo (stacks/14-plane/README.md).
+      edge-plane:
+        aliases:
+          - traefik
+          - auth.${LAB_DOMAIN}
+          - auth.appsfab.org
+          - git.appsfab.org
       edge-tunnel: { aliases: *traefik_aliases }
       edge-obs: { aliases: *traefik_aliases }
       edge-garage: { aliases: *traefik_aliases }
@@ -107,6 +115,8 @@ networks:
     name: edge-paperless          # 11-paperless
   edge-n8n:
     name: edge-n8n          # 13-n8n
+  edge-plane:
+    name: edge-plane          # 14-plane
   edge-tunnel:
     name: edge-tunnel          # 12-cloudflared
     # Feste Range: Tunnel-Traffic muss AUSSERHALB von 192.168/16 + 10/8 liegen, sonst hielte das

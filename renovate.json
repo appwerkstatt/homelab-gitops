@@ -51,6 +51,26 @@
         "searxng/searxng"
       ],
       "versioning": "regex:^(?<major>\\d{4})\\.(?<minor>\\d{1,2})\\.(?<patch>\\d{1,2})-[0-9a-f]+$"
+    },
+    {
+      "description": "Plane: alle makeplane-Images gemeinsam (gleiche Release-Version, eine Migration)",
+      "matchManagers": [
+        "docker-compose"
+      ],
+      "matchPackageNames": [
+        "makeplane/**"
+      ],
+      "groupName": "plane"
+    },
+    {
+      "description": "Silo (MinIO-Fork in 14-plane) taggt RELEASE.JJJJ-MM-TTT00-00-00Z; Varianten (-distroless, -amd64) ignorieren. Neuer Tag im selben Monat = Patch (Automerge), neuer Monat = Minor (manuell)",
+      "matchManagers": [
+        "docker-compose"
+      ],
+      "matchPackageNames": [
+        "pgsty/silo"
+      ],
+      "versioning": "regex:^RELEASE\\.(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})T\\d{2}-\\d{2}-\\d{2}Z$"
     }
   ],
   "customManagers": [

@@ -36,6 +36,8 @@ scrape_configs:
           - http://garage:3903/health
           - http://dockerhub:5000/v2/
           - http://n8n:5678/healthz
+          - http://plane-api:8000/api/instances/   # Plane-API (öffentliche Instanz-Infos, braucht DB)
+          - http://plane-web:3000/                 # Plane-Web-App
     relabel_configs: &blackbox_relabel
       - source_labels: [__address__]
         target_label: __param_target

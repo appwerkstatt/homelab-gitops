@@ -81,7 +81,7 @@ services:
       - /mnt/fast/appdata/grafana:/var/lib/grafana    # grafana.db = migrierte Dashboards
       - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro   # VM + Loki deklarativ
       - ./config/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/provider.yaml:ro        # Dashboard-Provider (IaC)
-      - ./config/dashboards:/etc/dashboards:ro                                                        # Dashboard-JSONs (IaC)
+      - ./config/dashboards:/etc/dashboards:ro                                                        # Dashboard-JSONs (IaC): community/ + homelab/
     mem_limit: 512m
     depends_on: [victoriametrics, loki]
     labels:
@@ -111,6 +111,8 @@ services:
       - -logtostderr
       - -docker_only=true                # nur Container, keine rohen cgroups
       - -store_container_labels=false     # Container-Labels nicht als Metric-Labels (Kardinalität)
+      # ... außer dem Compose-Projekt (= Stack): Grafana gruppiert danach (Dashboard "Homelab · Container & Stacks")
+      - -whitelisted_container_labels=com.docker.compose.project
       - -housekeeping_interval=30s        # passt zum scrape_interval
       # verbose/selten genutzte Collectors aus -> /metrics deutlich kleiner:
       - -disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp,percpu

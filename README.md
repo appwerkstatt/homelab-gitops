@@ -75,6 +75,9 @@ Versionen stehen bewusst **nicht** hier, sondern nur im jeweiligen `compose.yaml
   `validate` grün ist (Compose streng, Images existieren für `linux/amd64`); Minor/Major per Hand.
 - **Alerting:** vmalert → Alertmanager → Telegram (`stacks/20-observability/config/alerts.yml`), blackbox-Probes
   für alle Dienste, Offsite-Backup-Alter über node-exporter-Textfile.
+- **Dashboards:** Grafana-Ordner *Homelab* (Übersicht, NAS-Host, Container & Stacks, Dienste, Alerts, Logs) wird von
+  `stacks/20-observability/build-dashboards.py` erzeugt (JSONs mitcommitten, CI prüft das); Ordner *Community* =
+  grafana.com-Dashboards via `fetch-dashboards.sh`. In der UI read-only, Änderungen nur über Git.
 - **Registry:** Zot verlangt Login. Menschen: Keycloak-SSO in der UI, CLI per Zot-API-Key; Robots im htpasswd
   (`ci` = Push, `pull` = NAS/Cluster). Details `stacks/22-harbor/README.md`.
 - **Arcane setzt den Compose-Projektnamen, nicht `name:`.** Arcane startet jeden Stack als

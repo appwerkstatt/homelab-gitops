@@ -45,7 +45,7 @@ Rollback: `"anonymousPolicy": ["read"]` zurück.
 
 Die Zot-UI (`https://registry.lab.appsfab.org`) zeigt „Sign in with Keycloak“ statt nur des
 Passwort-Formulars. Rechte kommen aus den Keycloak-Gruppen (Claim `groups`):
-`lab-admins` → read/create/update/delete, `lab-users` → read. Benutzername = `preferred_username`.
+`lab-admins` → read/create/update/delete, `devs` → read. Benutzername = `preferred_username`.
 
 - Keycloak-Client `zot` (Realm-JSON, kcc), Redirect `https://registry.lab.appsfab.org/zot/auth/callback/oidc`,
   Post-Logout `https://registry.lab.appsfab.org/login` (#127). Issuer `https://auth.appsfab.org/realms/AppsFab`.

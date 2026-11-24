@@ -86,7 +86,13 @@ services:
           - git.appsfab.org
       edge-doku: { aliases: *traefik_aliases }
       edge-tunnel: { aliases: *traefik_aliases }
-      edge-obs: { aliases: *traefik_aliases }
+      # edge-obs zusätzlich n8n.lab: Alertmanager schickt den Alert-Erklärer-Webhook über Traefik (Router n8n-webhook).
+      edge-obs:
+        aliases:
+          - traefik
+          - auth.${LAB_DOMAIN}
+          - auth.appsfab.org
+          - n8n.${LAB_DOMAIN}
       edge-garage: { aliases: *traefik_aliases }
       edge-zot: { aliases: *traefik_aliases }
       edge-mirror: { aliases: *traefik_aliases }

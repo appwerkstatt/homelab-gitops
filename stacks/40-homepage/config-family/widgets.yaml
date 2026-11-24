@@ -1,0 +1,7 @@
+# Info-Leiste oben. Keine Suche: die würde ins Internet fragen.
+- datetime:
+    text_size: md
+    format:
+      dateStyle: full
+      timeStyle: short
+      hour12: false

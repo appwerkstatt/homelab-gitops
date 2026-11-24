@@ -39,7 +39,7 @@ receivers:
 
   - name: n8n-alert-explainer
     webhook_configs:
-      - url: http://n8n:5678/webhook/alert-erklaerer     # über edge-n8n, nicht über den Tunnel
+      - url: https://n8n.lab.appsfab.org/webhook/alert-erklaerer   # über Traefik (edge-obs-Alias), nicht über den Tunnel
         send_resolved: false
         max_alerts: 5
         http_config:

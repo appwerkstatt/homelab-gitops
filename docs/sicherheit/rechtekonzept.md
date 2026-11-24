@@ -1,75 +1,107 @@
 # Rechtekonzept
 
-Wer darf was? Alle Rechte hängen an **zwei Keycloak-Gruppen** im Realm `AppsFab`. Selbstregistrierung ist aus,
-neue Benutzer legt nur ein Admin in der Keycloak-Admin-Konsole an (`auth.lab`, nur LAN).
+Wer darf was? Das Homelab hat **vier Benutzer**: Christian (Admin), seine Frau, Sohn und Tochter, alle
+volljährig. Alle Rechte hängen an Keycloak-Gruppen im Realm `AppsFab`. Selbstregistrierung ist aus, neue
+Benutzer legt nur ein Admin in der Keycloak-Admin-Konsole an (`auth.lab`, nur LAN). Alles ist **nur im LAN**
+erreichbar, außer `git`, `auth` und `hooks.appsfab.org`.
 
-| Gruppe | Für wen | Bedeutung |
+## Gruppen
+
+| Gruppe | Mitglieder | Bedeutung |
 |---|---|---|
-| `lab-users` | **jeden** Menschen mit Zugang, auch Admins | darf sich bei den Nutzer-Diensten anmelden |
-| `lab-admins` | nur Admins | zusätzlich Admin-Rechte und Admin-Werkzeuge |
+| `lab-users` | alle vier | darf sich bei den Nutzer-Diensten anmelden (`sso@docker`) |
+| `family` | alle vier | Familie; Merkmal für künftige Familien-Apps (z. B. Fotos) |
+| `devs` | Christian, Sohn | Forgejo, n8n, Registry lesen (`sso-devs@docker`) |
+| `lab-admins` | nur Christian | Admin-Rechte und Admin-Werkzeuge (`sso-admin@docker`) |
 
-Ein Admin ist also in **beiden** Gruppen. Ein Benutzer ohne Gruppe kommt nirgends rein.
+Ein Admin ist in **allen** Gruppen. Ein Benutzer ohne Gruppe kommt nirgends rein.
 Keinem Benutzer im Realm `AppsFab` Rollen des Clients `realm-management` geben: Keycloak verwalten nur
 Konten im Realm `master`.
 
-## Zwei Türsteher in Traefik
+## Drei Türsteher in Traefik
 
-Für Dienste ohne eigenes OIDC gibt es zwei Middlewares, beide über oauth2-proxy ([03-oauth2-proxy](../dienste/oauth2-proxy.md)):
+Für Dienste ohne eigenes OIDC gibt es drei Middlewares, alle über oauth2-proxy ([03-oauth2-proxy](../dienste/oauth2-proxy.md)):
 
 | Middleware | Lässt durch | Für |
 |---|---|---|
-| `sso@docker` | `lab-users` | Nutzer-Apps |
-| `sso-admin@docker` | nur `lab-admins` | Admin-Werkzeuge |
+| `sso@docker` | `lab-users` | Familien-Apps |
+| `sso-devs@docker` | `devs` | Entwickler-Werkzeuge |
+| `sso-admin@docker` | `lab-admins` | Admin-Werkzeuge |
 
-`sso-admin` hängt an die Adresse von oauth2-proxy `?allowed_groups=lab-admins`. Ohne Sitzung geht es wie bei
-`sso` zu Keycloak, eingeloggt ohne `lab-admins` antwortet oauth2-proxy mit **403**. Beide nutzen dieselbe
-Sitzung und denselben Keycloak-Client, ein neuer Host braucht also nur die Callback-URL beim Client `oauth2-proxy`.
+`sso-devs` und `sso-admin` hängen an die Adresse von oauth2-proxy `?allowed_groups=<gruppe>`. Ohne Sitzung
+geht es wie bei `sso` zu Keycloak, eingeloggt ohne die Gruppe antwortet oauth2-proxy mit **403**. Alle nutzen
+dieselbe Sitzung und denselben Keycloak-Client, ein neuer Host braucht also nur die Callback-URL beim Client
+`oauth2-proxy`.
 
 **Faustregel für neue Dienste:** Kann der Dienst Daten aller Benutzer sehen, Konfiguration ändern oder hat er
 Zugriff auf Infrastruktur, kommt er hinter `sso-admin@docker`.
 
 ## Dienste im Überblick
 
-| Dienst | Schranke | Admin | Normaler Benutzer (`lab-users`) |
-|---|---|---|---|
-| Keycloak | eigene Admin-Konsole, nur LAN | Konten im Realm `master` | eigene Account-Seite (Passkeys, Passwort) |
-| Grafana | OIDC, nur `lab-users`/`lab-admins` | `lab-admins` → Admin | Viewer: sieht alle Dashboards, auch Logs |
-| Forgejo | OIDC, nur `lab-users` (`--required-claim-*`) | `lab-admins` → Site-Admin | Konto nur, wenn ein Admin es anlegt (Registrierung aus); sieht öffentliche Repos |
-| Zot | OIDC | `lab-admins`: alles | nur lesen |
-| Netboot | OIDC | `lab-admins` dürfen „armen“ | darf ansehen |
-| Homepage, Handbuch | `sso` | – | sieht alles (Widget-Tokens bleiben auf dem Server) |
-| Plane | `sso`, God Mode `sso-admin` | Plane-Instanz-Admin | eigenes Plane-Konto, Rolle im Workspace |
-| Paperless | eigenes Login (kein SSO) | Superuser | eigenes Konto, sieht nur eigene und freigegebene Dokumente (siehe unten) |
-| paperless-ai | `sso-admin` + eigenes Login | Admin | kein Zugang: nutzt ein API-Token, das alle Dokumente sieht |
-| n8n | `sso-admin` + eigenes Login | Owner | **vorerst kein Zugang** (siehe unten) |
-| Traefik-Dashboard | `sso-admin` | lesend | kein Zugang |
-| Arcane, TrueNAS | eigenes Login, nur VLAN 10 ([NAS-Firewall](../nas-firewall/README.md)) | lokale Konten | kein Konto |
+| Dienst | Schranke | Christian | Frau, Tochter | Sohn |
+|---|---|---|---|---|
+| Startseite `home.lab` | `sso` | ✓ | ✓ | ✓ |
+| Admin-Startseite `admin.lab` | `sso-admin` | ✓ | – | – |
+| Plane | `sso` + Plane-Konto, God Mode `sso-admin` | Instanz-Admin | Member im Familien-Workspace | Member |
+| Paperless | eigenes Login | Superuser | eigene + gemeinsame Dokumente | eigene + gemeinsame Dokumente |
+| Keycloak-Konto | – | ✓ | ✓ (Passkeys, Passwort) | ✓ |
+| Forgejo | OIDC, nur `devs` | Site-Admin (`lab-admins`) | – | eigenes Konto, nur freigegebene Repos |
+| n8n | `sso-devs` + n8n-Konto | Owner | – | Member |
+| Zot | OIDC | alles (`lab-admins`) | – | lesen (`devs`) |
+| Grafana | OIDC, nur `lab-admins` | Admin | – | – |
+| Netboot | OIDC | „armen“ (`lab-admins`) | nur ansehen | nur ansehen |
+| Handbuch | `sso` | ✓ | lesen | lesen |
+| paperless-ai, Traefik-Dashboard | `sso-admin` | ✓ | – | – |
+| Arcane, TrueNAS | eigenes Login, nur VLAN 10 | lokale Konten | – | – |
+
+## n8n für Entwickler
+
+n8n-Member dürfen Workflows bauen und HTTP-Anfragen ins Netz `edge-n8n` schicken. Damit das nicht zu allen Logs
+führt, hängen VictoriaMetrics, Loki und Alertmanager **nicht** in `edge-n8n`:
+
+- n8n liest Metriken und Logs nur über **vmauth** (`http://vmauth:8427`): nur Lese-Pfade, nur mit Bearer-Token.
+  Das Token liegt im n8n-Credential *Observability lesen* des Owners und wird **nicht** geteilt.
+- Alertmanager schickt den Alert-Erklärer-Webhook über Traefik (`https://n8n.lab.appsfab.org/webhook/…`).
+
+Was ein n8n-Member trotzdem erreicht: Traefik (alle `*.lab`-Hosts, also wieder mit Login), den blackbox-Exporter
+(nur „erreichbar ja/nein“), die LLMs auf dem Mac Studio und das Internet. Credentials des Owners sieht er nicht.
 
 ## Neuen Benutzer anlegen
 
 1. Keycloak-Admin-Konsole (`https://auth.lab.appsfab.org/admin`, Realm `master`) → Realm `AppsFab` → *Users* →
-   *Add user*, E-Mail setzen, Gruppe **nur `lab-users`**. Unter *Role mapping* keine weiteren Rollen.
+   *Add user*, E-Mail setzen, Gruppen `lab-users` und `family`, für Entwickler zusätzlich `devs`. Unter
+   *Role mapping* keine weiteren Rollen.
 2. Beim ersten Login registriert die Person einen Passkey (Pflicht, siehe [Login & SSO](sso.md)).
-3. Apps mit eigenen Konten nur bei Bedarf:
-    - **Forgejo:** Die Registrierung ist aus, das Konto legt ein Admin an. Nur in die Repos und Teams
-      aufnehmen, die gebraucht werden.
-    - **Plane:** im Workspace als *Member* einladen, nicht als Admin.
-    - **Paperless:** Benutzer **ohne** Superuser und **ohne** Staff anlegen, Rechte über eine Gruppe.
+3. Apps mit eigenen Konten:
+    - **Plane:** in den Familien-Workspace als *Member* einladen.
+    - **Paperless:** Benutzer **ohne** Superuser und **ohne** Staff anlegen, Rechte über die Paperless-Gruppe
+      `haushalt` (siehe unten).
+    - **Forgejo** (nur `devs`): Die Registrierung ist aus, das Konto legt ein Admin an. Nur in die Repos und
+      Teams aufnehmen, die gebraucht werden.
+    - **n8n** (nur `devs`): als *Member* einladen, nicht als Admin.
+
+## Paperless: private und gemeinsame Dokumente
+
+Paperless hat eigene Konten und Rechte pro Dokument:
+
+- Jeder ist **Besitzer** seiner eigenen Dokumente; die sieht sonst niemand (außer dem Superuser).
+- Gemeinsame Dokumente (Verträge, Versicherungen, Steuern) bekommen zusätzlich Rechte für die Paperless-Gruppe
+  **`haushalt`** (Ansehen + Bearbeiten).
+- Ein Workflow „Dokument hinzugefügt → Besitzer = hochladende Person“ sorgt dafür, dass neue Uploads nicht offen sind.
+
+**Wichtig:** Dokumente **ohne** Besitzer sieht jeder Benutzer. Vor dem ersten weiteren Konto alle Dokumente
+ohne Besitzer einem Besitzer zuweisen (Dokumente → Filter „Besitzer: keiner“ → Massenbearbeitung → Rechte).
 
 ## Stolperfallen
 
-- **Paperless: Dokumente ohne Besitzer sieht jeder Benutzer.** Vor dem ersten weiteren Konto alle Dokumente
-  ohne Besitzer einem Besitzer zuweisen (Dokumente → Filter „Besitzer: keiner“ → Massenbearbeitung → Rechte)
-  und einen Workflow „Dokument hinzugefügt → Besitzer zuweisen“ anlegen, damit neue Uploads nicht offen sind.
-- **n8n:** Jeder n8n-Member erreicht im Netz `edge-n8n` VictoriaMetrics, Loki und Alertmanager ohne Login
-  (SECURITY.md, Punkt N), sähe also alle Logs und könnte Alarme stummschalten. Deshalb steht der Editor hinter
-  `sso-admin`. Erst wenn das abgesichert ist, zurück auf `sso` und Benutzer als *Member* einladen.
 - **Plane:** In God Mode → *Authentication* „Allow anyone to sign up“ aus lassen, sonst legt sich jeder
   `lab-users`-Benutzer selbst ein Konto an.
-- **Grafana:** Viewer sehen das Dashboard *Homelab Logs* und damit alle Container-Logs. Soll das nicht so
-  sein, den Ordner per Berechtigung auf Admins beschränken.
 - **Forgejo:** Die Gruppenpflicht steht in der Datenbank, nicht in der Env. Nachziehen mit
-  `forgejo admin auth update-oauth --id 6 --required-claim-name groups --required-claim-value lab-users`
+  `forgejo admin auth update-oauth --id 6 --required-claim-name groups --required-claim-value devs`
   (Befehl im `compose.yaml`), danach den Container neu starten. Prüfen mit `forgejo admin auth list`.
-- **Arcane und TrueNAS** sind aus dem ganzen VLAN 10 erreichbar. Hängen Geräte anderer Personen in diesem
-  VLAN, `MGMT_CIDRS` in der NAS-Firewall auf die Admin-Geräte eingrenzen und in TrueNAS 2FA einschalten.
+- **Zot** liest seine Config beim Start: nach Änderungen an `zot.json` den Container neu starten, falls die
+  Rechte nicht sofort greifen.
+- **Arcane und TrueNAS** sind aus dem ganzen VLAN 10 erreichbar. Hängen Geräte der Familie in diesem VLAN,
+  `MGMT_CIDRS` in der NAS-Firewall auf die Admin-Geräte eingrenzen und in TrueNAS 2FA einschalten.
+- **Von unterwegs** geht vorerst nichts (Entscheidung 2026-11-24). Später: VPN (WireGuard in UniFi) oder
+  öffentliche Hosts über den Tunnel.

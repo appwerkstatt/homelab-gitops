@@ -1,0 +1,24 @@
+# Familien-Startseite (home.lab). Die Admin-Startseite liegt in ../config (admin.lab, nur lab-admins).
+# Homepage kann nicht nach Gruppen filtern, deshalb zwei Instanzen. Rechtekonzept: docs/sicherheit/rechtekonzept.md
+title: Familie
+description: Unsere Dienste zu Hause
+language: de
+theme: dark
+color: slate
+headerStyle: boxed
+statusStyle: dot
+hideVersion: true
+disableUpdateCheck: true  # kein Aufruf an die GitHub-API; Updates macht Renovate
+target: _self
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: true
+  hideVisitURL: true
+
+layout:
+  Alltag:
+    style: row
+    columns: 3
+  Entwicklung:
+    style: row
+    columns: 2

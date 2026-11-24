@@ -28,7 +28,7 @@
             { "users": ["ci"], "actions": ["read", "create", "update"] },
             { "users": ["pull"], "actions": ["read"] },
             { "groups": ["lab-admins"], "actions": ["read", "create", "update", "delete"] },
-            { "groups": ["lab-users"], "actions": ["read"] }
+            { "groups": ["devs"], "actions": ["read"] }
           ]
         }
       }

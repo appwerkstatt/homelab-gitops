@@ -10,8 +10,9 @@ flowchart LR
   app1 -->|OIDC| kc[Keycloak<br/>auth.appsfab.org]
   traefik -->|"sso@docker"| o2p[oauth2-proxy]
   o2p -->|OIDC| kc
-  o2p -->|"lab-users"| app2[Homepage · Plane · Handbuch]
-  o2p -->|"lab-admins (sso-admin)"| app3[n8n · paperless-ai · Traefik-Dashboard · Plane-God-Mode]
+  o2p -->|"lab-users"| app2[Startseite · Plane · Handbuch]
+  o2p -->|"devs (sso-devs)"| app4[n8n]
+  o2p -->|"lab-admins (sso-admin)"| app3[Admin-Startseite · paperless-ai · Traefik-Dashboard · Plane-God-Mode]
 ```
 
 ## Ein Issuer für alles
@@ -57,7 +58,7 @@ Die Flow-Details stehen in [`realm/PASSKEYS.md`](https://github.com/appwerkstatt
 
 === "App kann kein OIDC"
 
-    1. Am Router `middlewares=sso@docker` setzen, bei Admin-Werkzeugen `sso-admin@docker`
+    1. Am Router `middlewares=sso@docker` setzen, bei Entwickler-Werkzeugen `sso-devs@docker`, bei Admin-Werkzeugen `sso-admin@docker`
        ([Rechtekonzept](rechtekonzept.md)).
     2. Callback `https://<host>.lab.appsfab.org/oauth2/callback` beim Client `oauth2-proxy` ergänzen,
        `KCC_REALM_REV` hochzählen.

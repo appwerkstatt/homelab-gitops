@@ -8,14 +8,16 @@ n8n → *Workflows → Create → ⋯ → Import from File*.
 Jeden Morgen um 7:30 kommt eine Telegram-Nachricht mit diesen Inhalten:
 
 - **Alerts der letzten 24 h**: was gerade aktiv ist und was wieder gelöst ist, jeweils mit Dauer.
-  Die Daten stammen aus der `ALERTS`-Serie, die vmalert in VictoriaMetrics schreibt
-  (`http://victoriametrics:8428`, über das Netz `edge-n8n`).
+  Die Daten stammen aus der `ALERTS`-Serie, die vmalert in VictoriaMetrics schreibt. n8n liest sie über
+  das Lese-Gateway `http://vmauth:8427` (Netz `edge-n8n`, nur mit Token, siehe unten).
 - **Renovate**: der letzte Lauf, gemergte PRs (24 h), offene PRs, Majors, die auf Freigabe
   warten, Updates, die auf das Zeitfenster warten, Fehler und Repository-Probleme. Quelle ist die
   GitHub-API ohne Token, weil das Repo öffentlich ist (60 Anfragen pro Stunde, der Bericht braucht 4).
 
 Einrichtung nach dem Import:
 
+0. In den Nodes **Alerts 24h** und **Alerts jetzt** das Credential **Observability lesen** wählen
+   (siehe [Zugriff auf Metriken und Logs](#zugriff-auf-metriken-und-logs)).
 1. Im Node **Telegram** ein Credential *Telegram API* anlegen. Der Bot-Token steht in
    1Password `homelab-alerting/telegram-bot-token` (derselbe Bot wie bei Alertmanager).
 2. Im Node **Config** `chatId` auf `homelab-alerting/telegram-chat-id` setzen. Bei Gruppen ist der
@@ -50,7 +52,7 @@ Weitere Repos: Workflow duplizieren und im Trigger das Repository ändern.
 ## alert-erklaerer.json: Alert-Erklärer (Loki + LM Studio → Telegram)
 
 Bei jedem Alert mit severity warning oder critical schickt Alertmanager zusätzlich zur normalen
-Telegram-Meldung einen Webhook an n8n (`http://n8n:5678/webhook/alert-erklaerer`, intern über `edge-n8n`).
+Telegram-Meldung einen Webhook an n8n (`https://n8n.lab.appsfab.org/webhook/alert-erklaerer`, intern über Traefik).
 Der Workflow läuft dann so:
 
 1. Er holt die passenden Container-Logs aus Loki, ab 15 min vor Alert-Beginn. Bei cadvisor-Alerts ist das
@@ -75,8 +77,21 @@ Einrichtung, **vor** dem Merge des zugehörigen PRs, damit Alertmanager nicht in
 Testen ohne echten Alert (vom NAS aus, Token einsetzen):
 
 ```bash
-docker exec "$(docker ps -qf name=alertmanager)" wget -qO- --header "Authorization: Bearer <Token>" \
+docker exec "$(docker ps -qf name=n8n-n8n)" wget -qO- --header "Authorization: Bearer <Token>" \
   --header "Content-Type: application/json" --post-data '{"alerts":[{"status":"firing","fingerprint":"test1",
   "startsAt":"'"$(date -u +%FT%TZ)"'","labels":{"alertname":"ContainerRestartLoop","severity":"warning",
-  "name":"n8n"},"annotations":{"summary":"Test"}}]}' http://n8n:5678/webhook/alert-erklaerer
+  "name":"n8n"},"annotations":{"summary":"Test"}}]}' http://localhost:5678/webhook/alert-erklaerer
 ```
+
+## Zugriff auf Metriken und Logs
+
+VictoriaMetrics, Loki und Alertmanager hängen nicht im Netz `edge-n8n`. n8n liest Metriken und Logs nur über
+**vmauth** (`http://vmauth:8427`, Stack 20-observability): nur Lese-Pfade, nur mit Bearer-Token. So kommt ein
+n8n-Member (z. B. aus der Gruppe `devs`) nicht an alle Logs und kann keine Alerts stummschalten.
+
+1. 1Password: `op item edit homelab-alerting --vault AppsFab "n8n-obs-read-token[password]=$(openssl rand -hex 32)"`,
+   dann `scripts/render-env.sh observability` in die Arcane-Env von `observability`.
+2. In n8n als **Owner** ein Credential *Header Auth* anlegen: Name **Observability lesen**, Header
+   `Authorization`, Value `Bearer <Token>`. **Nicht** mit anderen Benutzern teilen.
+3. In den Nodes **Alerts 24h**, **Alerts jetzt** (Tagesbericht) und **Loki-Logs** (Alert-Erklärer) dieses
+   Credential wählen. `vmUrl`/`lokiUrl` im Node **Config** sind `http://vmauth:8427`.

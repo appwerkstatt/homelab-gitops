@@ -1,0 +1,24 @@
+# Familien-Startseite: nur Links, keine Widgets/Status (die bräuchten Tokens und zeigten NAS-Interna).
+- Alltag:
+    - Plane:
+        icon: plane.png
+        href: https://plane.lab.appsfab.org
+        description: Familien-Workspace · Aufgaben, Projekte, Einkauf
+    - Paperless:
+        icon: paperless-ngx.png
+        href: https://docs.lab.appsfab.org
+        description: Dokumente · eigene und gemeinsame („Haushalt“)
+    - Mein Konto:
+        icon: keycloak.png
+        href: https://auth.appsfab.org/realms/AppsFab/account
+        description: Passkeys, Passwort, Sitzungen
+
+- Entwicklung:
+    - Forgejo:
+        icon: forgejo.png
+        href: https://git.appsfab.org
+        description: Git · nur Gruppe devs
+    - n8n:
+        icon: n8n.png
+        href: https://n8n.lab.appsfab.org
+        description: Workflows · nur Gruppe devs

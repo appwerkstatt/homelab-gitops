@@ -18,7 +18,7 @@ Checkliste für einen neuen Dienst `<name>` mit Web-Oberfläche. Vorbilder: `14-
       `compose.yaml` von observability an `edge-<name>` hängen.
 - [ ] **Backup**: Daten auf `fast/appdata/<name>` liegen automatisch in Tier 2. Hat der Dienst Postgres, einen
       `dump_pg`-Aufruf in `docs/nas-backup/backup-offsite.sh` ergänzen; unersetzliche Dateien in die restic-Quellen.
-- [ ] **Homepage**: Kachel in `stacks/40-homepage/config/services.yaml`; für siteMonitor den Host als Alias in
+- [ ] **Homepage**: Kachel in `stacks/40-homepage/config/services.yaml` (Admin; für Familien-Apps auch `config-family/services.yaml`); für siteMonitor den Host als Alias in
       `edge-home` (00-traefik).
 - [ ] **Doku**: Seite `docs/dienste/<name>.md` nach dem Schema der anderen, Eintrag in `mkdocs.yml`,
       Zeile in [Dienste](../dienste/index.md) und in der Tabelle im `README.md`.

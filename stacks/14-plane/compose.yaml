@@ -8,7 +8,7 @@
 #   - kein "space" (öffentlich geteilte Seiten unter /spaces) — intern hinter SSO sinnlos, spart ~200 MB
 #   - Celery-Worker mit --concurrency=2 statt "ein Prozess pro CPU-Thread"
 #   - Valkey ohne Persistenz (nur Cache), Postgres 17 wie die anderen Stacks
-# Routing (alles Host plane.lab, alles hinter sso@docker):
+# Routing (alles Host plane.lab, alles hinter sso@docker, /god-mode hinter sso-admin@docker):
 #   /api/ /auth/ /static/ -> plane-api:8000   /god-mode -> plane-admin:3000   /live/ -> plane-live:3000
 #   /uploads              -> plane-minio:9000 /         -> plane-web:3000
 #
@@ -208,7 +208,7 @@ services:
       - traefik.http.routers.plane-admin.rule=Host(`plane.${LAB_DOMAIN}`) && PathPrefix(`/god-mode`)
       - traefik.http.routers.plane-admin.entrypoints=websecure
       - traefik.http.routers.plane-admin.tls.certresolver=le
-      - traefik.http.routers.plane-admin.middlewares=sso@docker
+      - traefik.http.routers.plane-admin.middlewares=sso-admin@docker   # God Mode nur für lab-admins
       - traefik.http.services.plane-admin.loadbalancer.server.port=3000
     networks: [edge-plane]
     mem_limit: 64m

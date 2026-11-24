@@ -113,6 +113,7 @@ nav:
   - Sicherheit:
       - sicherheit/index.md
       - Login & SSO: sicherheit/sso.md
+      - Rechtekonzept: sicherheit/rechtekonzept.md
       - Secrets (1Password): sicherheit/secrets.md
       - NAS-Firewall: nas-firewall/README.md
   - Backup:

@@ -19,7 +19,8 @@ GitHub bleibt die Quelle der Wahrheit für **dieses** Repo. Forgejo ist für eig
 - `ENABLE_BASIC_AUTHENTICATION=false`: API und Git über HTTPS nehmen kein Passwort mehr an, nur Tokens
   (Personal Access Token als Passwort oder `Authorization: token …`). Sonst ginge ein lokales Passwort aus
   dem Internet an Keycloak, Passkey/2FA und der Brute-Force-Sperre vorbei.
-- Keycloak-Gruppe `lab-admins` macht zum Forgejo-Admin (`--admin-group`).
+- Keycloak-Gruppe `lab-admins` macht zum Forgejo-Admin (`--admin-group`). Anmelden darf nur, wer in
+  `lab-users` ist (`--required-claim-name groups --required-claim-value lab-users`).
 - Die OAuth-Quelle steht in der Datenbank, nicht in der Env. Einmalig angelegt mit
   `forgejo admin auth add-oauth …` (Befehl im `compose.yaml`). Nach `update-oauth` den Container neu starten.
 

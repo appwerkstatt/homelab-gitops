@@ -1,7 +1,7 @@
 # 14-plane — Plane (Community Edition)
 
 Projekt- und Aufgabenverwaltung als Jira-/Kanban-Ersatz: Issues, Zyklen (Sprints), Module, Kanban/Liste/Kalender/Gantt, Seiten.
-Nur im LAN unter **https://plane.lab.appsfab.org**, komplett hinter Keycloak (`sso@docker`, Gruppe `lab-users`).
+Nur im LAN unter **https://plane.lab.appsfab.org**, komplett hinter Keycloak (`sso@docker`, Gruppe `lab-users`; `/god-mode` hinter `sso-admin@docker`, nur `lab-admins`).
 
 ## Was läuft
 
@@ -63,7 +63,8 @@ https://plane.lab.appsfab.org/god-mode/ öffnen (erst Keycloak-Login), Admin-Kon
 
 - **General → Telemetrie** ausschalten.
 - **Authentication:** „Magic link" aus (ohne SMTP sinnlos), „Passwort" an. Unter *Workspace* die Anmeldung neuer Konten
-  nach Belieben sperren; der Keycloak-Login davor lässt ohnehin nur `lab-users` durch.
+  sperren („Allow anyone to sign up“ aus), sonst legt sich jeder `lab-users`-Benutzer selbst ein Konto an.
+  Neue Personen als *Member* in den Workspace einladen.
 - **SMTP** erst, wenn Mails gebraucht werden (Einladungen, Benachrichtigungen).
 
 ### 5. Workspace anlegen

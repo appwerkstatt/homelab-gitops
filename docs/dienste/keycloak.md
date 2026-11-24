@@ -32,8 +32,10 @@ Consumers. Fehlt eins, setzt kcc das Secret leer. Details und Gate-Tests:
 
 | Gruppe | Wirkung |
 |---|---|
-| `lab-users` | darf durch `sso@docker`; Leserechte in Zot |
-| `lab-admins` | Admin in Grafana, Forgejo, Zot |
+| `lab-users` | Login bei allen Nutzer-Diensten (`sso@docker`, Grafana, Forgejo); Leserechte in Zot |
+| `lab-admins` | zusätzlich `sso-admin@docker`; Admin in Grafana, Forgejo, Zot, Netboot |
+
+Admins sind in beiden Gruppen. Details: [Rechtekonzept](../sicherheit/rechtekonzept.md).
 
 ## Weiterführend
 

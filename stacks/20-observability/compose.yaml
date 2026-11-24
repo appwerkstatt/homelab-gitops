@@ -76,7 +76,10 @@ services:
       GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/auth
       GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/token
       GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/userinfo
-      # RBAC: Keycloak-Gruppe lab-admins -> Grafana-Admin, sonst Viewer
+      # RBAC: nur Keycloak-Gruppen lab-users/lab-admins dürfen rein (sonst "Login failed"),
+      # lab-admins -> Grafana-Admin, sonst Viewer. Rechtekonzept: docs/sicherheit/rechtekonzept.md
+      GF_AUTH_GENERIC_OAUTH_GROUPS_ATTRIBUTE_PATH: groups
+      GF_AUTH_GENERIC_OAUTH_ALLOWED_GROUPS: lab-users,lab-admins
       GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], 'lab-admins') && 'Admin' || 'Viewer'"
       GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "true"
       GF_USERS_ALLOW_SIGN_UP: "false"

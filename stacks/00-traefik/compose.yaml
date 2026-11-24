@@ -58,7 +58,7 @@ services:
       - traefik.http.routers.dashboard.tls.domains[0].main=${LAB_DOMAIN}
       - traefik.http.routers.dashboard.tls.domains[0].sans=*.${LAB_DOMAIN}
       - traefik.http.routers.dashboard.service=api@internal
-      - traefik.http.routers.dashboard.middlewares=sso@docker   # Dashboard hinter Keycloak-Login (Stack 03)
+      - traefik.http.routers.dashboard.middlewares=sso-admin@docker   # Admin-Werkzeug: nur Gruppe lab-admins (Stack 03)
     networks:
       vlan80:
         ipv4_address: 192.168.80.48   # eigene VLAN-IP; *.lab.appsfab.org zeigt hierauf

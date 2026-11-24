@@ -1,6 +1,6 @@
 # Security- & Best-Practice-Review
 
-Stand: 2026-11-22 (Erstreview 2026-05-25, Security-Check 2026-11-22). Review der `homelab-gitops`-Stacks + `cluster-integration`.
+Stand: 2026-11-24 (Erstreview 2026-05-25, Security-Check 2026-11-22). Review der `homelab-gitops`-Stacks + `cluster-integration`.
 Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 
 ## Behoben
@@ -34,6 +34,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | 25 | Sandbox-VM erreichte das NAS (SSH, SMB, NFS, UI, Arcane) — Filter nur in der VM, die ein Ausbruch übernimmt | 🔴 | 2026-11-22: [NAS-Firewall](docs/nas-firewall/README.md) auf `br88` (nur Antworten); Weg über VLAN 40 siehe I |
 | 26 | Arcane (Docker = Root) und VM-VNC aus allen Netzen erreichbar | 🔴 | 2026-11-22: NAS-Firewall, nur VLAN 10; Arcane kann nicht hinter Traefik (startet Traefik selbst) |
 | 27 | cadvisor mit `/var/run:ro` = voller Docker-Socket (ro schützt Sockets nicht) | 🟡 | 2026-11-22: cadvisor über `socket-proxy-logs` (`POST=0`) |
+| 28 | Nur eine SSO-Schranke (`lab-users`) für Nutzer-Apps und Admin-Werkzeuge; Grafana ließ jeden Realm-User als Viewer rein, Forgejo ohne Gruppenpflicht | 🟡 | 2026-11-24: Middleware `sso-admin@docker` (nur `lab-admins`) für Traefik-Dashboard, paperless-ai, n8n, Plane-God-Mode; Grafana `ALLOWED_GROUPS`; Forgejo `--required-claim-*` ([Rechtekonzept](docs/sicherheit/rechtekonzept.md)) |
 
 ## Verbleibend — beim Deploy / bewusst akzeptiert
 

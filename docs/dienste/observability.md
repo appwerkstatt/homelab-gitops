@@ -4,7 +4,7 @@
 |---|---|
 | **Zweck** | Metriken, Logs, Dashboards, Alarmierung |
 | **Adresse** | `https://grafana.lab.appsfab.org` |
-| **Login** | Grafana per Keycloak-OIDC; `lab-admins` = Admin, sonst Viewer |
+| **Login** | Grafana per Keycloak-OIDC, nur `lab-users`/`lab-admins`; `lab-admins` = Admin, sonst Viewer |
 | **Daten** | `fast/appdata/{vm,loki,grafana,alertmanager}` |
 | **Backup** | Tier 2 |
 | **Quelle** | [`stacks/20-observability/`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/20-observability) |

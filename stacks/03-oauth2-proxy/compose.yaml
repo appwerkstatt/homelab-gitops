@@ -43,12 +43,20 @@ services:
       - traefik.http.middlewares.sso.forwardauth.address=http://oauth2-proxy:4180/
       - traefik.http.middlewares.sso.forwardauth.trustForwardHeader=true
       - traefik.http.middlewares.sso.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
+      # Zweite Middleware "sso-admin" für Admin-Werkzeuge: wie "sso", aber nur Gruppe lab-admins.
+      # oauth2-proxy prüft den Query-Parameter allowed_groups zusätzlich zu --allowed-group (auch auf "/"):
+      # ohne Session 302 zu Keycloak, eingeloggt ohne lab-admins -> 403.
+      - traefik.http.middlewares.sso-admin.forwardauth.address=http://oauth2-proxy:4180/?allowed_groups=lab-admins
+      - traefik.http.middlewares.sso-admin.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.sso-admin.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
     networks: [edge-sso]
     mem_limit: 128m
     restart: unless-stopped
 
 # Anwenden auf einen Dienst (Beispiel): am jeweiligen Router das Label setzen
-#   traefik.http.routers.<dienst>.middlewares=sso@docker
+#   traefik.http.routers.<dienst>.middlewares=sso@docker        # Nutzer-App: Gruppe lab-users
+#   traefik.http.routers.<dienst>.middlewares=sso-admin@docker  # Admin-Werkzeug: Gruppe lab-admins
+# Rechtekonzept: docs/sicherheit/rechtekonzept.md
 # z.B. Traefik-Dashboard (00-traefik), Netboot-Konsole (30-netboot), optionales S3-Browser-UI.
 #
 # WICHTIG: oauth2-proxy leitet pro Host auf https://<host>.lab.appsfab.org/oauth2/callback um.

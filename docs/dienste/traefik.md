@@ -4,7 +4,7 @@
 |---|---|
 | **Zweck** | Reverse Proxy für alle Web-Dienste, TLS-Terminierung, Git-SSH-Passthrough; legt die Netze `edge-<stack>` an |
 | **Adresse** | eigene IP `192.168.80.48` (macvlan `vlan80`), Dashboard `https://traefik.lab.appsfab.org` |
-| **Login** | Dashboard hinter `sso@docker` |
+| **Login** | Dashboard hinter `sso-admin@docker` (nur `lab-admins`) |
 | **Daten** | `fast/appdata/traefik` (nur `acme.json`) |
 | **Backup** | Tier 2 (Snapshots + Replika); Zertifikate sind ohnehin neu holbar |
 | **Abhängig von** | Cloudflare-API-Token (`CF_DNS_API_TOKEN`) für DNS-01 |

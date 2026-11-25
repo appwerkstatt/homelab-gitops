@@ -22,7 +22,8 @@ Versionen stehen bewusst nur im jeweiligen `compose.yaml`.
 | [40-homepage](homepage.md) | Start-Dashboard | `home.lab` | SSO | Config im Repo |
 
 `.lab` steht für `.lab.appsfab.org` (nur LAN). „SSO“ heißt Traefik-Middleware `sso@docker`, erlaubt ist
-die Keycloak-Gruppe `lab-users`.
+die Keycloak-Gruppe `lab-users`; Admin-Werkzeuge stehen hinter `sso-admin@docker` (nur `lab-admins`), siehe
+[Rechtekonzept](../sicherheit/rechtekonzept.md).
 
 Außerhalb von Arcane laufen die [Sandbox-VM für n8n](../extern/n8n-sandbox.md) und die
 [LLM-Dienste auf dem Mac Studio](../mac-studio-llm.md).

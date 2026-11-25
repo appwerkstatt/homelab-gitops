@@ -4,7 +4,7 @@
 |---|---|
 | **Zweck** | Projekt- und Aufgabenverwaltung (Jira-/Kanban-Ersatz), Plane Community Edition |
 | **Adresse** | `https://plane.lab.appsfab.org` (nur LAN), Instanz-Admin unter `/god-mode` |
-| **Login** | `sso@docker` und danach Plane-Konto (CE kann kein OIDC) |
+| **Login** | `sso@docker` und danach Plane-Konto (CE kann kein OIDC); God Mode hinter `sso-admin@docker` |
 | **Daten** | `fast/appdata/plane/{db,uploads}` |
 | **Backup** | Tier 2 + `pg_dump` und Uploads offsite |
 | **Quelle** | [`stacks/14-plane/`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/14-plane) |

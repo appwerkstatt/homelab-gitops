@@ -4,7 +4,7 @@
 |---|---|
 | **Zweck** | Dokumentenarchiv mit OCR (Paperless-ngx) und KI-Suche/Tagging (paperless-ai) |
 | **Adresse** | `https://docs.lab.appsfab.org`, `https://docs-ai.lab.appsfab.org` |
-| **Login** | Paperless: eigenes Konto; paperless-ai: `sso@docker` |
+| **Login** | Paperless: eigenes Konto; paperless-ai: `sso-admin@docker` (nur `lab-admins`) |
 | **Daten** | `data/paperless/{media,consume,export}`, `fast/appdata/paperless/{db,redis,data}`, `fast/appdata/paperless-ai` |
 | **Backup** | Dokumente Tier 1 (alle 12 h) + offsite; DB Tier 2 + `pg_dump` offsite |
 | **Abhängig von** | Ollama auf dem Mac Studio (`192.168.80.30:11434`) für paperless-ai |

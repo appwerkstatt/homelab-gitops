@@ -159,7 +159,7 @@ services:
   # Alertmanager; der stellt per Telegram zu. Secrets (Bot-Token, Chat-ID) aus 1Password via
   # Arcane-Env (scripts/render-env.sh observability). ---
   vmalert:
-    image: victoriametrics/vmalert:v1.155.0      # gleiche Linie wie victoriametrics
+    image: victoriametrics/vmalert:v1.157.0      # gleiche Linie wie victoriametrics
     command:
       - -datasource.url=http://victoriametrics:8428
       - -remoteWrite.url=http://victoriametrics:8428   # Alert-State als ALERTS-Serie (Grafana, Restarts)

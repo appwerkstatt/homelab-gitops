@@ -116,9 +116,33 @@
     - n8n:
         icon: n8n.png
         href: https://n8n.lab.appsfab.org
-        description: Workflows + LLMs (Mac Studio) · im Aufbau
-        # siteMonitor erst nach dem Deploy des n8n-Stacks einschalten (vorher 404 = rot):
-        # siteMonitor: https://n8n.lab.appsfab.org/
+        description: Workflows + LLMs (Mac Studio) · Keycloak-SSO
+        # Kein siteMonitor: der Editor liegt hinter sso-devs, ein Check sähe nur oauth2-proxy. Stattdessen die
+        # blackbox-Probes (n8n /healthz, Ollama, LM Studio) aus VictoriaMetrics; 1 = ok, 0 = down.
+        widget:
+          type: customapi
+          url: >-
+            https://grafana.lab.appsfab.org/api/datasources/proxy/uid/victoriametrics/api/v1/query?query=sort_by_label(union(
+            label_set(max(probe_success%7Binstance="http://n8n:5678/healthz"%7D) or vector(0), "k", "1"),
+            label_set(max(probe_success%7Binstance="http://192.168.80.30:11434/api/version"%7D) or vector(0), "k", "2"),
+            label_set(max(probe_success%7Binstance="http://192.168.80.30:1234/v1/models"%7D) or vector(0), "k", "3")), "k")
+          headers:
+            Authorization: Bearer {{HOMEPAGE_VAR_GRAFANA_TOKEN}}
+          refreshInterval: 60000
+          mappings:
+            - label: n8n
+              field: data.result.0.value.1
+              remap: &probe_remap
+                - value: "1"
+                  to: ok
+                - any: true
+                  to: down
+            - label: Ollama
+              field: data.result.1.value.1
+              remap: *probe_remap
+            - label: LM Studio
+              field: data.result.2.value.1
+              remap: *probe_remap
     - Plane:
         icon: plane.png
         href: https://plane.lab.appsfab.org

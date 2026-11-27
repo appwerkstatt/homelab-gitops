@@ -6,8 +6,16 @@ name: renovate
 
 on:
   schedule:
-    - cron: '0 3 * * *'   # 03:00 UTC ≈ 04–05 Uhr Berlin, im "after 2am and before 6am"-Fenster (DST-sicher)
-  workflow_dispatch: {}
+    # 4x täglich, krumme Minute: GitHub verschiebt volle Stunden stark (03:00 lief erst 10–13 Uhr UTC).
+    # renovate.json hat kein Zeitfenster mehr, jeder Lauf darf PRs anlegen.
+    - cron: '41 1,7,13,19 * * *'
+  workflow_dispatch:
+    inputs:
+      log_level:
+        description: 'Renovate LOG_LEVEL (debug zeigt z. B. abgelehnte API-Aufrufe)'
+        type: choice
+        options: [info, debug]
+        default: info
 
 permissions: {}   # Job nutzt ausschließlich den App-Token unten, nicht GITHUB_TOKEN
 
@@ -35,6 +43,7 @@ jobs:
         env:
           RENOVATE_TOKEN: ${{ steps.app-token.outputs.token }}
           RENOVATE_GIT_AUTHOR: ${{ steps.bot.outputs.author }}
+          LOG_LEVEL: ${{ inputs.log_level || 'info' }}
         run: |
           docker run --rm \
             -e RENOVATE_TOKEN \
@@ -44,5 +53,5 @@ jobs:
             -e RENOVATE_REPOSITORIES='["appwerkstatt/homelab-gitops"]' \
             -e RENOVATE_ONBOARDING=false \
             -e RENOVATE_REQUIRE_CONFIG=optional \
-            -e LOG_LEVEL=info \
+            -e LOG_LEVEL \
             ghcr.io/renovatebot/renovate:43

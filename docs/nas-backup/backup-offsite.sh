@@ -12,7 +12,7 @@ SECRETS=/mnt/fast/appdata/_secrets/restic-b2.env
 set -a; . "$SECRETS"; set +a
 : "${RESTIC_REPOSITORY:?}" "${RESTIC_PASSWORD:?}" "${B2_ACCOUNT_ID:?}" "${B2_ACCOUNT_KEY:?}"
 
-RESTIC_IMAGE="restic/restic:0.18.0"   # Renovate-tracked
+RESTIC_IMAGE="restic/restic:0.20.0"   # Renovate-tracked
 DUMPS=/mnt/backup/dumps
 ts="$(date +%Y-%m-%d_%H-%M)"
 

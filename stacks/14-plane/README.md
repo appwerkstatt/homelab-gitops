@@ -82,6 +82,9 @@ ersetzt Planes „Gitea“-Provider: Der Button **„Continue with Gitea“** me
   E-Mail auf eine fremde ändern und deren Plane-Konto übernehmen. In der Keycloak-Admin-Konsole beim Benutzer
   **„Email verified“** anhaken, sonst meldet Plane `OAUTH_PROVIDER_UNVERIFIED_EMAIL`.
 - Die Signup-Sperre gilt weiter: Neue Personen kommen nur mit Workspace-Einladung an dieselbe E-Mail rein.
+- „Sign up disabled“ nach dem Keycloak-Login heißt: Plane kennt die Keycloak-Adresse nicht. In Plane CE ist die
+  E-Mail im Profil schreibgeschützt; entweder in Keycloak angleichen oder in der DB:
+  `docker exec plane-plane-db-1 psql -U plane -d plane -c "update users set email = 'neu@…' where email = 'alt@…';"`
 - Die Plane-API holt Token und Userinfo serverseitig über den Traefik-Alias `auth.appsfab.org` im Netz `edge-plane`.
 
 Einrichten (einmalig):

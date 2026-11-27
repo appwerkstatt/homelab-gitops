@@ -50,6 +50,9 @@ Passwort den Passkey.
 
 ## Stolperfallen
 
+- **paperless-ai meldet HTTP 400 („does not accept the host name paperless“):** Seit Paperless 3.5 sind
+  nur der Host aus `PAPERLESS_URL` und `localhost` erlaubt. `PAPERLESS_ALLOWED_HOSTS: paperless` im
+  `compose.yaml` muss bleiben, weil paperless-ai intern `http://paperless:8000` aufruft.
 - **„Sign Up Closed“ nach dem Keycloak-Login:** Das Konto ist noch nicht verknüpft. Mit Passwort anmelden und
   im Profil verbinden (vor Schritt 2), sonst als Superuser im Django-Admin einen *Social account* anlegen
   (Provider `keycloak`, UID = Keycloak-User-ID).

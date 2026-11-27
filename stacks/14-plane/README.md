@@ -90,7 +90,7 @@ Einrichten (einmalig):
 2. Arcane → **keycloak** → Environment: `PLANE_OIDC_CLIENT_SECRET` ergänzen (`scripts/render-env.sh keycloak`),
    deployen. keycloak-config-cli legt den Client `plane` an (`KCC_REALM_REV` 20).
 3. **plane** neu deployen (Bind-Mount für `plane-api`). Prüfen:
-   `docker exec plane-plane-api-1 grep -c openid-connect /code/plane/authentication/provider/oauth/gitea.py` ⇒ `2`.
+   `docker exec plane-plane-api-1 grep -c openid-connect /code/plane/authentication/provider/oauth/gitea.py` ⇒ `1` (Original: `0`).
 4. God Mode → **Authentication → Gitea**: Host `https://auth.appsfab.org/realms/AppsFab`, Client-ID `plane`,
    Secret aus Schritt 1, aktivieren. (Plane liest die Werte aus seiner DB, nicht aus der Env.)
 5. In Keycloak bei allen Plane-Nutzern „Email verified“ prüfen, dann abmelden und „Continue with Gitea“ testen.

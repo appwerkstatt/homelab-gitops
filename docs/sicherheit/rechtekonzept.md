@@ -46,7 +46,7 @@ Zugriff auf Infrastruktur, kommt er hinter `sso-admin@docker`.
 | Paperless | eigenes Login | Superuser, `haushalt` | Frau: eigene + `haushalt`; Tochter: nur eigene | nur eigene |
 | Keycloak-Konto | – | ✓ | ✓ (Passkeys, Passwort) | ✓ |
 | Forgejo | OIDC, nur `devs` | Site-Admin (`lab-admins`) | – | eigenes Konto, nur freigegebene Repos |
-| n8n | `sso-devs` + n8n-Konto | Owner | – | Member |
+| n8n | `sso-devs`, dann automatisch ins n8n-Konto mit gleicher E-Mail (Hook) | Owner | – | Member |
 | Zot | OIDC | alles (`lab-admins`) | – | lesen (`devs`) |
 | Grafana | OIDC, nur `lab-admins` | Admin | – | – |
 | Netboot | OIDC | „armen“ (`lab-admins`) | nur ansehen | nur ansehen |
@@ -78,7 +78,8 @@ Was ein n8n-Member trotzdem erreicht: Traefik (alle `*.lab`-Hosts, also wieder m
       kommen in die Paperless-Gruppe `haushalt` (siehe unten), die Kinder nicht.
     - **Forgejo** (nur `devs`): Die Registrierung ist aus, das Konto legt ein Admin an. Nur in die Repos und
       Teams aufnehmen, die gebraucht werden.
-    - **n8n** (nur `devs`): als *Member* einladen, nicht als Admin.
+    - **n8n** (nur `devs`): als *Member* einladen, nicht als Admin, mit **derselben E-Mail wie in Keycloak**.
+      Danach meldet der Keycloak-Login direkt in n8n an ([n8n](../dienste/n8n.md#keycloak-login)).
 
 ## Paperless: private und gemeinsame Dokumente
 

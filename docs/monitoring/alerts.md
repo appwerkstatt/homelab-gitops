@@ -5,7 +5,7 @@ den n8n-Workflow **Alert-Erklärer** auf: Er holt die passenden Logs aus Loki, l
 eine Erklärung schreiben und schickt sie als zweite Nachricht (🧠). Pro Alarm höchstens alle 12 h.
 
 Regeln: [`config/alerts.yml`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/20-observability/config/alerts.yml) (vmalert) und
-[`config/loki-rules/fake/keycloak.yml`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/20-observability/config/loki-rules/fake/keycloak.yml) (Loki-Ruler).
+[`config/loki-rules/fake/`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/20-observability/config/loki-rules/fake) (Loki-Ruler: `keycloak.yml`, `n8n.yml`).
 Gruppierung nach `alertname` + `instance`, Wiederholung alle 12 h.
 
 ## Übersicht und erste Schritte
@@ -28,6 +28,7 @@ Gruppierung nach `alertname` + `instance`, Wiederholung alle 12 h.
 | `AlertmanagerNotificationsFailing` | warning | Telegram nicht erreichbar | Bot-Token und Chat-ID in 1Password `homelab-alerting` |
 | `KeycloakLoginFailures` | warning | gehäufte Fehl-Logins in 15 min | in Loki bei `compose_service="keycloak"` nach `LOGIN_ERROR` suchen |
 | `KeycloakUserLockedOut` | warning | Konto per Brute-Force-Schutz gesperrt (15 min) | Warst du es nicht, läuft ein Angriff. Quelle in Loki prüfen |
+| `N8nSsoHookDisabled` | warning | n8n-Keycloak-Login nach Start abgeschaltet, nur noch n8n-Passwort | Grund in Loki (`compose_service="n8n"`, `keycloak-sso`), [n8n](../dienste/n8n.md#keycloak-login) |
 
 !!! note "Quell-IP bei Internet-Logins"
     Logins über den Tunnel zeigen die IP von cloudflared, nicht die des Angreifers (siehe [Roadmap](../roadmap.md)).

@@ -9,13 +9,16 @@ dir=stacks/14-plane/patches
 tag=$(grep -oE 'makeplane/plane-backend:v[0-9][^ ]*' stacks/14-plane/compose.yaml | sort -u)
 [ "$(echo "$tag" | wc -l)" -eq 1 ] || { echo "::error::plane-backend mit unterschiedlichen Tags: $tag"; exit 1; }
 tag=${tag##*:}
+files=$(awk '{print $2}' "$dir/upstream.sha256")   # vor --update lesen (das überschreibt die Datei)
+[ -n "$files" ] || { echo "::error::$dir/upstream.sha256 ist leer"; exit 1; }
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-for f in $(awk '{print $2}' "$dir/upstream.sha256"); do
+for f in $files; do
   mkdir -p "$tmp/$(dirname "$f")"
   curl -fsSL --retry 3 "https://raw.githubusercontent.com/makeplane/plane/$tag/apps/api/$f" -o "$tmp/$f"
 done
 if [ "${1:-}" = "--update" ]; then
-  (cd "$tmp" && sha256sum $(awk '{print $2}' "$OLDPWD/$dir/upstream.sha256")) > "$dir/upstream.sha256"
+  sums=$(cd "$tmp" && sha256sum $files)
+  echo "$sums" > "$dir/upstream.sha256"
   echo "upstream.sha256 für $tag neu geschrieben"; exit 0
 fi
 if ! (cd "$tmp" && sha256sum -c --quiet "$OLDPWD/$dir/upstream.sha256"); then

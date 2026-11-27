@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   homepage-admin:
-    image: ghcr.io/gethomepage/homepage:v2.7.0   # gleiche Version wie homepage
+    image: ghcr.io/gethomepage/homepage:v2.8.0   # gleiche Version wie homepage
     environment:
       HOMEPAGE_ALLOWED_HOSTS: admin.${LAB_DOMAIN}
       PUID: ${PUID}

@@ -1,0 +1,13 @@
+# LogQL-Alarm für den Keycloak-Hook von n8n (stacks/13-n8n/hooks/keycloak-sso.js).
+# Passt nach einem n8n-Update etwas an n8ns Interna nicht mehr, schaltet sich der Hook beim Start ab
+# und loggt "keycloak-sso: DEAKTIVIERT: <Grund>". n8n läuft dann mit dem eigenen Passwort-Login weiter.
+groups:
+  - name: n8n
+    interval: 1m
+    rules:
+      - alert: N8nSsoHookDisabled
+        expr: |
+          sum(count_over_time({host="truenas", compose_service="n8n"} |= `keycloak-sso: DEAKTIVIERT` [15m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "n8n: Keycloak-Login abgeschaltet, Anmeldung nur noch mit n8n-Passwort. Grund in Loki: {compose_service=\"n8n\"} |= \"keycloak-sso\" (Handbuch: Dienste → n8n)"

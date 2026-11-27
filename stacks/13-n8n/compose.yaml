@@ -1,5 +1,5 @@
 # 13-n8n — Workflow-Automatisierung (n8n + Postgres 17), LLMs lokal über Ollama auf dem Mac Studio.
-# Editor hinter Keycloak (sso-devs@docker, nur Gruppe devs). Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/ + /webhook-test/),
+# Editor hinter Keycloak (sso-devs@docker, nur Gruppe devs); der Hook hooks/keycloak-sso.js meldet dabei gleich in n8n an. Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/ + /webhook-test/),
 # im LAN zusätzlich unter n8n.lab (inkl. Test- und Waiting-Webhooks).
 # Websuche des Assistenten über die stack-interne SearXNG-Instanz (searxng-settings.yml).
 # Mac-Studio-Einrichtung (Ollama im LAN, Firewall nur für das NAS, kein Ruhezustand): docs/mac-studio-llm.md
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   n8n:
-    image: n8nio/n8n:2.48.7               # = Tag "stable" (20.11.2026); 3.x ist noch Vorabversion
+    image: n8nio/n8n:2.49.8               # = Tag "stable" (27.11.2026); Updates prüft scripts/check-n8n-sso-hook.sh (CI)
     environment:
       # --- URLs: Editor unter n8n.lab (nur LAN), Webhook-URLs öffentlich ---
       N8N_HOST: n8n.${LAB_DOMAIN}
@@ -81,8 +81,13 @@ services:
       N8N_SANDBOX_SERVICE_API_KEY: ${N8N_SANDBOX_SERVICE_API_KEY}
       # Websuche für den Assistenten: eigene SearXNG-Instanz (Dienst unten), kein API-Key nötig.
       N8N_INSTANCE_AI_SEARXNG_URL: http://searxng:8080
+      # --- Keycloak-Login ohne zweiten n8n-Login (hooks/keycloak-sso.js, docs/dienste/n8n.md) ---
+      # Nur der SHA-256 des Secrets; den Klartext setzt Traefik (Middleware n8n-sso-secret unten).
+      EXTERNAL_HOOK_FILES: /opt/n8n-hooks/keycloak-sso.js
+      N8N_SSO_SECRET_SHA256: ${N8N_SSO_SECRET_SHA256}
     volumes:
       - /mnt/fast/appdata/n8n/data:/home/node/.n8n    # Config, Binärdaten, Community-Nodes
+      - ./hooks:/opt/n8n-hooks:ro
     depends_on:
       n8n-db:
         condition: service_healthy
@@ -91,14 +96,20 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=edge-n8n
-      # Editor + API: nur nach Keycloak-Login (Gruppe devs, sso-devs); danach zusätzlich n8n-eigener Login
-      # (Community-Edition hat kein OIDC). Callback steht im Realm-Client oauth2-proxy.
+      # Editor + API: nur nach Keycloak-Login (Gruppe devs, sso-devs). Danach meldet hooks/keycloak-sso.js
+      # das n8n-Konto mit derselben E-Mail an (Community-Edition hat kein OIDC). Callback steht im Realm-Client oauth2-proxy.
       # Metriken und Logs liest n8n nur über vmauth (Token im Credential des Owners), VictoriaMetrics, Loki und
       # Alertmanager hängen nicht mehr in edge-n8n (docs/sicherheit/rechtekonzept.md).
       - traefik.http.routers.n8n.rule=Host(`n8n.${LAB_DOMAIN}`)
       - traefik.http.routers.n8n.entrypoints=websecure
       - traefik.http.routers.n8n.tls.certresolver=le
-      - traefik.http.routers.n8n.middlewares=sso-devs@docker
+      - traefik.http.routers.n8n.middlewares=sso-devs@docker,n8n-sso-secret
+      # Beweis für den Hook, dass die Anfrage über diesen Router (also durch sso-devs) kam. Überschreibt
+      # einen vom Browser mitgeschickten Wert. Klartext nur hier, n8n kennt nur den Hash.
+      - traefik.http.middlewares.n8n-sso-secret.headers.customrequestheaders.X-N8n-Sso-Secret=${N8N_SSO_SECRET}
+      # Webhook-Router ohne SSO: beide Header entfernen (leerer Wert = löschen), damit von außen nichts ankommt
+      - traefik.http.middlewares.n8n-strip-sso.headers.customrequestheaders.X-N8n-Sso-Secret=
+      - traefik.http.middlewares.n8n-strip-sso.headers.customrequestheaders.X-Auth-Request-Email=
       - traefik.http.routers.n8n.service=n8n
       # LAN-Webhooks: ohne SSO, damit Geräte/Dienste im LAN sie aufrufen können. *.lab ist nur intern
       # erreichbar (Split-Horizon, kein Tunnel-Eintrag). Absicherung pro Workflow (Header-Auth im Webhook-Node).
@@ -106,6 +117,7 @@ services:
       - traefik.http.routers.n8n-webhook.entrypoints=websecure
       - traefik.http.routers.n8n-webhook.tls.certresolver=le
       - traefik.http.routers.n8n-webhook.priority=100
+      - traefik.http.routers.n8n-webhook.middlewares=n8n-strip-sso
       - traefik.http.routers.n8n-webhook.service=n8n
       # Öffentlich: hooks.appsfab.org (Cloudflare-Tunnel, stacks/12-cloudflared/config.yml) NUR /webhook/ + /webhook-test/
       # (Test-URLs lauschen nur, solange im Editor "Listen for test event" läuft).
@@ -114,7 +126,7 @@ services:
       - traefik.http.routers.n8n-hooks.rule=Host(`hooks.appsfab.org`) && (PathPrefix(`/webhook/`) || PathPrefix(`/webhook-test/`))
       - traefik.http.routers.n8n-hooks.entrypoints=websecure,tunnel   # tunnel = öffentlich über cloudflared (00-traefik)
       - traefik.http.routers.n8n-hooks.tls.certresolver=le
-      - traefik.http.routers.n8n-hooks.middlewares=n8n-hooks-ratelimit
+      - traefik.http.routers.n8n-hooks.middlewares=n8n-strip-sso,n8n-hooks-ratelimit
       - traefik.http.routers.n8n-hooks.service=n8n
       # Schutz vor Fluten aus dem Internet (pro Quell-IP, die Cloudflare in CF-Connecting-IP mitgibt)
       - traefik.http.middlewares.n8n-hooks-ratelimit.ratelimit.average=30

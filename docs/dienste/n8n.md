@@ -4,10 +4,10 @@
 |---|---|
 | **Zweck** | Workflow-Automatisierung: Tagesbericht, PR-Meldungen, Alert-Erklärer, eigene Automationen |
 | **Adresse** | Editor `https://n8n.lab.appsfab.org`; Webhooks öffentlich `https://hooks.appsfab.org/webhook/…` |
-| **Login** | `sso-devs@docker` (Gruppe `devs`, siehe [Rechtekonzept](../sicherheit/rechtekonzept.md)) und danach n8n-eigenes Konto (Community-Edition ohne OIDC) |
+| **Login** | `sso-devs@docker` (Gruppe `devs`, siehe [Rechtekonzept](../sicherheit/rechtekonzept.md)), danach automatisch im n8n-Konto mit derselben E-Mail ([Keycloak-Login](#keycloak-login)) |
 | **Daten** | `fast/appdata/n8n/{data,db}` |
 | **Backup** | Tier 2 + `pg_dump` offsite |
-| **Abhängig von** | Mac Studio (Ollama `:11434`, LM Studio `:1234`), VM `n8n-sandbox`, VictoriaMetrics + Loki (über `edge-n8n`) |
+| **Abhängig von** | Mac Studio (Ollama `:11434`, LM Studio `:1234`), VM `n8n-sandbox`, vmauth (Metriken/Logs lesen, nur mit Token) |
 | **Quelle** | [`stacks/13-n8n/`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/13-n8n) |
 
 ## Bausteine
@@ -17,6 +17,53 @@
 - **Assistent (Instance AI)**: Modell über LM Studio auf dem Mac Studio (OpenAI-kompatibel), kein Cloud-Modell.
   Code führt er in der [Sandbox-VM](../extern/n8n-sandbox.md) aus.
 - **Ollama-Credential**: Die Base-URL ist im Stack fest vorgegeben (`CREDENTIALS_OVERWRITE_DATA`).
+
+## Keycloak-Login
+
+Die Community-Edition hat kein OIDC (das ist eine lizenzpflichtige Funktion, die wir **nicht** freischalten).
+Stattdessen übernimmt ein eigener External Hook,
+[`hooks/keycloak-sso.js`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/13-n8n/hooks/keycloak-sso.js),
+die Identität, die Keycloak schon geprüft hat:
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant T as Traefik
+    participant O as oauth2-proxy
+    participant N as n8n + Hook
+    B->>T: GET n8n.lab/rest/login
+    T->>O: sso-devs (Gruppe devs?)
+    O-->>T: ok, X-Auth-Request-Email
+    T->>N: + X-Auth-Request-Email + X-N8n-Sso-Secret
+    N->>N: Secret-Hash prüfen, n8n-Konto zur E-Mail suchen
+    N-->>B: n8n-Session-Cookie (an browser-id gebunden)
+```
+
+- Angemeldet wird nur ein **schon vorhandenes** n8n-Konto mit derselben E-Mail wie in Keycloak. Neue Konten
+  legt der Hook nicht an, Rollen (Owner/Member) bleiben in n8n. Gibt es kein Konto, erscheint die normale
+  n8n-Anmeldung.
+- Den Header `X-N8n-Sso-Secret` setzt Traefik nur auf dem Editor-Router (hinter `sso-devs`). n8n kennt nur den
+  SHA-256 (1Password `homelab-n8n`: `sso-secret` und `sso-secret-sha256`). Ein Workflow, der n8n über
+  `localhost` aufruft, oder ein anderer Container in `edge-n8n` kann sich damit nicht als jemand anderes
+  anmelden. Auf den Webhook-Routern entfernt Traefik beide Header (`n8n-strip-sso`).
+- **Abmelden:** „Sign out“ in n8n meldet sofort wieder an, solange die Keycloak-Sitzung läuft. Ganz abmelden:
+  `https://n8n.lab.appsfab.org/oauth2/sign_out`.
+- **n8n-Updates:** Der Hook nutzt n8n-Interna (`AuthService`, Express-Router). Die CI startet bei jedem PR, der
+  `stacks/13-n8n/` ändert (also auch bei Renovate), die neue n8n-Version mit dem Hook und prüft den Login samt
+  Negativfällen im echten Browser (`scripts/check-n8n-sso-hook.sh`). Passt im Betrieb trotzdem etwas nicht,
+  schaltet sich der Hook ab, loggt `keycloak-sso: DEAKTIVIERT: …` und der Alarm `N8nSsoHookDisabled` kommt.
+  n8n läuft dann mit dem eigenen Passwort-Login weiter.
+
+### Einrichten
+
+1. Secret erzeugen und in 1Password `homelab-n8n` speichern:
+   ```bash
+   s=$(openssl rand -hex 32); printf '%s\n' "$s"; printf %s "$s" | sha256sum | cut -d' ' -f1
+   ```
+   Erste Zeile → Feld `sso-secret`, zweite → `sso-secret-sha256`.
+2. `scripts/render-env.sh n8n` in Arcane → n8n → Environment einfügen (neu: `N8N_SSO_SECRET`, `N8N_SSO_SECRET_SHA256`), Stack neu deployen.
+3. Im n8n-Log steht `keycloak-sso: aktiv`. Die E-Mail jedes n8n-Kontos muss der Keycloak-E-Mail entsprechen
+   (n8n → *Settings → Personal*), und in Keycloak muss „Email verified“ an sein.
 
 ## Webhooks
 

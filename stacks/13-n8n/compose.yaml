@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   n8n:
-    image: n8nio/n8n:2.49.8               # = Tag "stable" (27.11.2026); Updates prüft scripts/check-n8n-sso-hook.sh (CI)
+    image: n8nio/n8n:3.4.1               # = Tag "stable" (27.11.2026); Updates prüft scripts/check-n8n-sso-hook.sh (CI)
     environment:
       # --- URLs: Editor unter n8n.lab (nur LAN), Webhook-URLs öffentlich ---
       N8N_HOST: n8n.${LAB_DOMAIN}

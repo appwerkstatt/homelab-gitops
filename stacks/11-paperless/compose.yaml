@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
 
   paperless:
-    image: ghcr.io/paperless-ngx/paperless-ngx:3.4.1
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.5.1
     environment:
       PAPERLESS_REDIS: redis://paperless-redis:6379
       PAPERLESS_DBHOST: paperless-db
@@ -72,7 +72,7 @@ services:
     restart: unless-stopped
 
   paperless-ai:
-    image: clusterzx/paperless-ai:4.4.0       # bestätigt (Docker Hub); aktuelle Stable
+    image: clusterzx/paperless-ai:4.8.0       # bestätigt (Docker Hub); aktuelle Stable
     environment:
       PAPERLESS_API_URL: http://paperless:8000/api
       PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_KEY}   # in Paperless erzeugen (Profil -> API-Token)

@@ -37,6 +37,9 @@ services:
       PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD}
       PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
       PAPERLESS_URL: https://docs.${LAB_DOMAIN}
+      # Seit 3.5 gilt ohne diese Variable nur der Host aus PAPERLESS_URL (+ localhost). paperless-ai ruft
+      # http://paperless:8000/api im Netz pl-internal auf, sonst HTTP 400 (Vorfall 2026-11-27).
+      PAPERLESS_ALLOWED_HOSTS: paperless
       PAPERLESS_TIME_ZONE: ${TZ}
       USERMAP_UID: ${PUID}
       USERMAP_GID: ${PGID}

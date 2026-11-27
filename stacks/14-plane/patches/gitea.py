@@ -15,7 +15,7 @@
 # Only the endpoints and the user mapping differ from upstream. Account linking, sign-up
 # rules (ENABLE_SIGNUP / workspace invites) and sessions stay Plane's own code.
 # License checks are not touched. Upstream source of the replaced file:
-# https://github.com/makeplane/plane/blob/v1.5.0/apps/api/plane/authentication/provider/oauth/gitea.py
+# https://github.com/makeplane/plane/blob/v1.5.1/apps/api/plane/authentication/provider/oauth/gitea.py
 # stacks/14-plane/patches/upstream.sha256 pins the upstream files this patch relies on;
 # CI fails when a Plane update changes them, so the patch gets checked before the update merges.
 
@@ -41,7 +41,7 @@ class GiteaOAuthProvider(OauthAdapter):
     scope = "openid email profile"
 
     def __init__(self, request, code=None, state=None, callback=None):
-        (GITEA_CLIENT_ID, GITEA_CLIENT_SECRET, GITEA_HOST) = get_configuration_value(
+        (GITEA_CLIENT_ID, GITEA_CLIENT_SECRET, GITEA_HOST, IS_GITEA_ENABLED) = get_configuration_value(
             [
                 {
                     "key": "GITEA_CLIENT_ID",
@@ -55,10 +55,15 @@ class GiteaOAuthProvider(OauthAdapter):
                     "key": "GITEA_HOST",
                     "default": os.environ.get("GITEA_HOST"),
                 },
+                {
+                    "key": "IS_GITEA_ENABLED",
+                    "default": os.environ.get("IS_GITEA_ENABLED", "0"),
+                },
             ]
         )
 
-        if not (GITEA_CLIENT_ID and GITEA_CLIENT_SECRET and GITEA_HOST):
+        # v1.5.1: a provider switched off in God Mode must not keep working (upstream fix)
+        if not (IS_GITEA_ENABLED == "1" and GITEA_CLIENT_ID and GITEA_CLIENT_SECRET and GITEA_HOST):
             raise AuthenticationException(
                 error_code=AUTHENTICATION_ERROR_CODES["GITEA_NOT_CONFIGURED"],
                 error_message="GITEA_NOT_CONFIGURED",

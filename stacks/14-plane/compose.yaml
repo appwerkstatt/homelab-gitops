@@ -3,7 +3,7 @@
 # Login in Plane: Die Community-Edition kann kein OIDC (nur Pro). patches/gitea.py (AGPL, per Bind-Mount in plane-api)
 # lässt den "Gitea"-Button OIDC mit Keycloak sprechen -> README.md, Schritt 6.
 #
-# Aufbau wie das offizielle Community-Compose (deployments/cli/community/docker-compose.yml, v1.5.0), aber:
+# Aufbau wie das offizielle Community-Compose (deployments/cli/community/docker-compose.yml, v1.5.1), aber:
 #   - kein plane-proxy (Caddy): Traefik routet die Pfade direkt (Tabelle unten), spart einen Proxy-Hop
 #   - kein "space" (öffentlich geteilte Seiten unter /spaces) — intern hinter SSO sinnlos, spart ~200 MB
 #   - Celery-Worker mit --concurrency=2 statt "ein Prozess pro CPU-Thread"
@@ -111,7 +111,7 @@ services:
 
   # Einmaliger Job pro Deploy: Django-Migrationen. api/worker warten selbst darauf (wait_for_migrations).
   plane-migrator:
-    image: makeplane/plane-backend:v1.5.0
+    image: makeplane/plane-backend:v1.5.1
     command: ./bin/docker-entrypoint-migrator.sh
     environment: *plane-env
     depends_on:
@@ -122,7 +122,7 @@ services:
     restart: on-failure:3
 
   plane-api:
-    image: makeplane/plane-backend:v1.5.0
+    image: makeplane/plane-backend:v1.5.1
     command: ./bin/docker-entrypoint-api.sh
     environment: *plane-env
     depends_on:
@@ -152,7 +152,7 @@ services:
     restart: unless-stopped
 
   plane-worker:
-    image: makeplane/plane-backend:v1.5.0
+    image: makeplane/plane-backend:v1.5.1
     # = bin/docker-entrypoint-worker.sh, aber mit 2 statt "Anzahl CPU-Threads" Prozessen (RAM)
     command: ["sh", "-c", "python manage.py wait_for_db && python manage.py wait_for_migrations && exec celery -A plane worker -l info --concurrency=2"]
     environment: *plane-env
@@ -168,7 +168,7 @@ services:
     restart: unless-stopped
 
   plane-beat:
-    image: makeplane/plane-backend:v1.5.0
+    image: makeplane/plane-backend:v1.5.1
     command: ./bin/docker-entrypoint-beat.sh
     environment: *plane-env
     depends_on:
@@ -182,7 +182,7 @@ services:
 
   # Echtzeit-Zusammenarbeit im Editor (Seiten, Beschreibungen) per WebSocket unter /live/
   plane-live:
-    image: makeplane/plane-live:v1.5.0
+    image: makeplane/plane-live:v1.5.1
     environment:
       API_BASE_URL: http://plane-api:8000
       CORS_ALLOWED_ORIGINS: https://plane.${LAB_DOMAIN}
@@ -205,7 +205,7 @@ services:
 
   # Instanz-Verwaltung ("God Mode": Admin anlegen, Login-Methoden, SMTP, Telemetrie) unter /god-mode
   plane-admin:
-    image: makeplane/plane-admin:v1.5.0
+    image: makeplane/plane-admin:v1.5.1
     labels:
       - traefik.enable=true
       - traefik.docker.network=edge-plane
@@ -220,7 +220,7 @@ services:
 
   # Web-App (statisch, Caddy im Image); spricht die API relativ über denselben Host an
   plane-web:
-    image: makeplane/plane-frontend:v1.5.0
+    image: makeplane/plane-frontend:v1.5.1
     labels:
       - traefik.enable=true
       - traefik.docker.network=edge-plane

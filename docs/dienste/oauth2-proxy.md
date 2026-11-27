@@ -24,5 +24,9 @@ Welche Middleware wofür: [Rechtekonzept](../sicherheit/rechtekonzept.md).
 
 - `groups` ist **kein** anforderbarer Scope (der Claim kommt per Mapper). Steht es in `--scope`, scheitert
   der Login mit `invalid_scope`.
+- Die Gruppen stehen in der Sitzung (Cookie). `--cookie-refresh=1h` holt sie stündlich neu aus Keycloak,
+  eine Gruppenänderung wirkt also nach spätestens einer Stunde. Sofort: `https://<host>.lab.appsfab.org/oauth2/sign_out`
+  öffnen und neu anmelden. Welche Gruppen die Sitzung hat, zeigt `/oauth2/userinfo`.
+- Ist die Keycloak-Sitzung beim stündlichen Erneuern abgelaufen (nach 30 min Leerlauf), kommt ein neuer Login.
 - Nach Umzügen zwischen Netzen oder Arcane-Projekten auf verwaiste zweite oauth2-proxy-Container achten
   ([Fehlersuche](../betrieb/fehlersuche.md#doppelte-container)).

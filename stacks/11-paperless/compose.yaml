@@ -40,6 +40,20 @@ services:
       PAPERLESS_TIME_ZONE: ${TZ}
       USERMAP_UID: ${PUID}
       USERMAP_GID: ${PGID}
+      # --- Keycloak-Login (OIDC über allauth, Client `paperless`) ---
+      # Server-Calls an auth.appsfab.org gehen über den Traefik-Alias im Netz edge-paperless.
+      PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect
+      PAPERLESS_SOCIALACCOUNT_PROVIDERS: >-
+        {"openid_connect": {"OAUTH_PKCE_ENABLED": true, "APPS": [{"provider_id": "keycloak", "name": "Keycloak",
+        "client_id": "paperless", "secret": "${PAPERLESS_OIDC_CLIENT_SECRET}",
+        "settings": {"server_url": "https://auth.appsfab.org/realms/AppsFab/.well-known/openid-configuration"}}]}}
+      # Keycloak legt KEINE Paperless-Konten an (Default wäre "yes"): nur bestehende Konten, die die Person
+      # einmal unter Profil -> "Verbinden" mit Keycloak verknüpft hat. Rechte und Gruppen (haushalt) bleiben in Paperless.
+      PAPERLESS_SOCIALACCOUNT_ALLOW_SIGNUPS: "false"
+      PAPERLESS_ACCOUNT_ALLOW_SIGNUPS: "false"
+      # Schritt 2, wenn alle verknüpft haben: beide auf "true" (nur noch Keycloak, Login-Seite springt direkt dorthin).
+      PAPERLESS_DISABLE_REGULAR_LOGIN: "false"
+      PAPERLESS_REDIRECT_LOGIN_TO_SSO: "false"
     volumes:
       - /mnt/data/paperless/media:/usr/src/paperless/media       # Dokumente (bleiben auf data)
       - /mnt/data/paperless/consume:/usr/src/paperless/consume   # SMB-Eingang

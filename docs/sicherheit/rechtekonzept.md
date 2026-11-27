@@ -43,7 +43,7 @@ Zugriff auf Infrastruktur, kommt er hinter `sso-admin@docker`.
 | Startseite `home.lab` | `sso` | ✓ | ✓ | ✓ |
 | Admin-Startseite `admin.lab` | `sso-admin` | ✓ | – | – |
 | Plane | `sso` + Keycloak-Login (Patch), God Mode `sso-admin` | Instanz-Admin | Member im Familien-Workspace | Member |
-| Paperless | eigenes Login | Superuser, `haushalt` | Frau: eigene + `haushalt`; Tochter: nur eigene | nur eigene |
+| Paperless | Keycloak-OIDC auf verknüpftes Paperless-Konto | Superuser, `haushalt` | Frau: eigene + `haushalt`; Tochter: nur eigene | nur eigene |
 | Keycloak-Konto | – | ✓ | ✓ (Passkeys, Passwort) | ✓ |
 | Forgejo | OIDC, nur `devs` | Site-Admin (`lab-admins`) | – | eigenes Konto, nur freigegebene Repos |
 | n8n | `sso-devs`, dann automatisch ins n8n-Konto mit gleicher E-Mail (Hook) | Owner | – | Member |
@@ -75,7 +75,9 @@ Was ein n8n-Member trotzdem erreicht: Traefik (alle `*.lab`-Hosts, also wieder m
 3. Apps mit eigenen Konten:
     - **Plane:** in den Familien-Workspace als *Member* einladen.
     - **Paperless:** Benutzer **ohne** Superuser und **ohne** Staff anlegen. Nur Christian und seine Frau
-      kommen in die Paperless-Gruppe `haushalt` (siehe unten), die Kinder nicht.
+      kommen in die Paperless-Gruppe `haushalt` (siehe unten), die Kinder nicht. Die Person verknüpft danach
+      einmal ihr Konto mit Keycloak ([Paperless](../dienste/paperless.md#keycloak-login)); Keycloak legt
+      keine Paperless-Konten selbst an.
     - **Forgejo** (nur `devs`): Die Registrierung ist aus, das Konto legt ein Admin an. Nur in die Repos und
       Teams aufnehmen, die gebraucht werden.
     - **n8n** (nur `devs`): als *Member* einladen, nicht als Admin, mit **derselben E-Mail wie in Keycloak**.

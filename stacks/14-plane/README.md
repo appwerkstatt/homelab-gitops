@@ -21,9 +21,9 @@ Nur im LAN unter **https://plane.lab.appsfab.org**, komplett hinter Keycloak (`s
 
 Summe der Limits ≈ 3,5 GB, real erwartet 1,5 bis 2 GB. Nicht dabei: `space` (öffentlich geteilte Seiten), der Plane-eigene Caddy-Proxy (Traefik routet die Pfade direkt).
 
-**Login:** Die Community-Edition kann kein OIDC/SAML (das ist Plane Pro). Deshalb zwei Stufen: Keycloak vor allem
-(Passkey/2FA), danach Plane-eigenes Konto (E-Mail + Passwort). Optional ersetzt Schritt 6 das Plane-Passwort durch
-einen Login über Forgejo, das selbst nur per Keycloak anmeldet.
+**Login:** Die Community-Edition kann kein OIDC/SAML (das ist Plane Pro). Keycloak steht per `sso@docker` vor allem
+(Passkey/2FA). In Plane selbst meldet ein kleiner AGPL-Patch über Keycloak an (Button „Continue with Gitea“,
+Schritt 6), sodass kein zweites Passwort nötig ist.
 
 ## Erstinstallation
 
@@ -71,20 +71,38 @@ https://plane.lab.appsfab.org/god-mode/ öffnen (erst Keycloak-Login), Admin-Kon
 
 https://plane.lab.appsfab.org/ → mit demselben Konto anmelden → Workspace anlegen, erstes Projekt.
 
-### 6. Optional: Login über Forgejo statt Plane-Passwort
+### 6. Login über Keycloak (statt Plane-Passwort)
 
-Plane spricht „Gitea"-OAuth, Forgejo ist dazu kompatibel. Die Plane-API holt Token und Benutzer serverseitig über den
-Traefik-Alias `git.appsfab.org` im Netz `edge-plane` (00-traefik).
+Die Community-Edition kann kein OIDC. `patches/gitea.py` (AGPL wie Plane, per Bind-Mount nur in `plane-api`)
+ersetzt Planes „Gitea“-Provider: Der Button **„Continue with Gitea“** meldet jetzt per OpenID Connect bei Keycloak an
+(Client `plane`). Lizenzprüfungen bleiben unangetastet, die übrigen Plane-Images sind die Originale.
 
-1. Forgejo → **Einstellungen → Anwendungen → OAuth2-Anwendung erstellen**: Name `Plane`,
-   Redirect-URI `https://plane.lab.appsfab.org/auth/gitea/callback/`, vertraulicher Client.
-2. Client-ID und -Secret in 1Password unter `homelab-plane` als `forgejo-client-id` / `forgejo-client-secret` ablegen
-   (Plane liest sie nicht aus der Env, sondern aus seiner DB).
-3. God Mode → **Authentication → Gitea**: Host `https://git.appsfab.org`, Client-ID, Secret, aktivieren.
-4. Abmelden und „Mit Gitea anmelden" testen. Hat das Konto dieselbe E-Mail wie das bestehende Plane-Konto,
-   landet man im selben Konto.
+- Plane verknüpft über die **E-Mail**: Wer schon ein Plane-Konto mit derselben Adresse hat, landet darin.
+- Nur Adressen mit `email_verified = true` werden angenommen. Sonst könnte jemand im Keycloak-Kontoportal seine
+  E-Mail auf eine fremde ändern und deren Plane-Konto übernehmen. In der Keycloak-Admin-Konsole beim Benutzer
+  **„Email verified“** anhaken, sonst meldet Plane `OAUTH_PROVIDER_UNVERIFIED_EMAIL`.
+- Die Signup-Sperre gilt weiter: Neue Personen kommen nur mit Workspace-Einladung an dieselbe E-Mail rein.
+- Die Plane-API holt Token und Userinfo serverseitig über den Traefik-Alias `auth.appsfab.org` im Netz `edge-plane`.
 
-Ungetestet in diesem Setup; klappt es nicht, bleibt das Plane-Passwort.
+Einrichten (einmalig):
+
+1. 1Password `homelab-plane`: Feld `oidc-client-secret` anlegen (`openssl rand -hex 32`).
+2. Arcane → **keycloak** → Environment: `PLANE_OIDC_CLIENT_SECRET` ergänzen (`scripts/render-env.sh keycloak`),
+   deployen. keycloak-config-cli legt den Client `plane` an (`KCC_REALM_REV` 20).
+3. **plane** neu deployen (Bind-Mount für `plane-api`). Prüfen:
+   `docker exec plane-plane-api-1 grep -c openid-connect /code/plane/authentication/provider/oauth/gitea.py` ⇒ `2`.
+4. God Mode → **Authentication → Gitea**: Host `https://auth.appsfab.org/realms/AppsFab`, Client-ID `plane`,
+   Secret aus Schritt 1, aktivieren. (Plane liest die Werte aus seiner DB, nicht aus der Env.)
+5. In Keycloak bei allen Plane-Nutzern „Email verified“ prüfen, dann abmelden und „Continue with Gitea“ testen.
+6. Wenn es klappt: God Mode → Authentication → **„Passwort“ aus**. Dann bleibt nur der Keycloak-Login.
+   Notfall (Keycloak kaputt): Passwort-Login dort wieder einschalten; Konten, die sich nur per Keycloak angemeldet
+   haben, haben kein Passwort und brauchen „Passwort vergessen“ (SMTP) oder `manage.py changepassword`.
+
+**Plane-Updates:** Renovate mergt Plane-Patches automatisch. `scripts/check-plane-patch.sh` (CI-Schritt in
+`validate`) vergleicht die Upstream-Dateien, auf denen der Patch aufbaut (`patches/upstream.sha256`), mit der Version
+in `compose.yaml`. Ändert Plane sie, bleibt der Update-PR rot: Upstream-Diff lesen, `patches/gitea.py` anpassen,
+`scripts/check-plane-patch.sh --update`, committen. Arcane erstellt `plane-api` nicht neu, wenn sich nur
+`patches/gitea.py` ändert: danach den Container von Hand neu starten.
 
 ## Betrieb
 

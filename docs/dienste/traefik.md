@@ -21,7 +21,7 @@
 - **Zertifikate**: Resolver `le`, Let's Encrypt per DNS-01 über Cloudflare. Wildcard `*.lab.appsfab.org`.
 - **Netze**: Traefik hängt an jedem `edge-<stack>` und trägt dort die Aliase `auth.appsfab.org` und
   `auth.lab.appsfab.org` (gegen das [Hairpin-Problem](../architektur/netzwerk.md#traefik-auf-eigener-ip-macvlan)).
-  In `edge-plane` zusätzlich `git.appsfab.org`, in `edge-home` die Hosts, die Homepage prüft.
+  In `edge-home` zusätzlich die Hosts, die Homepage prüft.
 
 ## Betrieb
 

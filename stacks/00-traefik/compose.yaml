@@ -76,14 +76,8 @@ services:
       edge-sso: { aliases: *traefik_aliases }
       edge-paperless: { aliases: *traefik_aliases }
       edge-n8n: { aliases: *traefik_aliases }
-      # edge-plane zusätzlich git.appsfab.org: optionaler Plane-Login über Forgejo ("Gitea"-OAuth), die Plane-API
-      # holt Token und Benutzer serverseitig bei Forgejo (stacks/14-plane/README.md).
-      edge-plane:
-        aliases:
-          - traefik
-          - auth.${LAB_DOMAIN}
-          - auth.appsfab.org
-          - git.appsfab.org
+      # edge-plane: die Plane-API holt Token und Benutzer des Keycloak-Logins serverseitig über auth.appsfab.org.
+      edge-plane: { aliases: *traefik_aliases }
       edge-doku: { aliases: *traefik_aliases }
       edge-tunnel: { aliases: *traefik_aliases }
       # edge-obs zusätzlich n8n.lab: Alertmanager schickt den Alert-Erklärer-Webhook über Traefik (Router n8n-webhook).

@@ -14,7 +14,7 @@
 | Sandbox | Code des n8n-Assistenten läuft in einer eigenen VM, nicht auf dem NAS; die [NAS-Firewall](../nas-firewall/README.md) lässt von dort keine neuen Verbindungen zum NAS zu |
 | NAS-Management | Arcane und VM-Konsole (VNC) nur aus VLAN 10 ([NAS-Firewall](../nas-firewall/README.md)) |
 | Secrets | nur in 1Password, CI prüft die Vollständigkeit der Liste |
-| Updates | Renovate, Patches automatisch nach grüner CI und 3 Tagen Wartezeit, Minor/Major per Hand, Actions per Digest gepinnt |
+| Updates | Renovate (4× täglich, ohne Zeitfenster), Patches automatisch nach grüner CI und 3 Tagen Wartezeit, Minor/Major per Hand, Actions per Digest gepinnt |
 
 ## Erkennen
 

@@ -47,10 +47,17 @@ Dienst, damit Client und Secret schon existieren.
 
 ## Renovate
 
-- GitHub-App, der Workflow startet nachts (GitHub führt den Cron oft Stunden zu spät aus).
-- **Patch und Digest** werden nach grünem `validate` automatisch gemergt und damit sofort deployt, und zwar
-  zu jeder Uhrzeit, aber erst **3 Tage nach dem Upstream-Release** (`minimumReleaseAge`, gegen manipulierte
-  Releases). Einen dringenden Sicherheits-Patch holt man früher über das Häkchen im Dependency-Dashboard.
+- GitHub-App, der Workflow läuft **4× täglich** (01:41, 07:41, 13:41, 19:41 UTC; GitHub startet ihn oft
+  Stunden später). Es gibt **kein Zeitfenster** in `renovate.json`: Jeder Lauf darf PRs anlegen und
+  aktualisieren. Ein Nachtfenster passt nicht zum verspäteten Cron, Updates blieben sonst wochenlang unter
+  *Awaiting Schedule* liegen.
+- **Patch und Digest** werden nach grünem `validate` automatisch gemergt und damit sofort deployt, aber erst
+  **3 Tage nach dem Upstream-Release** (`minimumReleaseAge`, gegen manipulierte Releases). Einen dringenden
+  Sicherheits-Patch holt man früher über das Häkchen im Dependency-Dashboard.
+- Den Status-Check `renovate/stability-days` setzt Renovate bewusst **nicht**
+  (`statusCheckNames.minimumReleaseAge: ""`). Ohne Schreibrecht der App auf *Commit statuses* bricht Renovate
+  sonst den ganzen Lauf mit `Repository has changed during renovation` ab (siehe [Fehlersuche](fehlersuche.md#renovate-legt-keine-prs-mehr-an)).
+- Manueller Lauf: *Actions → renovate → Run workflow*, bei Problemen mit `log_level: debug`.
 - GitHub Actions sind auf Commit-Digests gepinnt (`helpers:pinGitHubActionDigests`).
 - **Minor** als PR zum Prüfen, **Major** erst nach Freigabe im Dependency-Dashboard.
 - **Postgres und Redis**: Majors sind abgeschaltet (Datenmigration nötig, Vorfall 2026-06-05).

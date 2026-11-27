@@ -62,6 +62,19 @@ Mac-IP suchen. Für SSH immer `192.168.80.50` nehmen ([Netzwerk](../architektur/
 **Ursache**: Major-Sprung (z. B. 17 → 18) braucht `pg_upgrade`, ein Tag-Tausch reicht nicht.
 **Lösung**: Image auf die alte Major zurück (Revert-PR). Renovate macht Postgres-Majors bewusst nicht.
 
+## Renovate legt keine PRs mehr an
+
+**Symptom**: Updates stehen tagelang im Dependency-Dashboard unter *Awaiting Schedule* oder ganz ohne PR, Häkchen
+im Dashboard wirken nicht. Im Log des `renovate`-Workflows steht `Repository has changed during renovation -
+aborting` und `"result": "repository-changed"`.
+**Ursache**: Renovate bricht den ganzen Lauf beim ersten Branch ab, dessen Status-Check (z. B.
+`renovate/stability-days`) es nicht setzen darf. Danach kommt es weder zu weiteren Branches noch zum Dashboard.
+Vorfall 2026-11-23 bis 11-27: Branch `renovate/pin-dependencies` hing so fest. Zusätzlich lag das Zeitfenster
+2–6 Uhr außerhalb der Zeit, zu der GitHub den Cron wirklich startete (10–13 Uhr UTC).
+**Lösung**: Lauf mit `log_level: debug` starten und nach `Caught error` suchen. Status-Checks entweder per
+`statusCheckNames` abschalten oder der GitHub-App *Commit statuses: Read and write* geben. Kein `schedule` in
+`renovate.json` wieder einführen, das zum Cron nicht passt.
+
 ## Mac Studio nach Stromausfall nicht erreichbar
 
 **Ursache**: FileVault wartet auf das Passwort; LaunchDaemon und LM Studio starten erst danach.

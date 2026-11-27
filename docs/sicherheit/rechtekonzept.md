@@ -43,7 +43,7 @@ Zugriff auf Infrastruktur, kommt er hinter `sso-admin@docker`.
 | Startseite `home.lab` | `sso` | ✓ | ✓ | ✓ |
 | Admin-Startseite `admin.lab` | `sso-admin` | ✓ | – | – |
 | Plane | `sso` + Plane-Konto, God Mode `sso-admin` | Instanz-Admin | Member im Familien-Workspace | Member |
-| Paperless | eigenes Login | Superuser | eigene + gemeinsame Dokumente | eigene + gemeinsame Dokumente |
+| Paperless | eigenes Login | Superuser, `haushalt` | Frau: eigene + `haushalt`; Tochter: nur eigene | nur eigene |
 | Keycloak-Konto | – | ✓ | ✓ (Passkeys, Passwort) | ✓ |
 | Forgejo | OIDC, nur `devs` | Site-Admin (`lab-admins`) | – | eigenes Konto, nur freigegebene Repos |
 | n8n | `sso-devs` + n8n-Konto | Owner | – | Member |
@@ -74,8 +74,8 @@ Was ein n8n-Member trotzdem erreicht: Traefik (alle `*.lab`-Hosts, also wieder m
 2. Beim ersten Login registriert die Person einen Passkey (Pflicht, siehe [Login & SSO](sso.md)).
 3. Apps mit eigenen Konten:
     - **Plane:** in den Familien-Workspace als *Member* einladen.
-    - **Paperless:** Benutzer **ohne** Superuser und **ohne** Staff anlegen, Rechte über die Paperless-Gruppe
-      `haushalt` (siehe unten).
+    - **Paperless:** Benutzer **ohne** Superuser und **ohne** Staff anlegen. Nur Christian und seine Frau
+      kommen in die Paperless-Gruppe `haushalt` (siehe unten), die Kinder nicht.
     - **Forgejo** (nur `devs`): Die Registrierung ist aus, das Konto legt ein Admin an. Nur in die Repos und
       Teams aufnehmen, die gebraucht werden.
     - **n8n** (nur `devs`): als *Member* einladen, nicht als Admin.
@@ -86,7 +86,8 @@ Paperless hat eigene Konten und Rechte pro Dokument:
 
 - Jeder ist **Besitzer** seiner eigenen Dokumente; die sieht sonst niemand (außer dem Superuser).
 - Gemeinsame Dokumente (Verträge, Versicherungen, Steuern) bekommen zusätzlich Rechte für die Paperless-Gruppe
-  **`haushalt`** (Ansehen + Bearbeiten).
+  **`haushalt`** (Ansehen + Bearbeiten). Mitglieder: **nur Christian und seine Frau**. Sohn und Tochter sehen
+  nur ihre eigenen Dokumente (Entscheidung 2026-11-27).
 - Ein Workflow „Dokument hinzugefügt → Besitzer = hochladende Person“ sorgt dafür, dass neue Uploads nicht offen sind.
 
 **Wichtig:** Dokumente **ohne** Besitzer sieht jeder Benutzer. Vor dem ersten weiteren Konto alle Dokumente
@@ -94,6 +95,9 @@ ohne Besitzer einem Besitzer zuweisen (Dokumente → Filter „Besitzer: keiner�
 
 ## Stolperfallen
 
+- **Gruppen geändert, aber noch Forbidden:** oauth2-proxy lädt die Gruppen nur stündlich nach. Sofort wirkt
+  es nach `https://<host>.lab.appsfab.org/oauth2/sign_out` und neuem Login; `/oauth2/userinfo` zeigt die Gruppen
+  der Sitzung.
 - **Plane:** In God Mode → *Authentication* „Allow anyone to sign up“ aus lassen, sonst legt sich jeder
   `lab-users`-Benutzer selbst ein Konto an.
 - **Forgejo:** Die Gruppenpflicht steht in der Datenbank, nicht in der Env. Nachziehen mit

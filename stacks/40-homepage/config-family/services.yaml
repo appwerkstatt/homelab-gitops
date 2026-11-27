@@ -7,7 +7,7 @@
     - Paperless:
         icon: paperless-ngx.png
         href: https://docs.lab.appsfab.org
-        description: Dokumente · eigene und gemeinsame („Haushalt“)
+        description: Dokumentenarchiv · eigene Dokumente
     - Mein Konto:
         icon: keycloak.png
         href: https://auth.appsfab.org/realms/AppsFab/account

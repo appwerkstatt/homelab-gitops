@@ -25,6 +25,9 @@ services:
       - --allowed-group=lab-users         # RBAC: nur Mitglieder dieser Keycloak-Gruppe dürfen durch
       - --cookie-secure=true
       - --cookie-samesite=lax
+      - --cookie-refresh=1h               # Sitzung stündlich per Refresh-Token bei Keycloak erneuern: Gruppenänderungen
+                                           # (z. B. neu in devs) wirken nach spätestens 1 h ohne Abmelden; deaktivierte
+                                           # Benutzer oder abgelaufene Keycloak-Sitzung -> neuer Login
       - --set-xauthrequest=true
       - --pass-access-token=true
       - --upstream=static://202

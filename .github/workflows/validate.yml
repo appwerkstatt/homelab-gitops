@@ -1,7 +1,7 @@
 # validate.yml — Required Check für Renovate-Automerge: prüft, dass renovate.json valide
 # bleibt, jede Compose-Variable in .env.example (1Password-Liste) steht, jede
 # Compose-Stack-Datei ohne Warnungen interpoliert, neu eingetragene Image-Tags für
-# linux/amd64 existieren, die Alerting-Configs gültig sind, das Handbuch (docs/) ohne kaputte Links baut und die Grafana-Dashboards zum Generator passen. Läuft auf jedem PR (also auch auf
+# linux/amd64 existieren, die Alerting-Configs gültig sind, das Handbuch (docs/) ohne kaputte Links baut, die Grafana-Dashboards zum Generator passen und der Plane-Keycloak-Patch zur Plane-Version passt. Läuft auf jedem PR (also auch auf
 # Renovate-PRs, weil die per GitHub-App-Token geöffnet werden -> NICHT GITHUB_TOKEN -> triggert
 # Folge-Workflows). Der Job-Name "validate" IST der Status-Context, der in der Branch-
 # Protection als Pflicht eingetragen wird.
@@ -104,3 +104,8 @@ jobs:
             echo "::error::Dashboard-JSONs veraltet: build-dashboards.py laufen lassen und die JSONs mitcommitten"
             exit 1
           fi
+
+      - name: Check Plane Keycloak patch still matches upstream files
+        # Renovate mergt Plane-Patches automatisch; ändert Upstream die Dateien, auf denen
+        # stacks/14-plane/patches/gitea.py aufbaut, muss der Update-PR hier stehen bleiben.
+        run: scripts/check-plane-patch.sh

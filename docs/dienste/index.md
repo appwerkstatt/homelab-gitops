@@ -12,7 +12,7 @@ Versionen stehen bewusst nur im jeweiligen `compose.yaml`.
 | [11-paperless](paperless.md) | Dokumentenarchiv + KI-Suche | `docs.lab`, `docs-ai.lab` | Paperless-Konto / SSO | `data/paperless`, `fast/appdata/paperless*` |
 | [12-cloudflared](cloudflared.md) | Tunnel ins Internet | – | – | `fast/appdata/cloudflared` |
 | [13-n8n](n8n.md) | Workflow-Automatisierung | `n8n.lab`, **`hooks.appsfab.org`** (nur Webhooks) | SSO + n8n-Konto | `fast/appdata/n8n` |
-| [14-plane](plane.md) | Projekte, Issues, Kanban | `plane.lab` | SSO + Plane-Konto | `fast/appdata/plane` |
+| [14-plane](plane.md) | Projekte, Issues, Kanban | `plane.lab` | SSO + Keycloak-Login (Patch) | `fast/appdata/plane` |
 | [15-doku](doku.md) | dieses Handbuch als Website | `doku.lab` | SSO | – |
 | [20-observability](observability.md) | Metriken, Logs, Dashboards, Alarme | `grafana.lab` | Keycloak (OIDC) | `fast/appdata/{vm,loki,grafana}` |
 | [21-garage](garage.md) | S3-Objektspeicher | `s3.lab` | S3-Keys | `data/garage` |

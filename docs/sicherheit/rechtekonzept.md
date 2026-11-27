@@ -42,7 +42,7 @@ Zugriff auf Infrastruktur, kommt er hinter `sso-admin@docker`.
 |---|---|---|---|---|
 | Startseite `home.lab` | `sso` | ✓ | ✓ | ✓ |
 | Admin-Startseite `admin.lab` | `sso-admin` | ✓ | – | – |
-| Plane | `sso` + Plane-Konto, God Mode `sso-admin` | Instanz-Admin | Member im Familien-Workspace | Member |
+| Plane | `sso` + Keycloak-Login (Patch), God Mode `sso-admin` | Instanz-Admin | Member im Familien-Workspace | Member |
 | Paperless | eigenes Login | Superuser, `haushalt` | Frau: eigene + `haushalt`; Tochter: nur eigene | nur eigene |
 | Keycloak-Konto | – | ✓ | ✓ (Passkeys, Passwort) | ✓ |
 | Forgejo | OIDC, nur `devs` | Site-Admin (`lab-admins`) | – | eigenes Konto, nur freigegebene Repos |
@@ -99,7 +99,8 @@ ohne Besitzer einem Besitzer zuweisen (Dokumente → Filter „Besitzer: keiner�
   es nach `https://<host>.lab.appsfab.org/oauth2/sign_out` und neuem Login; `/oauth2/userinfo` zeigt die Gruppen
   der Sitzung.
 - **Plane:** In God Mode → *Authentication* „Allow anyone to sign up“ aus lassen, sonst legt sich jeder
-  `lab-users`-Benutzer selbst ein Konto an.
+  `lab-users`-Benutzer selbst ein Konto an. Der Keycloak-Login nimmt nur E-Mails an, die in Keycloak als
+  verifiziert markiert sind.
 - **Forgejo:** Die Gruppenpflicht steht in der Datenbank, nicht in der Env. Nachziehen mit
   `forgejo admin auth update-oauth --id 6 --required-claim-name groups --required-claim-value devs`
   (Befehl im `compose.yaml`), danach den Container neu starten. Prüfen mit `forgejo admin auth list`.

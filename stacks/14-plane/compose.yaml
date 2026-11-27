@@ -1,7 +1,7 @@
 # 14-plane — Projekt- und Aufgabenverwaltung (Plane Community Edition, Jira-/Kanban-Ersatz).
 # Nur LAN: plane.lab.appsfab.org, komplett hinter Keycloak (sso@docker, Gruppe lab-users), kein Tunnel-Eintrag.
-# Danach Plane-eigener Login: Die Community-Edition kann kein OIDC (nur Pro). Optional ohne zweites Passwort
-# über "Gitea"-OAuth gegen Forgejo (das selbst nur per Keycloak anmeldet) -> README.md, Schritt 6.
+# Login in Plane: Die Community-Edition kann kein OIDC (nur Pro). patches/gitea.py (AGPL, per Bind-Mount in plane-api)
+# lässt den "Gitea"-Button OIDC mit Keycloak sprechen -> README.md, Schritt 6.
 #
 # Aufbau wie das offizielle Community-Compose (deployments/cli/community/docker-compose.yml, v1.5.0), aber:
 #   - kein plane-proxy (Caddy): Traefik routet die Pfade direkt (Tabelle unten), spart einen Proxy-Hop
@@ -142,7 +142,11 @@ services:
       - traefik.http.routers.plane-api.tls.certresolver=le
       - traefik.http.routers.plane-api.middlewares=sso@docker
       - traefik.http.services.plane-api.loadbalancer.server.port=8000
-    # edge-plane: Traefik-Router + serverseitiger Forgejo-Login (git.appsfab.org über Traefik-Alias, s. 00-traefik)
+    # Keycloak-Login: ersetzt Planes "Gitea"-Provider durch OIDC gegen Keycloak (AGPL-Patch, README.md "Login").
+    # CI (scripts/check-plane-patch.sh) meldet, wenn ein Plane-Update die zugrunde liegenden Dateien ändert.
+    volumes:
+      - ./patches/gitea.py:/code/plane/authentication/provider/oauth/gitea.py:ro
+    # edge-plane: Traefik-Router + serverseitiger Token-/Userinfo-Abruf bei Keycloak (auth.appsfab.org über Traefik-Alias, s. 00-traefik)
     networks: [edge-plane, plane-internal]
     mem_limit: 768m
     restart: unless-stopped

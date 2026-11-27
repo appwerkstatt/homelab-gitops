@@ -1,0 +1,3 @@
+0691208b12debb86ae314de5d668ae7357731ec5d0655792c507c02bd2f03138  plane/authentication/provider/oauth/gitea.py
+b0b3c51dbbf28e51d21f2277570d8fc2d8dbe1fa998520ac1863e048d0fc6afd  plane/authentication/adapter/oauth.py
+bf2de9ade5c8cd351df0a8f0adf4b3a67f58d677d544ecec4bff3795adeb8031  plane/authentication/views/app/gitea.py

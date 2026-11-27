@@ -266,6 +266,20 @@
       ]
     },
     {
+      "clientId": "plane",
+      "name": "Plane",
+      "description": "Plane CE login via patched Gitea provider (stacks/14-plane/patches/gitea.py)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "secret": "$(env:PLANE_OIDC_CLIENT_SECRET)",
+      "redirectUris": ["https://plane.lab.appsfab.org/auth/gitea/callback/"],
+      "webOrigins": ["https://plane.lab.appsfab.org"],
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"]
+    },
+    {
       "clientId": "oauth2-proxy",
       "name": "Traefik ForwardAuth (oauth2-proxy)",
       "enabled": true,

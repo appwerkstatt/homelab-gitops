@@ -6,7 +6,7 @@ Dienste vertrauen Keycloak auf zwei Wegen:
 ```mermaid
 flowchart LR
   user[Browser] --> traefik[Traefik]
-  traefik -->|OIDC-fähig| app1[Grafana · Forgejo · Zot · Netboot]
+  traefik -->|OIDC-fähig| app1[Grafana · Forgejo · Zot · Netboot · Paperless]
   app1 -->|OIDC| kc[Keycloak<br/>auth.appsfab.org]
   traefik -->|"sso@docker"| o2p[oauth2-proxy]
   o2p -->|OIDC| kc
@@ -44,7 +44,9 @@ also für jeden Login-Host unter `appsfab.org`.
   in der Account-Konsole löschen, sonst wird er nach dem Passwort verlangt.
 - **Keycloak ganz weg**: Forgejo hat einen Notschalter für den Passwort-Login
   ([Forgejo](../dienste/forgejo.md#betrieb)); Grafana hat das lokale Admin-Konto aus 1Password
-  (`homelab-grafana`).
+  (`homelab-grafana`): Grafana springt sonst direkt zu Keycloak, das Formular gibt es unter
+  `https://grafana.lab.appsfab.org/login?disableAutoLogin`. Paperless: siehe
+  [Paperless](../dienste/paperless.md#keycloak-login).
 
 Die Flow-Details stehen in [`realm/PASSKEYS.md`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/02-keycloak/realm/PASSKEYS.md).
 

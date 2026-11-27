@@ -280,6 +280,21 @@
       "defaultClientScopes": ["profile", "email", "roles", "web-origins"]
     },
     {
+      "clientId": "paperless",
+      "name": "Paperless-ngx",
+      "description": "Paperless login via allauth openid_connect (stacks/11-paperless)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "secret": "$(env:PAPERLESS_OIDC_CLIENT_SECRET)",
+      "redirectUris": ["https://docs.lab.appsfab.org/accounts/oidc/keycloak/login/callback/"],
+      "webOrigins": ["https://docs.lab.appsfab.org"],
+      "attributes": { "pkce.code.challenge.method": "S256" },
+      "defaultClientScopes": ["profile", "email", "roles", "web-origins"]
+    },
+    {
       "clientId": "oauth2-proxy",
       "name": "Traefik ForwardAuth (oauth2-proxy)",
       "enabled": true,

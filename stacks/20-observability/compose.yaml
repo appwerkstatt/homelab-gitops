@@ -100,6 +100,9 @@ services:
       GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], 'lab-admins') && 'Admin' || 'Viewer'"
       GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "true"
       GF_USERS_ALLOW_SIGN_UP: "false"
+      # Direkt zu Keycloak statt Login-Seite mit Button. Notfall (Keycloak weg): /login?disableAutoLogin
+      # zeigt das Formular für das lokale Admin-Konto (1Password homelab-grafana).
+      GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN: "true"
     volumes:
       - /mnt/fast/appdata/grafana:/var/lib/grafana    # grafana.db = migrierte Dashboards
       - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro   # VM + Loki deklarativ

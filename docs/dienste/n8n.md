@@ -4,7 +4,7 @@
 |---|---|
 | **Zweck** | Workflow-Automatisierung: Tagesbericht, PR-Meldungen, Alert-Erklärer, eigene Automationen |
 | **Adresse** | Editor `https://n8n.lab.appsfab.org`; Webhooks öffentlich `https://hooks.appsfab.org/webhook/…` |
-| **Login** | `sso-admin@docker` (vorerst nur `lab-admins`, siehe [Rechtekonzept](../sicherheit/rechtekonzept.md)) und danach n8n-eigenes Konto (Community-Edition ohne OIDC) |
+| **Login** | `sso-devs@docker` (Gruppe `devs`, siehe [Rechtekonzept](../sicherheit/rechtekonzept.md)) und danach n8n-eigenes Konto (Community-Edition ohne OIDC) |
 | **Daten** | `fast/appdata/n8n/{data,db}` |
 | **Backup** | Tier 2 + `pg_dump` offsite |
 | **Abhängig von** | Mac Studio (Ollama `:11434`, LM Studio `:1234`), VM `n8n-sandbox`, VictoriaMetrics + Loki (über `edge-n8n`) |

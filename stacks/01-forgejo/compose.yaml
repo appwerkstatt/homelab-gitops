@@ -31,11 +31,11 @@ services:
       #     --name keycloak --provider openidConnect --key forgejo --secret '<KC_FORGEJO_SECRET>' \
       #     --auto-discover-url https://auth.appsfab.org/realms/AppsFab/.well-known/openid-configuration \
       #     --scopes 'openid profile email' --group-claim-name groups --admin-group lab-admins \
-      #     --required-claim-name groups --required-claim-value lab-users
+      #     --required-claim-name groups --required-claim-value devs
       # (--name=keycloak -> Callback /user/oauth2/keycloak/callback = Realm-Redirect-URI)
       # Bestehende Quelle (ID 6) nachziehen: forgejo admin auth update-oauth --id 6 \
-      #     --required-claim-name groups --required-claim-value lab-users   (danach Container neu starten)
-      # --required-claim-*: Login nur mit Keycloak-Gruppe lab-users (exakter Eintrag im groups-Claim).
+      #     --required-claim-name groups --required-claim-value devs   (danach Container neu starten)
+      # --required-claim-*: Login nur mit Keycloak-Gruppe devs (exakter Eintrag im groups-Claim).
       # WICHTIG: 'groups' NICHT in --scopes (kein anforderbarer Scope, sondern Claim per Mapper) -> sonst invalid_scope.
       # --group-claim-name liest den groups-Claim aus dem Token; --admin-group mappt lab-admins -> Forgejo-Admin.
       # Auto-Registrierung/Account-Linking optional über die folgenden Env:

@@ -7,7 +7,7 @@
 | Internet | nur drei Hosts über den Cloudflare-Tunnel (`git`, `auth`, `hooks`), keine Port-Freigaben am Router. Der Tunnel landet auf einem eigenen Traefik-Entrypoint (`:8443`), auf dem nur deren Router hören |
 | Forgejo öffentlich | Web nur per SSO, API und Git über HTTPS nur mit Token (kein Passwort per Basic Auth) |
 | Keycloak öffentlich | Brute-Force-Schutz, Passwort-Policy, Passkey/2FA Pflicht, ROPC aus, Admin-Konsole + `master`-Realm nur aus dem LAN |
-| LAN | `*.lab` nur intern; Web-Dienste nur über Traefik, mit OIDC oder `sso@docker` (Gruppe `lab-users`), Admin-Werkzeuge hinter `sso-admin@docker` (Gruppe `lab-admins`), siehe [Rechtekonzept](rechtekonzept.md) |
+| LAN | `*.lab` nur intern; Web-Dienste nur über Traefik, mit OIDC oder `sso@docker` (Gruppe `lab-users`), Entwickler-Werkzeuge hinter `sso-devs@docker` (Gruppe `devs`), Admin-Werkzeuge hinter `sso-admin@docker` (Gruppe `lab-admins`), siehe [Rechtekonzept](rechtekonzept.md) |
 | Container | ein `edge`-Netz pro Stack, Datenbanken nur in internen Netzen, Docker-Socket nur über socket-proxy mit `POST=0` (Traefik, Alloy, cadvisor), `mem_limit` überall |
 | Registry | kein anonymer Zugriff, Trivy-CVE-Scan |
 | LLM-Host | Ollama und LM Studio haben keine Auth; pf auf dem Mac Studio lässt nur das NAS zu |

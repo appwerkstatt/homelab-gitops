@@ -1,5 +1,5 @@
 # 13-n8n — Workflow-Automatisierung (n8n + Postgres 17), LLMs lokal über Ollama auf dem Mac Studio.
-# Editor hinter Keycloak (sso-admin@docker, nur lab-admins). Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/ + /webhook-test/),
+# Editor hinter Keycloak (sso-devs@docker, nur Gruppe devs). Webhooks öffentlich über hooks.appsfab.org (Tunnel, nur /webhook/ + /webhook-test/),
 # im LAN zusätzlich unter n8n.lab (inkl. Test- und Waiting-Webhooks).
 # Websuche des Assistenten über die stack-interne SearXNG-Instanz (searxng-settings.yml).
 # Mac-Studio-Einrichtung (Ollama im LAN, Firewall nur für das NAS, kein Ruhezustand): docs/mac-studio-llm.md
@@ -91,14 +91,14 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=edge-n8n
-      # Editor + API: nur nach Keycloak-Login (Gruppe lab-admins, sso-admin); danach zusätzlich n8n-eigener Login
+      # Editor + API: nur nach Keycloak-Login (Gruppe devs, sso-devs); danach zusätzlich n8n-eigener Login
       # (Community-Edition hat kein OIDC). Callback steht im Realm-Client oauth2-proxy.
-      # Vorerst Admin-only: jeder n8n-Member erreicht per HTTP-Node VictoriaMetrics/Loki/Alertmanager ohne Login
-      # (edge-n8n), sähe also alle Logs. Erst wieder auf sso@docker, wenn das abgesichert ist (docs/sicherheit/rechtekonzept.md).
+      # Metriken und Logs liest n8n nur über vmauth (Token im Credential des Owners), VictoriaMetrics, Loki und
+      # Alertmanager hängen nicht mehr in edge-n8n (docs/sicherheit/rechtekonzept.md).
       - traefik.http.routers.n8n.rule=Host(`n8n.${LAB_DOMAIN}`)
       - traefik.http.routers.n8n.entrypoints=websecure
       - traefik.http.routers.n8n.tls.certresolver=le
-      - traefik.http.routers.n8n.middlewares=sso-admin@docker
+      - traefik.http.routers.n8n.middlewares=sso-devs@docker
       - traefik.http.routers.n8n.service=n8n
       # LAN-Webhooks: ohne SSO, damit Geräte/Dienste im LAN sie aufrufen können. *.lab ist nur intern
       # erreichbar (Split-Horizon, kein Tunnel-Eintrag). Absicherung pro Workflow (Header-Auth im Webhook-Node).
@@ -140,5 +140,5 @@ services:
 
 networks:
   edge-n8n:
-    external: true   # von 00-traefik angelegt; geteilt mit Traefik, blackbox (Probes) und victoriametrics (Abfragen)
+    external: true   # von 00-traefik angelegt; geteilt mit Traefik, blackbox (Probes) und vmauth (Metriken/Logs nur mit Token)
   n8n-internal:

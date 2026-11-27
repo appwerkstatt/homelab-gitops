@@ -77,6 +77,8 @@ jobs:
           sed -e 's|__TELEGRAM_BOT_TOKEN__|000:dummy|' -e 's|__TELEGRAM_CHAT_ID__|-1|' -e 's|__N8N_ALERT_WEBHOOK_TOKEN__|dummy|' "$cfg/alertmanager.tmpl.yml" > /tmp/am/alertmanager.yml
           docker run --rm -v /tmp/am:/c:ro --entrypoint amtool "$am" check-config /c/alertmanager.yml
           docker run --rm -v "$PWD/$cfg:/c:ro" "$bb" --config.file=/c/blackbox.yml --config.check
+          va=$(grep -oE 'victoriametrics/vmauth:[^ ]+' stacks/20-observability/compose.yaml)
+          docker run --rm -e N8N_OBS_READ_TOKEN=dummy -v "$PWD/$cfg:/c:ro" "$va" -auth.config=/c/vmauth.yml -dryRun
           al=$(grep -oE 'grafana/alloy:[^ ]+' stacks/20-observability/compose.yaml)
           docker run --rm -v "$PWD/$cfg:/c:ro" "$al" fmt /c/config.alloy >/dev/null
           lk=$(grep -oE 'grafana/loki:[^ ]+' stacks/20-observability/compose.yaml)

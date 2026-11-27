@@ -19,10 +19,10 @@ Versionen stehen bewusst nur im jeweiligen `compose.yaml`.
 | [22-harbor](zot.md) | Zot, private OCI-Registry | `registry.lab` | Keycloak (UI), htpasswd (CLI) | `data/harbor/zot` |
 | [23-registry-cache](registry-cache.md) | Pull-Through-Cache für Docker Hub | `mirror.lab` | IP-Allowlist | `data/registry-cache` |
 | [30-netboot](netboot.md) | Pi-Netboot und Provisioning | `netboot.lab` | Keycloak (OIDC) | `data/provisioning` |
-| [40-homepage](homepage.md) | Start-Dashboard | `home.lab` | SSO | Config im Repo |
+| [40-homepage](homepage.md) | Startseiten Familie + Admin | `home.lab`, `admin.lab` | SSO / SSO-Admin | Config im Repo |
 
 `.lab` steht für `.lab.appsfab.org` (nur LAN). „SSO“ heißt Traefik-Middleware `sso@docker`, erlaubt ist
-die Keycloak-Gruppe `lab-users`; Admin-Werkzeuge stehen hinter `sso-admin@docker` (nur `lab-admins`), siehe
+die Keycloak-Gruppe `lab-users`; Entwickler-Werkzeuge hinter `sso-devs@docker` (nur `devs`), Admin-Werkzeuge hinter `sso-admin@docker` (nur `lab-admins`), siehe
 [Rechtekonzept](../sicherheit/rechtekonzept.md).
 
 Außerhalb von Arcane laufen die [Sandbox-VM für n8n](../extern/n8n-sandbox.md) und die

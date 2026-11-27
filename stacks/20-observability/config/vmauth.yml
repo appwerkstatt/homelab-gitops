@@ -1,0 +1,9 @@
+# vmauth: Lese-Gateway für n8n (Netz edge-n8n). Nur diese Pfade, nur mit Token.
+# %{N8N_OBS_READ_TOKEN} kommt aus der Env (1Password homelab-alerting/n8n-obs-read-token).
+users:
+  - bearer_token: "%{N8N_OBS_READ_TOKEN}"
+    url_map:
+      - src_paths: ["/api/v1/query", "/api/v1/query_range", "/api/v1/series", "/api/v1/labels", "/api/v1/label/[^/]+/values"]
+        url_prefix: http://victoriametrics:8428
+      - src_paths: ["/loki/api/v1/query", "/loki/api/v1/query_range", "/loki/api/v1/labels", "/loki/api/v1/label/[^/]+/values"]
+        url_prefix: http://loki:3100

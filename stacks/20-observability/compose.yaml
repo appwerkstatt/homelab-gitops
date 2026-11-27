@@ -15,8 +15,8 @@ services:
     volumes:
       - /mnt/fast/appdata/vm:/storage
       - ./config/scrape.yml:/etc/vm/scrape.yml:ro
-    # edge-n8n: n8n liest per PromQL (Tagesbericht, stacks/13-n8n/workflows/). VM hat dort keinen Router.
-    networks: [obs, edge-n8n]
+    # Nur obs: n8n liest PromQL über vmauth (Token), nicht direkt (sonst könnte jeder n8n-Member alles abfragen/löschen).
+    networks: [obs]
     mem_limit: 1g
     restart: unless-stopped
 
@@ -27,9 +27,26 @@ services:
       - /mnt/fast/appdata/loki:/loki
       - ./config/loki.yaml:/etc/loki/loki.yaml:ro
       - ./config/loki-rules:/etc/loki/rules:ro    # LogQL-Alarme (Ruler) -> Alertmanager
-    # edge-n8n: n8n holt Logs für den Alert-Erklärer (stacks/13-n8n/workflows/). Loki hat dort keinen Router.
-    networks: [obs, edge-n8n]
+    # Nur obs: n8n holt Logs für den Alert-Erklärer über vmauth (Token).
+    networks: [obs]
     mem_limit: 512m
+    restart: unless-stopped
+
+  # Lese-Gateway für n8n: einziger Weg von edge-n8n zu Metriken und Logs. Nur Lese-Pfade (query, query_range,
+  # series, labels) und nur mit Bearer-Token (1Password homelab-alerting/n8n-obs-read-token, in n8n als
+  # Header-Auth-Credential des Owners, nicht mit Membern teilen). Alles andere (Admin-API, Löschen) -> 400/401.
+  vmauth:
+    image: victoriametrics/vmauth:v1.156.0   # gleiche Linie wie victoriametrics
+    command:
+      - -auth.config=/etc/vmauth/auth.yml
+      - -httpListenAddr=:8427
+    environment:
+      N8N_OBS_READ_TOKEN: ${N8N_OBS_READ_TOKEN}   # %{N8N_OBS_READ_TOKEN} in auth.yml
+    volumes:
+      - ./config/vmauth.yml:/etc/vmauth/auth.yml:ro
+    networks: [obs, edge-n8n]
+    depends_on: [victoriametrics, loki]
+    mem_limit: 64m
     restart: unless-stopped
 
   # Container-Logs des NAS -> Loki (alloy) und Container-Metadaten für cadvisor. Beide lesen Docker nur über
@@ -76,10 +93,10 @@ services:
       GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/auth
       GF_AUTH_GENERIC_OAUTH_TOKEN_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/token
       GF_AUTH_GENERIC_OAUTH_API_URL: https://auth.appsfab.org/realms/AppsFab/protocol/openid-connect/userinfo
-      # RBAC: nur Keycloak-Gruppen lab-users/lab-admins dürfen rein (sonst "Login failed"),
-      # lab-admins -> Grafana-Admin, sonst Viewer. Rechtekonzept: docs/sicherheit/rechtekonzept.md
+      # RBAC: nur Keycloak-Gruppe lab-admins darf rein (sonst "Login failed") und wird Grafana-Admin.
+      # Die Familie braucht Grafana nicht (Rechtekonzept: docs/sicherheit/rechtekonzept.md).
       GF_AUTH_GENERIC_OAUTH_GROUPS_ATTRIBUTE_PATH: groups
-      GF_AUTH_GENERIC_OAUTH_ALLOWED_GROUPS: lab-users,lab-admins
+      GF_AUTH_GENERIC_OAUTH_ALLOWED_GROUPS: lab-admins
       GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(groups[*], 'lab-admins') && 'Admin' || 'Viewer'"
       GF_AUTH_GENERIC_OAUTH_ALLOW_ASSIGN_GRAFANA_ADMIN: "true"
       GF_USERS_ALLOW_SIGN_UP: "false"
@@ -176,8 +193,9 @@ services:
       # Silences + Notification-Log. Image läuft als nobody -> Verzeichnis einmalig anlegen:
       #   install -d -o 65534 -g 65534 /mnt/fast/appdata/alertmanager
       - /mnt/fast/appdata/alertmanager:/alertmanager
-    # edge-n8n: zusätzlicher Webhook an n8n (Alert-Erklärer)
-    networks: [obs, edge-n8n]
+    # edge-obs: Webhook an n8n (Alert-Erklärer) über Traefik (Alias n8n.lab, Router n8n-webhook), nicht über
+    # edge-n8n: sonst erreichte jeder n8n-Member die Alertmanager-API (Silences, ohne Login).
+    networks: [obs, edge-obs]
     mem_limit: 128m
     restart: unless-stopped
 
@@ -209,7 +227,7 @@ services:
 networks:
   edge-obs:
     external: true   # von 00-traefik angelegt; nur Traefik teilt es mit diesem Stack
-  # nur für blackbox (Probes); edge-n8n zusätzlich für victoriametrics, loki und alertmanager (n8n):
+  # nur für blackbox (Probes); edge-n8n zusätzlich für vmauth (n8n liest Metriken/Logs mit Token):
   edge-keycloak:
     external: true
   edge-forgejo:

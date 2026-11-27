@@ -3,18 +3,19 @@
 | | |
 |---|---|
 | **Zweck** | Traefik-ForwardAuth: schützt Dienste ohne eigenes OIDC mit einem Keycloak-Login |
-| **Adresse** | `/oauth2/*` auf jedem Lab-Host; Middlewares `sso@docker` und `sso-admin@docker` |
-| **Login** | Keycloak-Client `oauth2-proxy`; `sso` nur Gruppe `lab-users`, `sso-admin` nur `lab-admins` |
+| **Adresse** | `/oauth2/*` auf jedem Lab-Host; Middlewares `sso@docker`, `sso-devs@docker`, `sso-admin@docker` |
+| **Login** | Keycloak-Client `oauth2-proxy`; `sso` nur Gruppe `lab-users`, `sso-devs` nur `devs`, `sso-admin` nur `lab-admins` |
 | **Daten** | keine (Sitzung im Cookie auf `.lab.appsfab.org`) |
 | **Quelle** | [`stacks/03-oauth2-proxy/compose.yaml`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/03-oauth2-proxy/compose.yaml) |
 
-Hinter `sso@docker` stehen derzeit: Plane, Handbuch, Homepage.
-Hinter `sso-admin@docker` (Admin-Werkzeuge): Traefik-Dashboard, paperless-ai, n8n-Editor, Plane-God-Mode.
+Hinter `sso@docker` stehen derzeit: Plane, Handbuch, Familien-Startseite (`home.lab`).
+Hinter `sso-devs@docker`: n8n-Editor.
+Hinter `sso-admin@docker` (Admin-Werkzeuge): Traefik-Dashboard, paperless-ai, Plane-God-Mode, Admin-Startseite (`admin.lab`).
 Welche Middleware wofür: [Rechtekonzept](../sicherheit/rechtekonzept.md).
 
 ## Einen Dienst dahinter hängen
 
-1. Am Router des Dienstes: `traefik.http.routers.<name>.middlewares=sso@docker` (Admin-Werkzeug: `sso-admin@docker`).
+1. Am Router des Dienstes: `traefik.http.routers.<name>.middlewares=sso@docker` (Entwickler: `sso-devs@docker`, Admin-Werkzeug: `sso-admin@docker`).
 2. In `stacks/02-keycloak/realm/AppsFab-realm.json` beim Client `oauth2-proxy` die Redirect-URI
    `https://<host>.lab.appsfab.org/oauth2/callback` und den Web-Origin ergänzen.
 3. `KCC_REALM_REV` hochzählen. Ohne Schritt 2 lehnt Keycloak den Login mit „Invalid redirect_uri“ ab.

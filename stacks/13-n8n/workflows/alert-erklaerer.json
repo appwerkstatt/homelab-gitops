@@ -32,7 +32,7 @@
             {
               "id": "k2",
               "name": "lokiUrl",
-              "value": "http://loki:3100",
+              "value": "http://vmauth:8427",
               "type": "string"
             },
             {
@@ -133,7 +133,9 @@
         },
         "options": {
           "timeout": 30000
-        }
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "c3000000-0000-4000-8000-000000000004",
       "name": "Loki-Logs",
@@ -143,7 +145,12 @@
         660,
         0
       ],
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Observability lesen"
+        }
+      }
     },
     {
       "parameters": {

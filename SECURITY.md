@@ -35,6 +35,7 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | 26 | Arcane (Docker = Root) und VM-VNC aus allen Netzen erreichbar | 🔴 | 2026-11-22: NAS-Firewall, nur VLAN 10; Arcane kann nicht hinter Traefik (startet Traefik selbst) |
 | 27 | cadvisor mit `/var/run:ro` = voller Docker-Socket (ro schützt Sockets nicht) | 🟡 | 2026-11-22: cadvisor über `socket-proxy-logs` (`POST=0`) |
 | 28 | Nur eine SSO-Schranke (`lab-users`) für Nutzer-Apps und Admin-Werkzeuge; Grafana ließ jeden Realm-User als Viewer rein, Forgejo ohne Gruppenpflicht | 🟡 | 2026-11-24: Middleware `sso-admin@docker` (nur `lab-admins`) für Traefik-Dashboard, paperless-ai, n8n, Plane-God-Mode; Grafana `ALLOWED_GROUPS`; Forgejo `--required-claim-*` ([Rechtekonzept](docs/sicherheit/rechtekonzept.md)) |
+| 29 | VictoriaMetrics/Loki/Alertmanager ohne Auth im Netz `edge-n8n`: jeder n8n-Member hätte alle Logs gesehen und Alerts stummschalten können | 🟡 | 2026-11-24: nur noch vmauth (Lese-Pfade, Bearer-Token) in `edge-n8n`; Alertmanager → n8n über Traefik; n8n hinter `sso-devs@docker` |
 
 ## Verbleibend — beim Deploy / bewusst akzeptiert
 
@@ -52,7 +53,6 @@ Schweregrade: 🔴 hoch · 🟡 mittel · 🟢 niedrig/Hinweis.
 | K | TrueNAS: 2FA aus, SSH mit Passwort, UI auch per HTTP ohne Umleitung | 🟡 | offen: in TrueNAS einschalten (2FA, HTTPS-Umleitung, `ssh.update passwordauth=false`) |
 | L | Cluster-VLAN 80 = NAS-Management, Traefik, Mac Studio | 🟡 | vor dem Cluster-Neuaufbau UniFi-Regeln |
 | M | Öffentliches Repo ohne Secret Scanning/Push Protection/Dependabot-Alerts; alte SOPS-Secrets in der Historie | 🟡 | offen: in GitHub einschalten; age-Key vernichten oder alte Secrets rotieren |
-| N | VictoriaMetrics/Loki/Alertmanager ohne Auth im Netz `edge-n8n` (Silences/Löschen möglich) | 🟢 | offen: Alertmanager Basic Auth, vmauth read-only |
 
 ## Grundsätzlich gut (bestätigt)
 

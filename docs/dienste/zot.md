@@ -17,7 +17,7 @@ Docker-Hub-Images cached der getrennte [Registry-Cache](registry-cache.md).
 | Wer | Wie | Rechte |
 |---|---|---|
 | Keycloak `lab-admins` | UI (OIDC) / API-Key | lesen, schreiben, löschen |
-| Keycloak `lab-users` | UI (OIDC) / API-Key | lesen |
+| Keycloak `devs` | UI (OIDC) / API-Key | lesen |
 | `ci` | htpasswd | Push |
 | `pull` | htpasswd | lesen (NAS über Arcane-Registry-Credentials, Cluster über `registries.yaml`) |
 

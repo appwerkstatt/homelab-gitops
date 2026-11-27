@@ -46,7 +46,7 @@
             {
               "id": "c4",
               "name": "vmUrl",
-              "value": "http://victoriametrics:8428",
+              "value": "http://vmauth:8427",
               "type": "string"
             },
             {
@@ -80,7 +80,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "a1000000-0000-4000-8000-000000000003",
       "name": "Alerts 24h",
@@ -90,7 +92,12 @@
         440,
         0
       ],
-      "executeOnce": true
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Observability lesen"
+        }
+      }
     },
     {
       "parameters": {
@@ -104,7 +111,9 @@
             }
           ]
         },
-        "options": {}
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
       },
       "id": "a1000000-0000-4000-8000-000000000004",
       "name": "Alerts jetzt",
@@ -114,7 +123,12 @@
         660,
         0
       ],
-      "executeOnce": true
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Observability lesen"
+        }
+      }
     },
     {
       "parameters": {

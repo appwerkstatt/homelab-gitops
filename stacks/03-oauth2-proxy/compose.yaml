@@ -49,6 +49,10 @@ services:
       - traefik.http.middlewares.sso-admin.forwardauth.address=http://oauth2-proxy:4180/?allowed_groups=lab-admins
       - traefik.http.middlewares.sso-admin.forwardauth.trustForwardHeader=true
       - traefik.http.middlewares.sso-admin.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
+      # Dritte Middleware "sso-devs" für Entwickler-Werkzeuge (n8n): nur Gruppe devs.
+      - traefik.http.middlewares.sso-devs.forwardauth.address=http://oauth2-proxy:4180/?allowed_groups=devs
+      - traefik.http.middlewares.sso-devs.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.sso-devs.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups
     networks: [edge-sso]
     mem_limit: 128m
     restart: unless-stopped
@@ -56,6 +60,7 @@ services:
 # Anwenden auf einen Dienst (Beispiel): am jeweiligen Router das Label setzen
 #   traefik.http.routers.<dienst>.middlewares=sso@docker        # Nutzer-App: Gruppe lab-users
 #   traefik.http.routers.<dienst>.middlewares=sso-admin@docker  # Admin-Werkzeug: Gruppe lab-admins
+#   traefik.http.routers.<dienst>.middlewares=sso-devs@docker   # Entwickler-Werkzeug: Gruppe devs
 # Rechtekonzept: docs/sicherheit/rechtekonzept.md
 # z.B. Traefik-Dashboard (00-traefik), Netboot-Konsole (30-netboot), optionales S3-Browser-UI.
 #

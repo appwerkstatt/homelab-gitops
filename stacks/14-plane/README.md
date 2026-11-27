@@ -82,6 +82,9 @@ ersetzt Planes „Gitea“-Provider: Der Button **„Continue with Gitea“** me
   E-Mail auf eine fremde ändern und deren Plane-Konto übernehmen. In der Keycloak-Admin-Konsole beim Benutzer
   **„Email verified“** anhaken, sonst meldet Plane `OAUTH_PROVIDER_UNVERIFIED_EMAIL`.
 - Die Signup-Sperre gilt weiter: Neue Personen kommen nur mit Workspace-Einladung an dieselbe E-Mail rein.
+- „Sign up disabled“ nach dem Keycloak-Login heißt: Plane kennt die Keycloak-Adresse nicht. In Plane CE ist die
+  E-Mail im Profil schreibgeschützt; entweder in Keycloak angleichen oder in der DB:
+  `docker exec plane-plane-db-1 psql -U plane -d plane -c "update users set email = 'neu@…' where email = 'alt@…';"`
 - Die Plane-API holt Token und Userinfo serverseitig über den Traefik-Alias `auth.appsfab.org` im Netz `edge-plane`.
 
 Einrichten (einmalig):
@@ -90,7 +93,7 @@ Einrichten (einmalig):
 2. Arcane → **keycloak** → Environment: `PLANE_OIDC_CLIENT_SECRET` ergänzen (`scripts/render-env.sh keycloak`),
    deployen. keycloak-config-cli legt den Client `plane` an (`KCC_REALM_REV` 20).
 3. **plane** neu deployen (Bind-Mount für `plane-api`). Prüfen:
-   `docker exec plane-plane-api-1 grep -c openid-connect /code/plane/authentication/provider/oauth/gitea.py` ⇒ `2`.
+   `docker exec plane-plane-api-1 grep -c openid-connect /code/plane/authentication/provider/oauth/gitea.py` ⇒ `1` (Original: `0`).
 4. God Mode → **Authentication → Gitea**: Host `https://auth.appsfab.org/realms/AppsFab`, Client-ID `plane`,
    Secret aus Schritt 1, aktivieren. (Plane liest die Werte aus seiner DB, nicht aus der Env.)
 5. In Keycloak bei allen Plane-Nutzern „Email verified“ prüfen, dann abmelden und „Continue with Gitea“ testen.

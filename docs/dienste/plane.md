@@ -31,6 +31,8 @@ Kein eigenes Image, keine Lizenzprüfung angefasst; der Button heißt weiter „
 - Konten werden über die E-Mail verknüpft. Keycloak muss die Adresse als **verifiziert** führen
   („Email verified“ beim Benutzer), sonst lehnt Plane mit `OAUTH_PROVIDER_UNVERIFIED_EMAIL` ab.
 - Neue Personen brauchen weiterhin eine Workspace-Einladung an genau diese E-Mail (Signup bleibt aus).
+- „Sign up disabled“ nach dem Login: Keycloak- und Plane-Adresse unterscheiden sich. Plane CE lässt die E-Mail im
+  Profil nicht ändern; in Keycloak oder per SQL in der Plane-DB angleichen (README).
 - Einrichtung (Client-Secret, God Mode, Passwort-Login abschalten) im
   [README](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/14-plane/README.md#6-login-über-keycloak-statt-plane-passwort).
 - **Updates:** Der CI-Schritt `scripts/check-plane-patch.sh` hält Renovate-PRs auf, wenn Plane die Dateien ändert,

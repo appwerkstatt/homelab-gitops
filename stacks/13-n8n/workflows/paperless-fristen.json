@@ -1,0 +1,329 @@
+{
+  "name": "Paperless: Fristen (Rechnungen + Verträge)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Täglich 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "chatId",
+              "value": "TELEGRAM_CHAT_ID",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "paperlessUrl",
+              "value": "https://docs.lab.appsfab.org",
+              "type": "string"
+            },
+            {
+              "id": "c3",
+              "name": "tageRechnung",
+              "value": 7,
+              "type": "number"
+            },
+            {
+              "id": "c4",
+              "name": "tageKuendigung",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "c5",
+              "name": "tageVertragsende",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "c6",
+              "name": "timezone",
+              "value": "Europe/Berlin",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.paperlessUrl }}/api/custom_fields/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "page_size",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Felder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Paperless lesen"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Config').first().json;\nconst F = Object.fromEntries(($('Felder').first().json.results || []).map(f => [f.name, f.id]));\nfor (const n of ['Betrag', 'Fällig am', 'Bezahlt', 'Vertragsende', 'Kündigen bis', 'Steuerjahr']) {\n  if (!F[n]) throw new Error(`Custom Field \"${n}\" fehlt in Paperless (paperless-setup.py laufen lassen)`);\n}\n// Datum in Europe/Berlin als YYYY-MM-DD, plus n Tage\nconst today = new Date().toLocaleDateString('sv-SE', { timeZone: cfg.timezone });\nconst plus = (d, n) => new Date(Date.parse(d + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);\nconst q = x => JSON.stringify(x);\n\n// Gleiche Abfragen wie scripts/check-paperless-setup.py (queries), dort in CI gegen Paperless getestet.\nreturn [{ json: { F, today,\n  faellig: q(['AND', [[F['Fällig am'], 'lte', plus(today, cfg.tageRechnung)], ['NOT', [F['Bezahlt'], 'exact', true]]]]),\n  fristen: q(['OR', [[F['Kündigen bis'], 'range', [today, plus(today, cfg.tageKuendigung)]],\n                     [F['Vertragsende'], 'range', [today, plus(today, cfg.tageVertragsende)]]]]),\n} }];\n"
+      },
+      "id": "b2000000-0000-4000-8000-000000000004",
+      "name": "Abfragen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.paperlessUrl }}/api/documents/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "custom_field_query",
+              "value": "={{ $('Abfragen').first().json.faellig }}"
+            },
+            {
+              "name": "page_size",
+              "value": "100"
+            },
+            {
+              "name": "fields",
+              "value": "id,title,custom_fields"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000005",
+      "name": "Fällige Rechnungen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Paperless lesen"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.paperlessUrl }}/api/documents/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "custom_field_query",
+              "value": "={{ $('Abfragen').first().json.fristen }}"
+            },
+            {
+              "name": "page_size",
+              "value": "100"
+            },
+            {
+              "name": "fields",
+              "value": "id,title,custom_fields"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000006",
+      "name": "Vertragsfristen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Paperless lesen"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Config').first().json;\nconst F = $('Abfragen').first().json.F;\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst val = (d, name) => (d.custom_fields || []).find(c => c.field === F[name])?.value ?? null;\nconst euro = v => v ? parseFloat(String(v).replace(/^[A-Z]{3}/, '')) || 0 : 0;   // Paperless: \"EUR49.90\"\nconst fmtEuro = n => n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });\nconst fmtDate = d => d ? d.split('-').reverse().join('.') : '–';\nconst link = d => `<a href=\"${cfg.paperlessUrl}/documents/${d.id}/details\">${esc(d.title)}</a>`;\nconst today = $('Abfragen').first().json.today;\nconst rechnungen = ($('Fällige Rechnungen').first().json.results || [])\n  .sort((a, b) => String(val(a, 'Fällig am')).localeCompare(String(val(b, 'Fällig am'))));\nconst vertraege = ($('Vertragsfristen').first().json.results || [])\n  .sort((a, b) => String(val(a, 'Kündigen bis') || val(a, 'Vertragsende')).localeCompare(String(val(b, 'Kündigen bis') || val(b, 'Vertragsende'))));\nif (!rechnungen.length && !vertraege.length) return [];   // nichts fällig -> keine Nachricht\n\nconst lines = ['📄 <b>Paperless: Fristen</b>'];\nif (rechnungen.length) {\n  lines.push('', `<b>Rechnungen fällig (${rechnungen.length})</b>`);\n  for (const d of rechnungen) {\n    const due = val(d, 'Fällig am');\n    const mark = due && due < today ? '🔴 überfällig seit' : due === today ? '🟠 heute' : '🟡 bis';\n    lines.push(`${mark} ${fmtDate(due)}: ${link(d)}${val(d, 'Betrag') ? ' · ' + fmtEuro(euro(val(d, 'Betrag'))) : ''}`);\n  }\n  lines.push('<i>Bezahlt? In Paperless das Feld „Bezahlt“ anhaken.</i>');\n}\nif (vertraege.length) {\n  lines.push('', `<b>Verträge (${vertraege.length})</b>`);\n  for (const d of vertraege) {\n    const k = val(d, 'Kündigen bis'), e = val(d, 'Vertragsende');\n    lines.push(`📝 ${link(d)}: ${k ? 'kündigen bis ' + fmtDate(k) : ''}${k && e ? ', ' : ''}${e ? 'endet ' + fmtDate(e) : ''}`);\n  }\n}\nreturn [{ json: { text: lines.join('\\n') } }];\n"
+      },
+      "id": "b2000000-0000-4000-8000-000000000007",
+      "name": "Nachricht bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000008",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        0
+      ],
+      "webhookId": "b2000000-0000-4000-8000-000000000009"
+    }
+  ],
+  "connections": {
+    "Täglich 8:00": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Felder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Felder": {
+      "main": [
+        [
+          {
+            "node": "Abfragen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abfragen": {
+      "main": [
+        [
+          {
+            "node": "Fällige Rechnungen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fällige Rechnungen": {
+      "main": [
+        [
+          {
+            "node": "Vertragsfristen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vertragsfristen": {
+      "main": [
+        [
+          {
+            "node": "Nachricht bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nachricht bauen": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

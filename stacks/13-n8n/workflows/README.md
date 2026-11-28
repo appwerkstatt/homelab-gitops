@@ -83,6 +83,29 @@ docker exec "$(docker ps -qf name=n8n-n8n)" wget -qO- --header "Authorization: B
   "name":"n8n"},"annotations":{"summary":"Test"}}]}' http://localhost:5678/webhook/alert-erklaerer
 ```
 
+## paperless-fristen.json und paperless-monatsbericht.json: Paperless → Telegram
+
+- **Fristen** (täglich 08:00): Rechnungen mit *Fällig am* in den nächsten 7 Tagen oder überfällig, die nicht als
+  *Bezahlt* markiert sind, und Verträge mit *Kündigen bis* in 30 bzw. *Vertragsende* in 60 Tagen. Steht nichts an,
+  kommt keine Nachricht. Tage ändern: Node **Config**.
+- **Monatsbericht** (am 1., 08:15): Rechnungen des Vormonats (nach Ausstellungsdatum) mit Summe und den fünf
+  größten, offene Rechnungen, Vertragsfristen in 90 Tagen, Zahl der Steuerdokumente fürs Vorjahr und wie viele noch
+  kein Steuerjahr haben.
+
+Beide lesen nur die Custom Fields aus `stacks/11-paperless/setup/paperless-setup.py`. Der Paperless-Benutzer `n8n`
+sieht nur Dokumente mit Tag Rechnung, Vertrag, Versicherung oder Steuer (Handbuch: Dienste → Paperless →
+Automatisierung). Die Abfragen prüft die CI gegen ein echtes Paperless (`scripts/check-paperless-setup.py`,
+Funktion `queries`, muss zu den Code-Nodes **Abfragen** passen).
+
+Einrichtung nach dem Import:
+
+1. `paperless-setup.py --n8n-user` gelaufen, Token in 1Password `homelab-paperless/n8n-api-token`.
+2. In n8n als **Owner** ein Credential *Header Auth* anlegen: Name **Paperless lesen**, Header `Authorization`,
+   Value `Token <n8n-api-token>` (das Wort `Token`, Leerzeichen, Token). Nicht mit anderen Benutzern teilen.
+3. In allen HTTP-Nodes dieses Credential wählen, im Node **Telegram** das Telegram-Credential, im Node **Config**
+   die `chatId`.
+4. Einmal *Execute workflow* (bei den Fristen kommt nur eine Nachricht, wenn etwas ansteht), dann **Active**.
+
 ## Zugriff auf Metriken und Logs
 
 VictoriaMetrics, Loki und Alertmanager hängen nicht im Netz `edge-n8n`. n8n liest Metriken und Logs nur über

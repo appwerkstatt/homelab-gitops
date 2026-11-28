@@ -88,7 +88,7 @@ Was ein n8n-Member trotzdem erreicht: Traefik (alle `*.lab`-Hosts, also wieder m
 Paperless hat eigene Konten und Rechte pro Dokument:
 
 - Jeder ist **Besitzer** seiner eigenen Dokumente; die sieht sonst niemand (außer dem Superuser).
-- Gemeinsame Dokumente (Verträge, Versicherungen, Steuern) bekommen zusätzlich Rechte für die Paperless-Gruppe
+- Gemeinsame Dokumente (Verträge, Versicherungen, Steuern, Haus, Kinder) bekommen zusätzlich Rechte für die Paperless-Gruppe
   **`haushalt`** (Ansehen + Bearbeiten). Mitglieder: **nur Christian und seine Frau**. Sohn und Tochter sehen
   nur ihre eigenen Dokumente (Entscheidung 2026-11-27).
 - Ein Workflow „Dokument hinzugefügt → Besitzer = hochladende Person“ sorgt dafür, dass neue Uploads nicht offen sind.

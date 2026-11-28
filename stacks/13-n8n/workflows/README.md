@@ -86,7 +86,8 @@ docker exec "$(docker ps -qf name=n8n-n8n)" wget -qO- --header "Authorization: B
 ## paperless-fristen.json und paperless-monatsbericht.json: Paperless → Telegram
 
 - **Fristen** (täglich 08:00): Rechnungen mit *Fällig am* in den nächsten 7 Tagen oder überfällig, die nicht als
-  *Bezahlt* markiert sind, und Verträge mit *Kündigen bis* in 30 bzw. *Vertragsende* in 60 Tagen. Steht nichts an,
+  *Bezahlt* markiert sind, Verträge mit *Kündigen bis* in 30 bzw. *Vertragsende* in 60 Tagen und Garantien
+  (*Garantie bis*) in 30 Tagen. Steht nichts an,
   kommt keine Nachricht. Tage ändern: Node **Config**.
 - **Monatsbericht** (am 1., 08:15): Rechnungen des Vormonats (nach Ausstellungsdatum) mit Summe und den fünf
   größten, offene Rechnungen, Vertragsfristen in 90 Tagen, Zahl der Steuerdokumente fürs Vorjahr und wie viele noch

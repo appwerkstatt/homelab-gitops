@@ -41,8 +41,8 @@ flowchart LR
 
 | Art | Inhalt |
 |---|---|
-| **Custom Fields** | `Betrag` (EUR), `Fällig am`, `Bezahlt` (Ja/Nein), `Vertragsende`, `Kündigen bis`, `Steuerjahr` |
-| **Tags** | `Rechnung`, `Vertrag`, `Versicherung`, `Steuer`, `Haushalt` (Auto-Zuordnung über Stichwörter), `E-Mail` und die übrige Positivliste `Bank`, `Wohnung`, `Gesundheit`, `Auto`, `Fahrrad`, `Technik`, `Arbeit`, `Behörde`, `Garantie`, `Wichtig` (ohne Stichwörter). Ohne Besitzer, damit alle Konten sie sehen; die Dokumente bleiben trotzdem privat |
+| **Custom Fields** | `Betrag` (EUR), `Fällig am`, `Bezahlt` (Ja/Nein), `Vertragsende`, `Kündigen bis`, `Steuerjahr`, `Garantie bis` |
+| **Tags** | `Rechnung`, `Vertrag`, `Versicherung`, `Steuer`, `Haushalt` (Auto-Zuordnung über Stichwörter), `E-Mail` und die Lebensbereiche `Haus`, `Finanzen`, `Vorsorge`, `Gesundheit`, `Auto`, `Arbeit`, `Kinder`, `Technik`, `Freizeit` (ohne Stichwörter, höchstens einer pro Dokument; was es ist und von wem, sagen Dokumenttyp und Korrespondent). Ohne Besitzer, damit alle Konten sie sehen; die Dokumente bleiben trotzdem privat |
 | **Workflows** | siehe unten |
 | **Ansichten** | *Rechnungen offen* (nach Fälligkeit), *Verträge mit Frist* (nach „Kündigen bis“), *Steuer &lt;Jahr&gt;* (Vorjahr + laufendes Jahr), *Steuer: ohne Steuerjahr*. Geteilt mit `haushalt` |
 | **Benutzer `n8n`** | nur Lese-Rechte, sieht nur Rechnungen, Verträge, Versicherungen und Steuer (per Workflow freigegeben) |
@@ -54,8 +54,8 @@ Workflows (die Reihenfolge zählt, spätere Zuweisungen gewinnen):
 | Consume-Ordner: Besitzer christian | Datei in `consume/` | Besitzer `christian` (sonst hätte der Scan keinen Besitzer und alle sähen ihn) |
 | Consume-Ordner gisa/ | Datei in `consume/gisa/` | Besitzer `gisa` |
 | Consume-Ordner haushalt/ | Datei in `consume/haushalt/` | Besitzer `christian` + Tag `Haushalt` |
-| Gemeinsam: mit haushalt teilen | Tag `Haushalt`, `Vertrag`, `Versicherung` oder `Steuer` | Ansehen + Bearbeiten für `haushalt` ([Rechtekonzept](../sicherheit/rechtekonzept.md#paperless-private-und-gemeinsame-dokumente)) |
-| Rechnung: Felder | Tag `Rechnung` | Felder Betrag, Fällig am, Bezahlt + Leserecht `n8n` |
+| Gemeinsam: mit haushalt teilen | Tag `Haushalt`, `Vertrag`, `Versicherung`, `Steuer`, `Haus` oder `Kinder` | Ansehen + Bearbeiten für `haushalt` ([Rechtekonzept](../sicherheit/rechtekonzept.md#paperless-private-und-gemeinsame-dokumente)) |
+| Rechnung: Felder | Tag `Rechnung` | Felder Betrag, Fällig am, Bezahlt, Garantie bis + Leserecht `n8n` |
 | Vertrag: Felder | Tag `Vertrag` oder `Versicherung` | Felder Vertragsende, Kündigen bis + Leserecht `n8n` |
 | Steuer: Feld Steuerjahr | Tag `Steuer` | Feld Steuerjahr + Leserecht `n8n` |
 
@@ -65,7 +65,7 @@ Entscheidung 2026-11-28: beide Sprachen akzeptieren). Kommt ein neuer englischer
 `--update --backfill` erneut laufen lassen.
 
 **Positivliste für Tags:** Die Tags in `TAGS` (Skript) plus `ai-verarbeitet` sind die einzigen, die bleiben sollen.
-Die KI erfindet sonst laufend neue (`inventory`, `2026`, `kaufbeleg`, ...). Aufräumen:
+Die KI erfindet sonst laufend neue (`inventory`, `2026`, `kaufbeleg`, ...). Bewusst nicht dabei: `Wichtig` (vergibt die KI wahllos), `Behörde` (steht im Korrespondenten), `Garantie` (dafür das Feld *Garantie bis*). Aufräumen:
 
 ```bash
 python3 stacks/11-paperless/setup/paperless-setup.py --tags-aufraeumen --dry-run   # zeigt die Liste
@@ -86,7 +86,7 @@ Die Tag-Workflows laufen beim Hinzufügen **und** beim Bearbeiten, also auch, we
 später den Tag setzt. Vorhandene Werte in Feldern überschreiben sie nicht. Die Felder füllt paperless-ai
 (*Einstellungen → Custom Fields*, Funktion muss eingeschaltet sein) oder man selbst; Fälligkeit und „Kündigen bis“ sind die Grundlage für die Telegram-Erinnerungen.
 
-**Hinweis:** Auch Dokumente der Kinder mit Tag `Vertrag`, `Versicherung` oder `Steuer` werden mit `haushalt` (den
+**Hinweis:** Auch Dokumente der Kinder mit Tag `Vertrag`, `Versicherung`, `Steuer` oder `Kinder` werden mit `haushalt` (den
 Eltern) geteilt.
 
 ### Einrichten

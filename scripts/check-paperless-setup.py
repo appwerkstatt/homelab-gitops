@@ -88,7 +88,8 @@ def queries(F, today):
     d = lambda n: (today + datetime.timedelta(days=n)).isoformat()  # noqa: E731
     return {
         "faellig": ["AND", [[F["Fällig am"], "lte", d(7)], ["NOT", [F["Bezahlt"], "exact", True]]]],
-        "fristen": ["OR", [[F["Kündigen bis"], "range", [d(0), d(30)]], [F["Vertragsende"], "range", [d(0), d(60)]]]],
+        "fristen": ["OR", [[F["Kündigen bis"], "range", [d(0), d(30)]], [F["Vertragsende"], "range", [d(0), d(60)]],
+                              [F["Garantie bis"], "range", [d(0), d(30)]]]],
         "offen": ["AND", [[F["Betrag"], "exists", True], ["NOT", [F["Bezahlt"], "exact", True]]]],
         "rechnungen": [F["Betrag"], "exists", True],
         "steuer_ohne_jahr": ["AND", [[F["Steuerjahr"], "exists", True], [F["Steuerjahr"], "isnull", True]]],
@@ -200,7 +201,7 @@ def main():
     check(call("GET", f"/documents/{b['id']}/", gisa_tok, ok="any")[0] == 404, "gisa sieht brief nicht")
     check("Haushalt" in {t["name"] for t in get("/tags/", gisa_tok)["results"]}, "gisa sieht Tag Haushalt")
     check(call("GET", f"/documents/{b['id']}/", n8n_tok, ok="any")[0] == 404, "n8n sieht brief nicht")
-    check(len(get("/custom_fields/", n8n_tok)["results"]) >= 6, "n8n sieht Custom Fields")
+    check(len(get("/custom_fields/", n8n_tok)["results"]) >= 7, "n8n sieht Custom Fields")
 
     print("Abfragen der n8n-Workflows (als n8n)")
     call("PATCH", f"/documents/{r['id']}/", tok, {"custom_fields": [
@@ -221,6 +222,11 @@ def main():
         {"field": F["Betrag"], "value": "EUR49.90"}, {"field": F["Fällig am"], "value": today.isoformat()},
         {"field": F["Bezahlt"], "value": True}]})
     check(cfq(n8n_tok, Q["faellig"]) == set(), "bezahlte Rechnung nicht mehr fällig")
+    check(F["Garantie bis"] in {c["field"] for c in r["custom_fields"]}, "Rechnung bekommt Garantie bis")
+    call("PATCH", f"/documents/{r['id']}/", tok, {"custom_fields": [
+        {"field": F["Betrag"], "value": "EUR49.90"}, {"field": F["Bezahlt"], "value": True},
+        {"field": F["Garantie bis"], "value": (today + datetime.timedelta(days=20)).isoformat()}]})
+    check(cfq(n8n_tok, Q["fristen"]) == {"alt", "rechnung"}, "Garantie läuft ab -> in den Fristen")
     val = next(c["value"] for c in get(f"/documents/{r['id']}/", n8n_tok)["custom_fields"] if c["field"] == F["Betrag"])
     check(val == "EUR49.90", f"Betrag-Format für n8n ({val})")
 
@@ -235,10 +241,10 @@ def main():
     run_setup(tok, "--tags-aufraeumen", "--update")
     T = {t["name"]: t["id"] for t in get("/tags/", tok, page_size=200)["results"]}
     check(not {"kaufbeleg", "2026", "wohnung", "ungenutzt", "invoice"} & set(T), f"Fremd-Tags weg ({sorted(T)})")
-    check({"Rechnung", "Wohnung", "Technik", "E-Mail", "ai-verarbeitet"} <= set(T), "Positivliste + ai-verarbeitet bleiben")
+    check({"Rechnung", "Haus", "Kinder", "Technik", "E-Mail", "ai-verarbeitet"} <= set(T), "Positivliste + ai-verarbeitet bleiben")
     rt = set(get(f"/documents/{r['id']}/", tok)["tags"])
     check({T["Rechnung"], T["ai-verarbeitet"]} <= rt and not {junk["kaufbeleg"], junk["2026"]} & rt, "kaufbeleg -> Rechnung")
-    check(T["Wohnung"] in get(f"/documents/{s['id']}/", tok)["tags"], "wohnung -> Wohnung")
+    check(T["Haus"] in get(f"/documents/{s['id']}/", tok)["tags"], "wohnung -> Haus")
     rw = get(f"/workflows/{wf['Rechnung: Felder Betrag/Fällig/Bezahlt']['id']}/", tok)["triggers"][0]["filter_has_tags"]
     check(set(rw) == {T["Rechnung"]}, f"Workflow ohne gelöschten invoice-Tag ({rw})")
     out3 = run_setup(tok, "--tags-aufraeumen")

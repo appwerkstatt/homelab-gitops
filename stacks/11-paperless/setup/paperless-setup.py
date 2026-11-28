@@ -4,9 +4,9 @@
 Legt an, was fehlt, und lässt Bestehendes in Ruhe (gleicher Name = vorhanden; --update überschreibt
 Workflows und Ansichten mit dem Stand aus diesem Skript):
 
-  * Custom Fields  Betrag, Fällig am, Bezahlt, Vertragsende, Kündigen bis, Steuerjahr
+  * Custom Fields  Betrag, Fällig am, Bezahlt, Vertragsende, Kündigen bis, Steuerjahr, Garantie bis
   * Tags           Rechnung, Vertrag, Versicherung, Steuer, Haushalt, E-Mail (mit Auto-Zuordnung) und die
-                   übrige Positivliste (Bank, Wohnung, Gesundheit, Auto, Fahrrad, Technik, Arbeit, Behörde, ...)
+                   Lebensbereiche (Haus, Finanzen, Vorsorge, Gesundheit, Auto, Arbeit, Kinder, Technik, Freizeit)
   * --tags-aufraeumen  alle anderen Tags zusammenlegen (TAG_MERGE) oder löschen, erst mit --dry-run ansehen
   * Workflows      Besitzer für den Consume-Ordner (pro Unterordner), Teilen mit `haushalt`,
                    Felder für Rechnungen/Verträge/Steuer, Leserecht für den n8n-Benutzer
@@ -53,6 +53,7 @@ FIELDS = [
     ("Vertragsende", "date", None),
     ("Kündigen bis", "date", None),
     ("Steuerjahr", "integer", None),
+    ("Garantie bis", "date", None),   # an Rechnungen für Geräte; n8n erinnert 30 Tage vorher
 ]
 
 # --- Tags: Name, Farbe, Wörter für die Auto-Zuordnung "irgendein Wort" (None = keine Auto-Zuordnung) ---
@@ -65,17 +66,17 @@ TAGS = [
     ("Haushalt", "#9c36b5", "Stadtwerke Stromrechnung Gasrechnung Abschlag Rundfunkbeitrag Grundsteuer "
                             "Nebenkostenabrechnung Müllgebühren Wasserversorgung"),
     ("E-Mail", "#868e96", None),
-    # Positivliste ohne Stichwörter: setzt paperless-ai ("nur vorhandene Tags") oder man selbst
-    ("Bank", "#5c940d", None),
-    ("Wohnung", "#ae3ec9", None),
+    # Lebensbereiche (höchstens einer pro Dokument, ohne Stichwörter): setzt paperless-ai
+    # ("Restrict to existing tags") oder man selbst. Was/von wem steht in Dokumenttyp/Korrespondent, nicht im Tag.
+    ("Haus", "#ae3ec9", None),          # Grundsteuer, Energie, Internet, Handwerker
+    ("Finanzen", "#5c940d", None),      # Bank, Kreditkarte, Depot, Solarpark, Schufa
+    ("Vorsorge", "#1098ad", None),      # Rente, Altersvorsorge
     ("Gesundheit", "#e03131", None),
     ("Auto", "#495057", None),
-    ("Fahrrad", "#74b816", None),
-    ("Technik", "#3b5bdb", None),
     ("Arbeit", "#f08c00", None),
-    ("Behörde", "#862e9c", None),
-    ("Garantie", "#1098ad", None),
-    ("Wichtig", "#c92a2a", None),
+    ("Kinder", "#f783ac", None),        # Schule, Kita, alles zu Tom und der Tochter
+    ("Technik", "#3b5bdb", None),       # Homelab, Apple, UniFi, Garmin
+    ("Freizeit", "#74b816", None),      # Fahrrad, Sport, Mitgliedschaften
 ]
 # --tags-aufraeumen: TAGS oben + KEEP_TAGS sind die Positivliste. Jeder andere Tag geht im Ziel aus TAG_MERGE auf
 # (Dokumente bekommen das Ziel, der alte Tag wird gelöscht) oder wird gelöscht, wenn er nirgends steht.
@@ -85,24 +86,26 @@ TAG_MERGE = {
     "Rechnung": ["invoice", "invoices", "bill", "bills", "kaufbeleg", "Abrechnung", "Abrechnungen"],
     "Vertrag": ["contract", "contracts", "agreement", "Verträge", "Versorgungsverträge", "Abonnement", "Subscription"],
     "Versicherung": ["insurance", "Krankenversicherung", "Krankheitskostenversicherung", "Pflegeversicherung",
-                     "Pflegepflichtversicherung", "Kfz-Versicherung", "Rentenversicherung"],
+                     "Pflegepflichtversicherung", "Kfz-Versicherung"],
     "Steuer": ["tax", "taxes", "steuerrelevant", "Steuerbescheinigung", "Steuererklärung 2025", "Finanzamt",
-               "Grundsteuer", "Grundsteuerwertbescheid", "Kapitalerträge", "Aktienveräußerungen", "Kinderfreibeträge",
-               "Vorsorgeaufwendungen", "Altersvorsorgebeiträge", "Abziehbare Spenden"],
-    "Bank": ["Finanzen", "Finance", "Banking", "Banken", "Bankgeschäft", "Finanzdienstleistung", "Kreditkarte",
-             "Kreditkarten", "Schufa", "Kreditwürdigkeit", "Solarpark"],
+               "Kapitalerträge", "Aktienveräußerungen", "Kinderfreibeträge", "Vorsorgeaufwendungen",
+               "Abziehbare Spenden"],
     "Haushalt": ["household"],
-    "Wohnung": ["Gas", "Internet", "Telekommunikation"],
+    "Haus": ["Wohnung", "Grundsteuer", "Grundsteuerwertbescheid", "Gas", "Internet", "Telekommunikation", "möbel",
+             "garten", "werkzeug"],
+    "Finanzen": ["Bank", "Finance", "Banking", "Banken", "Bankgeschäft", "Finanzdienstleistung", "Kreditkarte",
+                 "Kreditkarten", "Schufa", "Kreditwürdigkeit", "Solarpark"],
+    "Vorsorge": ["Rentenberechnung", "Rentenversicherung", "Altersvorsorgebeiträge"],
     "Gesundheit": ["Pflege", "healthcare", "Augenglas", "Sportbrille"],
-    "Auto": ["BMW", "Fahrzeug", "connecteddrive", "Radwechsel"],
-    "Fahrrad": ["bicycle", "Bike Discount"],
-    "Technik": ["computer", "Computerhardware", "elektronik", "Apple", "ASUS", "Garmin", "UniFi", "networking",
-                "Network", "Netzwerkgeräte", "L3-Routing", "Kabelleitungen", "accessories", "3d-druck"],
+    "Auto": ["BMW", "Fahrzeug", "connecteddrive", "Radwechsel", "Kfz"],
     "Arbeit": ["löhne", "geschäftlich"],
-    "Behörde": ["Bescheid", "Rentenberechnung", "Identifizierung"],
-    "Garantie": ["bedienungsanleitung", "seriennummer"],
+    "Kinder": ["Schule", "Kita"],
+    "Technik": ["computer", "Computerhardware", "elektronik", "Apple", "ASUS", "Garmin", "UniFi", "networking",
+                "Network", "Netzwerkgeräte", "L3-Routing", "Kabelleitungen", "accessories", "3d-druck", "audio"],
+    "Freizeit": ["fahrrad", "bicycle", "Bike Discount", "sport", "Sports Equipment", "training", "Haus Kiekeberg",
+                 "travel"],
 }
-SHARED_TAGS = ["Haushalt", "Vertrag", "Versicherung", "Steuer"]   # -> Gruppe haushalt (Rechtekonzept)
+SHARED_TAGS = ["Haushalt", "Vertrag", "Versicherung", "Steuer", "Haus", "Kinder"]   # -> Gruppe haushalt (Rechtekonzept)
 # Englische Tags, die KI-Vorschläge (paperless-ai, Paperless-KI) anlegen. Gibt es sie, zählen sie in Workflows,
 # Ansichten und Backfill wie der deutsche Tag (Entscheidung Christian 2026-11-28: beide Sprachen akzeptieren).
 TAG_ALIASES = {
@@ -332,7 +335,8 @@ def workflows_spec(f, t, users, share_gid, n8n_uid):
         on_tags(f"Gemeinsam: mit {SHARE_GROUP} teilen", 20, SHARED_TAGS,
                 {"assign_view_groups": [share_gid], "assign_change_groups": [share_gid]}),
         on_tags("Rechnung: Felder Betrag/Fällig/Bezahlt", 30, ["Rechnung"],
-                {"assign_custom_fields": [f["Betrag"], f["Fällig am"], f["Bezahlt"]], "assign_view_users": viewers}),
+                {"assign_custom_fields": [f["Betrag"], f["Fällig am"], f["Bezahlt"], f["Garantie bis"]],
+                 "assign_view_users": viewers}),
         on_tags("Vertrag: Felder Vertragsende/Kündigen bis", 31, ["Vertrag", "Versicherung"],
                 {"assign_custom_fields": [f["Vertragsende"], f["Kündigen bis"]], "assign_view_users": viewers}),
         on_tags("Steuer: Feld Steuerjahr", 32, ["Steuer"],
@@ -437,7 +441,7 @@ def backfill(api, f, t, share_gid, n8n_uid):
 
     bulk(docs(SHARED_TAGS, lacks=("change", "groups", share_gid)), "set_permissions", perms(view_groups=[share_gid], change_groups=[share_gid]),
          f"mit {SHARE_GROUP} teilen")
-    groups = [(["Rechnung"], ["Betrag", "Fällig am", "Bezahlt"]),
+    groups = [(["Rechnung"], ["Betrag", "Fällig am", "Bezahlt", "Garantie bis"]),
               (["Vertrag", "Versicherung"], ["Vertragsende", "Kündigen bis"]),
               (["Steuer"], ["Steuerjahr"])]
     for tags, fields in groups:

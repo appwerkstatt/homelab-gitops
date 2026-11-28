@@ -40,10 +40,10 @@ def call(method, path, token, data=None, form=None, ok=(200, 201, 204)):
             return r.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")[:1500]
-        if e.code in ok:
-            return e.code, None
         if ok == "any":
             return e.code, detail
+        if e.code in ok:
+            return e.code, None
         sys.exit(f"FEHLER {method} {path}: HTTP {e.code}\n{detail}")
 
 

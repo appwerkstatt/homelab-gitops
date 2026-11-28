@@ -224,6 +224,26 @@ def main():
     val = next(c["value"] for c in get(f"/documents/{r['id']}/", n8n_tok)["custom_fields"] if c["field"] == F["Betrag"])
     check(val == "EUR49.90", f"Betrag-Format für n8n ({val})")
 
+    print("Tags aufräumen (Positivliste)")
+    junk = {n: call("POST", "/tags/", tok, {"name": n, "matching_algorithm": 0})[1]["id"]
+            for n in ["kaufbeleg", "2026", "wohnung", "ai-verarbeitet", "ungenutzt"]}
+    call("PATCH", f"/documents/{r['id']}/", tok, {"tags": r["tags"] + [junk["kaufbeleg"], junk["2026"], junk["ai-verarbeitet"]]})
+    call("PATCH", f"/documents/{s['id']}/", tok, {"tags": s["tags"] + [junk["wohnung"]]})
+    before = {t["name"] for t in get("/tags/", tok, page_size=200)["results"]}
+    run_setup(tok, "--dry-run", "--tags-aufraeumen")
+    check({t["name"] for t in get("/tags/", tok, page_size=200)["results"]} == before, "dry-run: Tags unverändert")
+    run_setup(tok, "--tags-aufraeumen", "--update")
+    T = {t["name"]: t["id"] for t in get("/tags/", tok, page_size=200)["results"]}
+    check(not {"kaufbeleg", "2026", "wohnung", "ungenutzt", "invoice"} & set(T), f"Fremd-Tags weg ({sorted(T)})")
+    check({"Rechnung", "Wohnung", "Technik", "E-Mail", "ai-verarbeitet"} <= set(T), "Positivliste + ai-verarbeitet bleiben")
+    rt = set(get(f"/documents/{r['id']}/", tok)["tags"])
+    check({T["Rechnung"], T["ai-verarbeitet"]} <= rt and not {junk["kaufbeleg"], junk["2026"]} & rt, "kaufbeleg -> Rechnung")
+    check(T["Wohnung"] in get(f"/documents/{s['id']}/", tok)["tags"], "wohnung -> Wohnung")
+    rw = get(f"/workflows/{wf['Rechnung: Felder Betrag/Fällig/Bezahlt']['id']}/", tok)["triggers"][0]["filter_has_tags"]
+    check(set(rw) == {T["Rechnung"]}, f"Workflow ohne gelöschten invoice-Tag ({rw})")
+    out3 = run_setup(tok, "--tags-aufraeumen")
+    check(not [x for x in out3.splitlines() if x.startswith(("  - ", "  ~ "))], "zweites Aufräumen ändert nichts")
+
     if failures:
         sys.exit(f"\n{len(failures)} Prüfung(en) fehlgeschlagen: " + "; ".join(failures))
     print("\nAlles ok.")

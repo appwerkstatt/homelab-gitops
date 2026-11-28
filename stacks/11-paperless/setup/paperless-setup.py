@@ -5,7 +5,9 @@ Legt an, was fehlt, und lässt Bestehendes in Ruhe (gleicher Name = vorhanden; -
 Workflows und Ansichten mit dem Stand aus diesem Skript):
 
   * Custom Fields  Betrag, Fällig am, Bezahlt, Vertragsende, Kündigen bis, Steuerjahr
-  * Tags           Rechnung, Vertrag, Versicherung, Steuer, Haushalt, E-Mail (mit Auto-Zuordnung)
+  * Tags           Rechnung, Vertrag, Versicherung, Steuer, Haushalt, E-Mail (mit Auto-Zuordnung) und die
+                   übrige Positivliste (Bank, Wohnung, Gesundheit, Auto, Fahrrad, Technik, Arbeit, Behörde, ...)
+  * --tags-aufraeumen  alle anderen Tags zusammenlegen (TAG_MERGE) oder löschen, erst mit --dry-run ansehen
   * Workflows      Besitzer für den Consume-Ordner (pro Unterordner), Teilen mit `haushalt`,
                    Felder für Rechnungen/Verträge/Steuer, Leserecht für den n8n-Benutzer
   * Ansichten      Rechnungen offen, Verträge mit Frist, Steuer <Jahr>, Steuer ohne Jahr
@@ -63,7 +65,43 @@ TAGS = [
     ("Haushalt", "#9c36b5", "Stadtwerke Stromrechnung Gasrechnung Abschlag Rundfunkbeitrag Grundsteuer "
                             "Nebenkostenabrechnung Müllgebühren Wasserversorgung"),
     ("E-Mail", "#868e96", None),
+    # Positivliste ohne Stichwörter: setzt paperless-ai ("nur vorhandene Tags") oder man selbst
+    ("Bank", "#5c940d", None),
+    ("Wohnung", "#ae3ec9", None),
+    ("Gesundheit", "#e03131", None),
+    ("Auto", "#495057", None),
+    ("Fahrrad", "#74b816", None),
+    ("Technik", "#3b5bdb", None),
+    ("Arbeit", "#f08c00", None),
+    ("Behörde", "#862e9c", None),
+    ("Garantie", "#1098ad", None),
+    ("Wichtig", "#c92a2a", None),
 ]
+# --tags-aufraeumen: TAGS oben + KEEP_TAGS sind die Positivliste. Jeder andere Tag geht im Ziel aus TAG_MERGE auf
+# (Dokumente bekommen das Ziel, der alte Tag wird gelöscht) oder wird gelöscht, wenn er nirgends steht.
+# Gleich geschriebene Tags in anderer Groß-/Kleinschreibung werden zusammengelegt bzw. umbenannt.
+KEEP_TAGS = ["ai-verarbeitet"]   # merkt sich paperless-ai für bearbeitete Dokumente; Posteingangs-Tags bleiben auch
+TAG_MERGE = {
+    "Rechnung": ["invoice", "invoices", "bill", "bills", "kaufbeleg", "Abrechnung", "Abrechnungen"],
+    "Vertrag": ["contract", "contracts", "agreement", "Verträge", "Versorgungsverträge", "Abonnement", "Subscription"],
+    "Versicherung": ["insurance", "Krankenversicherung", "Krankheitskostenversicherung", "Pflegeversicherung",
+                     "Pflegepflichtversicherung", "Kfz-Versicherung", "Rentenversicherung"],
+    "Steuer": ["tax", "taxes", "steuerrelevant", "Steuerbescheinigung", "Steuererklärung 2025", "Finanzamt",
+               "Grundsteuer", "Grundsteuerwertbescheid", "Kapitalerträge", "Aktienveräußerungen", "Kinderfreibeträge",
+               "Vorsorgeaufwendungen", "Altersvorsorgebeiträge", "Abziehbare Spenden"],
+    "Bank": ["Finanzen", "Finance", "Banking", "Banken", "Bankgeschäft", "Finanzdienstleistung", "Kreditkarte",
+             "Kreditkarten", "Schufa", "Kreditwürdigkeit", "Solarpark"],
+    "Haushalt": ["household"],
+    "Wohnung": ["Gas", "Internet", "Telekommunikation"],
+    "Gesundheit": ["Pflege", "healthcare", "Augenglas", "Sportbrille"],
+    "Auto": ["BMW", "Fahrzeug", "connecteddrive", "Radwechsel"],
+    "Fahrrad": ["bicycle", "Bike Discount"],
+    "Technik": ["computer", "Computerhardware", "elektronik", "Apple", "ASUS", "Garmin", "UniFi", "networking",
+                "Network", "Netzwerkgeräte", "L3-Routing", "Kabelleitungen", "accessories", "3d-druck"],
+    "Arbeit": ["löhne", "geschäftlich"],
+    "Behörde": ["Bescheid", "Rentenberechnung", "Identifizierung"],
+    "Garantie": ["bedienungsanleitung", "seriennummer"],
+}
 SHARED_TAGS = ["Haushalt", "Vertrag", "Versicherung", "Steuer"]   # -> Gruppe haushalt (Rechtekonzept)
 # Englische Tags, die KI-Vorschläge (paperless-ai, Paperless-KI) anlegen. Gibt es sie, zählen sie in Workflows,
 # Ansichten und Backfill wie der deutsche Tag (Entscheidung Christian 2026-11-28: beide Sprachen akzeptieren).
@@ -177,10 +215,12 @@ def ensure_fields(api):
 
 def ensure_tags(api):
     print("Tags")
-    existing = by_name(api.all("/tags/"))
+    tags = api.all("/tags/")
+    existing = by_name(tags)
+    exact = {x["name"]: x for x in tags}
     ids = {}
     for name, color, words in TAGS:
-        cur = existing.get(name.casefold())
+        cur = exact.get(name) or existing.get(name.casefold())
         if cur:
             ids[name] = cur["id"]
             print(f"  = {name} (Zuordnung bleibt, wie sie ist)")
@@ -196,6 +236,37 @@ def ensure_tags(api):
         if found:
             print(f"  = {name} gilt auch für: {', '.join(x['name'] for x in found)}")
     return ids
+
+
+def tidy_tags(api, t):
+    """Positivliste durchsetzen (--tags-aufraeumen), siehe TAG_MERGE. Gibt die gelöschten Tag-IDs zurück."""
+    print("Tags aufräumen (Positivliste)")
+    keep = {n.casefold() for n in KEEP_TAGS}
+    target_of = {n.casefold(): n for n in t}                      # Schreibvarianten -> Positiv-Tag
+    for target, sources in TAG_MERGE.items():
+        target_of.update({s.casefold(): target for s in sources})
+    deleted = set()
+    for tag in sorted(api.all("/tags/"), key=lambda x: -x.get("document_count", 0)):
+        name, tid, n = tag["name"], tag["id"], tag.get("document_count", 0)
+        if tid in t.values():
+            want = next(k for k, v in t.items() if v == tid)
+            if name != want:
+                api.write("PATCH", f"/tags/{tid}/", {"name": want}, f"{name} -> {want}")
+                print(f"  ~ {name} heißt jetzt {want}")
+            continue
+        if name.casefold() in keep or tag.get("is_inbox_tag"):
+            continue
+        target = target_of.get(name.casefold())
+        if target and n:
+            docs = [d["id"] for d in api.all("/documents/", tags__id__all=tid, fields="id")]
+            api.write("POST", "/documents/bulk_edit/", {"documents": docs, "method": "add_tag",
+                                                       "parameters": {"tag": t[target]}}, f"{target} an {len(docs)} Dokumente")
+        api.write("DELETE", f"/tags/{tid}/", None, f"Tag {name} löschen")
+        deleted.add(tid)
+        print(f"  - {name} ({n})" + (f" -> {target}" if target else " gelöscht"))
+    if not deleted:
+        print("  = nichts zu tun")
+    return deleted
 
 
 def lookup_principals(api):
@@ -429,6 +500,8 @@ def main():
     p.add_argument("--n8n-user", action="store_true", help="Benutzer n8n (nur Lesen) anlegen und Token ausgeben")
     p.add_argument("--backfill", action="store_true", help="Felder/Rechte auf vorhandene Dokumente anwenden")
     p.add_argument("--mail", action="store_true", help="Mail-Konto + Regel anlegen (PAPERLESS_MAIL_*)")
+    p.add_argument("--tags-aufraeumen", action="store_true",
+                   help="nur Tags der Positivliste behalten, andere zusammenlegen (TAG_MERGE) oder löschen")
     p.add_argument("--tax-years", type=int, nargs="*", default=[year - 1, year], help="Steuer-Ansichten")
     a = p.parse_args()
     token = os.environ.get("PAPERLESS_TOKEN")
@@ -443,6 +516,10 @@ def main():
     users, share_gid = lookup_principals(api)
     f = ensure_fields(api)
     t = ensure_tags(api)
+    if a.tags_aufraeumen:
+        gone = tidy_tags(api, t)
+        for name in ALIAS_IDS:
+            ALIAS_IDS[name] = [i for i in ALIAS_IDS[name] if i not in gone]
     n8n_uid = ensure_n8n_user(api, a.n8n_user)
     ensure_named(api, "/workflows/", "Workflows", workflows_spec(f, t, users, share_gid, n8n_uid), a.update)
     ensure_named(api, "/saved_views/", "Gespeicherte Ansichten", views_spec(f, t, share_gid, a.tax_years), a.update)

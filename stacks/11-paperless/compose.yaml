@@ -62,6 +62,19 @@ services:
       # Schritt 2, wenn alle verknüpft haben: beide auf "true" (nur noch Keycloak, Login-Seite springt direkt dorthin).
       PAPERLESS_DISABLE_REGULAR_LOGIN: "false"
       PAPERLESS_REDIRECT_LOGIN_TO_SSO: "false"
+      # --- Eingebaute KI (seit 3.0): Vorschläge + Chat, über Ollama auf dem Mac Studio ---
+      # Soll paperless-ai ablösen. Der Chat sucht nur in Dokumenten, die die angemeldete Person sehen darf.
+      # Index-Update läuft nachts 02:10 (Default). Nach dem ersten Deploy und nach jedem Wechsel des
+      # Embedding-Modells einmal von Hand bauen:
+      #   docker exec paperless-paperless-1 document_llmindex rebuild
+      # Werte, die in der UI (Einstellungen -> KI) gespeichert sind, gewinnen gegen diese Variablen.
+      PAPERLESS_AI_ENABLED: "true"
+      PAPERLESS_AI_LLM_BACKEND: ollama
+      PAPERLESS_AI_LLM_ENDPOINT: http://192.168.80.30:11434   # gleicher Weg wie paperless-ai (Mac-pf lässt nur das NAS durch)
+      PAPERLESS_AI_LLM_MODEL: qwen2.5:14b
+      PAPERLESS_AI_LLM_EMBEDDING_BACKEND: ollama              # Embeddings auf dem Mac, nicht im Container
+      PAPERLESS_AI_LLM_EMBEDDING_MODEL: nomic-embed-text
+      PAPERLESS_AI_LLM_REQUEST_TIMEOUT: "300"                 # 14b lokal: Chat über viele Dokumente kann >120 s dauern
     volumes:
       - /mnt/data/paperless/media:/usr/src/paperless/media       # Dokumente (bleiben auf data)
       - /mnt/data/paperless/consume:/usr/src/paperless/consume   # SMB-Eingang (Scanner, Mac), Unterordner = Besitzer
@@ -76,7 +89,7 @@ services:
       - traefik.http.routers.paperless.tls.certresolver=le
       - traefik.http.services.paperless.loadbalancer.server.port=8000
     networks: [edge-paperless, pl-internal]
-    mem_limit: 1g
+    mem_limit: 1536m      # +512m Puffer für die KI (llama-index im Prozess, Embeddings rechnet Ollama)
     restart: unless-stopped
 
   paperless-ai:

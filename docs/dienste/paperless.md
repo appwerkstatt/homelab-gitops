@@ -2,12 +2,12 @@
 
 | | |
 |---|---|
-| **Zweck** | Dokumentenarchiv mit OCR (Paperless-ngx) und KI-Suche/Tagging (paperless-ai) |
+| **Zweck** | Dokumentenarchiv mit OCR (Paperless-ngx), eingebauter KI (Vorschläge + Chat) und paperless-ai (läuft aus) |
 | **Adresse** | `https://docs.lab.appsfab.org`, `https://docs-ai.lab.appsfab.org` |
 | **Login** | Paperless: Keycloak (OIDC, Client `paperless`) auf das eigene Paperless-Konto, siehe [Keycloak-Login](#keycloak-login); paperless-ai: `sso-admin@docker` (nur `lab-admins`) |
 | **Daten** | `data/paperless/{media,consume,export}`, `fast/appdata/paperless/{db,redis,data}`, `fast/appdata/paperless-ai` |
 | **Backup** | Dokumente Tier 1 (alle 12 h) + offsite; DB Tier 2 + `pg_dump` offsite |
-| **Abhängig von** | Ollama auf dem Mac Studio (`192.168.80.30:11434`) für paperless-ai |
+| **Abhängig von** | Ollama auf dem Mac Studio (`192.168.80.30:11434`) für die KI (eingebaut und paperless-ai) |
 | **Quelle** | [`stacks/11-paperless/compose.yaml`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/11-paperless/compose.yaml) |
 
 ## Bausteine
@@ -129,6 +129,24 @@ in [`stacks/13-n8n/workflows/`](https://github.com/appwerkstatt/homelab-gitops/b
 Einrichtung im [README](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/13-n8n/workflows/README.md).
 Sie lesen über `https://docs.lab.appsfab.org/api` mit dem Token des Benutzers `n8n`.
 
+## Eingebaute KI
+
+Seit 3.0 hat Paperless eine eigene KI. Sie soll paperless-ai ablösen: erst laufen beide parallel, wenn die
+eingebaute reicht, fliegt paperless-ai samt `docs-ai`-Router, API-Token und `fast/appdata/paperless-ai` raus.
+
+- **Konfiguration** im `compose.yaml` (`PAPERLESS_AI_*`): Backend Ollama, Modell `qwen2.5:14b`, Embeddings
+  `nomic-embed-text`, beides auf dem Mac Studio. Werte, die in der UI unter Einstellungen gespeichert sind,
+  gewinnen gegen die Variablen.
+- **Vorschläge** (Titel, Tags, Korrespondent, Dokumenttyp, Speicherpfad, Datum): auf der Dokumentseite über
+  den Vorschlag-Button. Automatisch für neue Dokumente über einen Workflow mit der Aktion
+  *Apply AI Suggestions* (in der UI anlegen). Gelesen werden nur die ersten ~4.000 Zeichen.
+- **Chat** über alle sichtbaren Dokumente oder ein einzelnes Dokument. Er sucht nur in Dokumenten, die die
+  angemeldete Person sehen darf, darum für alle Konten nutzbar (paperless-ai nur für `lab-admins`).
+- **Index** in `fast/appdata/paperless/data/llm_index` (SQLite), damit im normalen Backup. Update nachts
+  02:10. Nach dem ersten Deploy und nach jedem Wechsel des Embedding-Modells einmal bauen:
+  `docker exec paperless-paperless-1 document_llmindex rebuild`.
+- Fehlt gegenüber paperless-ai: eigene Prompts und KI-Befüllung von Custom Fields.
+
 ## Keycloak-Login
 
 Paperless meldet über **allauth** (`openid_connect`, Provider-ID `keycloak`) bei Keycloak an. Das ist eine
@@ -173,7 +191,8 @@ Passwort den Passkey.
 - **Abmelden** beendet nur die Paperless-Sitzung; die Keycloak-Sitzung bleibt, der nächste Klick auf
   „Keycloak“ meldet sofort wieder an.
 
-- Ist der Mac Studio aus, läuft paperless-ai ins Leere; Alarm `LlmHostDown`. Paperless selbst läuft weiter.
+- Ist der Mac Studio aus, laufen KI-Vorschläge, Chat und paperless-ai ins Leere; Alarm `LlmHostDown`.
+  Paperless selbst (OCR, Suche, Ablage) läuft weiter.
 - Postgres nicht auf 18 heben (Vorfall 2026-06-05); Renovate macht das bewusst nicht.
 - **Scan ohne Besitzer:** Fehlt der Workflow „Consume-Ordner: Besitzer christian“, sieht jedes Konto den Scan.
   Prüfen: Dokumente → Filter „Besitzer: keiner“.

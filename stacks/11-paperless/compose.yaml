@@ -41,6 +41,11 @@ services:
       # http://paperless:8000/api im Netz pl-internal auf, sonst HTTP 400 (Vorfall 2026-11-27).
       PAPERLESS_ALLOWED_HOSTS: paperless
       PAPERLESS_TIME_ZONE: ${TZ}
+      # OCR deutsch + englisch (ohne die Variable nur eng -> Umlaute/ß falsch). deu ist im Image enthalten.
+      PAPERLESS_OCR_LANGUAGE: deu+eng
+      # Unterordner im Consume-Ordner (christian/, gisa/, haushalt/) legen per Workflow Besitzer und Freigabe fest
+      # (stacks/11-paperless/setup/paperless-setup.py). Keine Tags aus Ordnernamen.
+      PAPERLESS_CONSUMER_RECURSIVE: "true"
       USERMAP_UID: ${PUID}
       USERMAP_GID: ${PGID}
       # --- Keycloak-Login (OIDC über allauth, Client `paperless`) ---
@@ -59,7 +64,7 @@ services:
       PAPERLESS_REDIRECT_LOGIN_TO_SSO: "false"
     volumes:
       - /mnt/data/paperless/media:/usr/src/paperless/media       # Dokumente (bleiben auf data)
-      - /mnt/data/paperless/consume:/usr/src/paperless/consume   # SMB-Eingang
+      - /mnt/data/paperless/consume:/usr/src/paperless/consume   # SMB-Eingang (Scanner, Mac), Unterordner = Besitzer
       - /mnt/data/paperless/export:/usr/src/paperless/export
       - /mnt/fast/appdata/paperless/data:/usr/src/paperless/data
     depends_on: [paperless-db, paperless-redis]

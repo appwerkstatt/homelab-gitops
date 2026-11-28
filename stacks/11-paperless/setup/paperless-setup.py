@@ -4,8 +4,10 @@
 Legt an, was fehlt, und lässt Bestehendes in Ruhe (gleicher Name = vorhanden; --update überschreibt
 Workflows und Ansichten mit dem Stand aus diesem Skript):
 
-  * Custom Fields  Betrag, Fällig am, Bezahlt, Vertragsende, Kündigen bis, Steuerjahr
-  * Tags           Rechnung, Vertrag, Versicherung, Steuer, Haushalt, E-Mail (mit Auto-Zuordnung)
+  * Custom Fields  Betrag, Fällig am, Bezahlt, Vertragsende, Kündigen bis, Steuerjahr, Garantie bis
+  * Tags           Rechnung, Vertrag, Versicherung, Steuer, Haushalt, E-Mail (mit Auto-Zuordnung) und die
+                   Lebensbereiche (Haus, Finanzen, Vorsorge, Gesundheit, Auto, Arbeit, Kinder, Technik, Freizeit)
+  * --tags-aufraeumen  alle anderen Tags zusammenlegen (TAG_MERGE) oder löschen, erst mit --dry-run ansehen
   * Workflows      Besitzer für den Consume-Ordner (pro Unterordner), Teilen mit `haushalt`,
                    Felder für Rechnungen/Verträge/Steuer, Leserecht für den n8n-Benutzer
   * Ansichten      Rechnungen offen, Verträge mit Frist, Steuer <Jahr>, Steuer ohne Jahr
@@ -32,6 +34,7 @@ import json
 import os
 import secrets
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -51,6 +54,7 @@ FIELDS = [
     ("Vertragsende", "date", None),
     ("Kündigen bis", "date", None),
     ("Steuerjahr", "integer", None),
+    ("Garantie bis", "date", None),   # an Rechnungen für Geräte; n8n erinnert 30 Tage vorher
 ]
 
 # --- Tags: Name, Farbe, Wörter für die Auto-Zuordnung "irgendein Wort" (None = keine Auto-Zuordnung) ---
@@ -63,8 +67,46 @@ TAGS = [
     ("Haushalt", "#9c36b5", "Stadtwerke Stromrechnung Gasrechnung Abschlag Rundfunkbeitrag Grundsteuer "
                             "Nebenkostenabrechnung Müllgebühren Wasserversorgung"),
     ("E-Mail", "#868e96", None),
+    # Lebensbereiche (höchstens einer pro Dokument, ohne Stichwörter): setzt paperless-ai
+    # ("Restrict to existing tags") oder man selbst. Was/von wem steht in Dokumenttyp/Korrespondent, nicht im Tag.
+    ("Haus", "#ae3ec9", None),          # Grundsteuer, Energie, Internet, Handwerker
+    ("Finanzen", "#5c940d", None),      # Bank, Kreditkarte, Depot, Solarpark, Schufa
+    ("Vorsorge", "#1098ad", None),      # Rente, Altersvorsorge
+    ("Gesundheit", "#e03131", None),
+    ("Auto", "#495057", None),
+    ("Arbeit", "#f08c00", None),
+    ("Kinder", "#f783ac", None),        # Schule, Kita, alles zu Tom und der Tochter
+    ("Technik", "#3b5bdb", None),       # Homelab, Apple, UniFi, Garmin
+    ("Freizeit", "#74b816", None),      # Fahrrad, Sport, Mitgliedschaften
 ]
-SHARED_TAGS = ["Haushalt", "Vertrag", "Versicherung", "Steuer"]   # -> Gruppe haushalt (Rechtekonzept)
+# --tags-aufraeumen: TAGS oben + KEEP_TAGS sind die Positivliste. Jeder andere Tag geht im Ziel aus TAG_MERGE auf
+# (Dokumente bekommen das Ziel, der alte Tag wird gelöscht) oder wird gelöscht, wenn er nirgends steht.
+# Gleich geschriebene Tags in anderer Groß-/Kleinschreibung werden zusammengelegt bzw. umbenannt.
+KEEP_TAGS = ["ai-verarbeitet"]   # merkt sich paperless-ai für bearbeitete Dokumente; Posteingangs-Tags bleiben auch
+TAG_MERGE = {
+    "Rechnung": ["invoice", "invoices", "bill", "bills", "kaufbeleg", "Abrechnung", "Abrechnungen"],
+    "Vertrag": ["contract", "contracts", "agreement", "Verträge", "Versorgungsverträge", "Abonnement", "Subscription"],
+    "Versicherung": ["insurance", "Krankenversicherung", "Krankheitskostenversicherung", "Pflegeversicherung",
+                     "Pflegepflichtversicherung", "Kfz-Versicherung"],
+    "Steuer": ["tax", "taxes", "steuerrelevant", "Steuerbescheinigung", "Steuererklärung 2025", "Finanzamt",
+               "Kapitalerträge", "Aktienveräußerungen", "Kinderfreibeträge", "Vorsorgeaufwendungen",
+               "Abziehbare Spenden"],
+    "Haushalt": ["household"],
+    "Haus": ["Wohnung", "Grundsteuer", "Grundsteuerwertbescheid", "Gas", "Internet", "Telekommunikation", "möbel",
+             "garten", "werkzeug"],
+    "Finanzen": ["Bank", "Finance", "Banking", "Banken", "Bankgeschäft", "Finanzdienstleistung", "Kreditkarte",
+                 "Kreditkarten", "Schufa", "Kreditwürdigkeit", "Solarpark"],
+    "Vorsorge": ["Rentenberechnung", "Rentenversicherung", "Altersvorsorgebeiträge"],
+    "Gesundheit": ["Pflege", "healthcare", "Augenglas", "Sportbrille"],
+    "Auto": ["BMW", "Fahrzeug", "connecteddrive", "Radwechsel", "Kfz"],
+    "Arbeit": ["löhne", "geschäftlich"],
+    "Kinder": ["Schule", "Kita"],
+    "Technik": ["computer", "Computerhardware", "elektronik", "Apple", "ASUS", "Garmin", "UniFi", "networking",
+                "Network", "Netzwerkgeräte", "L3-Routing", "Kabelleitungen", "accessories", "3d-druck", "audio"],
+    "Freizeit": ["fahrrad", "bicycle", "Bike Discount", "sport", "Sports Equipment", "training", "Haus Kiekeberg",
+                 "travel"],
+}
+SHARED_TAGS = ["Haushalt", "Vertrag", "Versicherung", "Steuer", "Haus", "Kinder"]   # -> Gruppe haushalt (Rechtekonzept)
 # Englische Tags, die KI-Vorschläge (paperless-ai, Paperless-KI) anlegen. Gibt es sie, zählen sie in Workflows,
 # Ansichten und Backfill wie der deutsche Tag (Entscheidung Christian 2026-11-28: beide Sprachen akzeptieren).
 TAG_ALIASES = {
@@ -139,6 +181,29 @@ class Api:
             return {"id": self.fake_id, **(data if isinstance(data, dict) else {})}
         return self.request(method, path, data)
 
+    def bulk_edit(self, docs, method, parameters, what):
+        """bulk_edit läuft in Paperless 3.x als Hintergrund-Task: auf das Ergebnis warten, bevor es weitergeht
+        (sonst löscht das Aufräumen einen Tag, bevor seine Dokumente den neuen haben)."""
+        res = self.write("POST", "/documents/bulk_edit/", {"documents": docs, "method": method,
+                                                            "parameters": parameters}, what)
+        task = (res or {}).get("task_id")
+        if self.dry_run or not task:
+            return
+        for i in range(200):
+            found = self.request("GET", "/tasks/?" + urllib.parse.urlencode({"task_id": task}))
+            found = found.get("results", []) if isinstance(found, dict) else found
+            status = str(found[0].get("status") if found else "").upper()
+            if status == "SUCCESS":
+                return
+            if status in ("FAILURE", "REVOKED"):
+                sys.exit(f"FEHLER: {what}: Paperless-Task {task} {status}: {found[0]}")
+            if not found and i >= 20:
+                print(f"  ! Task {task} taucht in /tasks/ nicht auf, 10 s Puffer")
+                time.sleep(10)
+                return
+            time.sleep(1.5)
+        sys.exit(f"FEHLER: {what}: Paperless-Task {task} nach 5 Minuten nicht fertig")
+
     def all(self, path, **params):
         params.setdefault("page_size", 1000)
         url = self.base + path + "?" + urllib.parse.urlencode(params)
@@ -177,10 +242,12 @@ def ensure_fields(api):
 
 def ensure_tags(api):
     print("Tags")
-    existing = by_name(api.all("/tags/"))
+    tags = api.all("/tags/")
+    existing = by_name(tags)
+    exact = {x["name"]: x for x in tags}
     ids = {}
     for name, color, words in TAGS:
-        cur = existing.get(name.casefold())
+        cur = exact.get(name) or existing.get(name.casefold())
         if cur:
             ids[name] = cur["id"]
             print(f"  = {name} (Zuordnung bleibt, wie sie ist)")
@@ -196,6 +263,36 @@ def ensure_tags(api):
         if found:
             print(f"  = {name} gilt auch für: {', '.join(x['name'] for x in found)}")
     return ids
+
+
+def tidy_tags(api, t):
+    """Positivliste durchsetzen (--tags-aufraeumen), siehe TAG_MERGE. Gibt die gelöschten Tag-IDs zurück."""
+    print("Tags aufräumen (Positivliste)")
+    keep = {n.casefold() for n in KEEP_TAGS}
+    target_of = {n.casefold(): n for n in t}                      # Schreibvarianten -> Positiv-Tag
+    for target, sources in TAG_MERGE.items():
+        target_of.update({s.casefold(): target for s in sources})
+    deleted = set()
+    for tag in sorted(api.all("/tags/"), key=lambda x: -x.get("document_count", 0)):
+        name, tid, n = tag["name"], tag["id"], tag.get("document_count", 0)
+        if tid in t.values():
+            want = next(k for k, v in t.items() if v == tid)
+            if name != want:
+                api.write("PATCH", f"/tags/{tid}/", {"name": want}, f"{name} -> {want}")
+                print(f"  ~ {name} heißt jetzt {want}")
+            continue
+        if name.casefold() in keep or tag.get("is_inbox_tag"):
+            continue
+        target = target_of.get(name.casefold())
+        if target and n:
+            docs = [d["id"] for d in api.all("/documents/", tags__id__all=tid, fields="id")]
+            api.bulk_edit(docs, "add_tag", {"tag": t[target]}, f"{target} an {len(docs)} Dokumente")
+        api.write("DELETE", f"/tags/{tid}/", None, f"Tag {name} löschen")
+        deleted.add(tid)
+        print(f"  - {name} ({n})" + (f" -> {target}" if target else " gelöscht"))
+    if not deleted:
+        print("  = nichts zu tun")
+    return deleted
 
 
 def lookup_principals(api):
@@ -261,7 +358,8 @@ def workflows_spec(f, t, users, share_gid, n8n_uid):
         on_tags(f"Gemeinsam: mit {SHARE_GROUP} teilen", 20, SHARED_TAGS,
                 {"assign_view_groups": [share_gid], "assign_change_groups": [share_gid]}),
         on_tags("Rechnung: Felder Betrag/Fällig/Bezahlt", 30, ["Rechnung"],
-                {"assign_custom_fields": [f["Betrag"], f["Fällig am"], f["Bezahlt"]], "assign_view_users": viewers}),
+                {"assign_custom_fields": [f["Betrag"], f["Fällig am"], f["Bezahlt"], f["Garantie bis"]],
+                 "assign_view_users": viewers}),
         on_tags("Vertrag: Felder Vertragsende/Kündigen bis", 31, ["Vertrag", "Versicherung"],
                 {"assign_custom_fields": [f["Vertragsende"], f["Kündigen bis"]], "assign_view_users": viewers}),
         on_tags("Steuer: Feld Steuerjahr", 32, ["Steuer"],
@@ -355,8 +453,7 @@ def backfill(api, f, t, share_gid, n8n_uid):
         if not ids:
             print(f"  = {what}: nichts zu tun")
             return
-        api.write("POST", "/documents/bulk_edit/", {"documents": ids, "method": method, "parameters": parameters},
-                  f"{what} ({len(ids)} Dokumente)")
+        api.bulk_edit(ids, method, parameters, f"{what} ({len(ids)} Dokumente)")
         print(f"  + {what}: {len(ids)} Dokumente")
 
     def perms(view_users=(), view_groups=(), change_groups=()):
@@ -366,7 +463,7 @@ def backfill(api, f, t, share_gid, n8n_uid):
 
     bulk(docs(SHARED_TAGS, lacks=("change", "groups", share_gid)), "set_permissions", perms(view_groups=[share_gid], change_groups=[share_gid]),
          f"mit {SHARE_GROUP} teilen")
-    groups = [(["Rechnung"], ["Betrag", "Fällig am", "Bezahlt"]),
+    groups = [(["Rechnung"], ["Betrag", "Fällig am", "Bezahlt", "Garantie bis"]),
               (["Vertrag", "Versicherung"], ["Vertragsende", "Kündigen bis"]),
               (["Steuer"], ["Steuerjahr"])]
     for tags, fields in groups:
@@ -429,6 +526,8 @@ def main():
     p.add_argument("--n8n-user", action="store_true", help="Benutzer n8n (nur Lesen) anlegen und Token ausgeben")
     p.add_argument("--backfill", action="store_true", help="Felder/Rechte auf vorhandene Dokumente anwenden")
     p.add_argument("--mail", action="store_true", help="Mail-Konto + Regel anlegen (PAPERLESS_MAIL_*)")
+    p.add_argument("--tags-aufraeumen", action="store_true",
+                   help="nur Tags der Positivliste behalten, andere zusammenlegen (TAG_MERGE) oder löschen")
     p.add_argument("--tax-years", type=int, nargs="*", default=[year - 1, year], help="Steuer-Ansichten")
     a = p.parse_args()
     token = os.environ.get("PAPERLESS_TOKEN")
@@ -443,6 +542,10 @@ def main():
     users, share_gid = lookup_principals(api)
     f = ensure_fields(api)
     t = ensure_tags(api)
+    if a.tags_aufraeumen:
+        gone = tidy_tags(api, t)
+        for name in ALIAS_IDS:
+            ALIAS_IDS[name] = [i for i in ALIAS_IDS[name] if i not in gone]
     n8n_uid = ensure_n8n_user(api, a.n8n_user)
     ensure_named(api, "/workflows/", "Workflows", workflows_spec(f, t, users, share_gid, n8n_uid), a.update)
     ensure_named(api, "/saved_views/", "Gespeicherte Ansichten", views_spec(f, t, share_gid, a.tax_years), a.update)

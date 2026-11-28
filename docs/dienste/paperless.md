@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Zweck** | Dokumentenarchiv mit OCR (Paperless-ngx), eingebauter KI (Vorschläge + Chat) und paperless-ai (läuft aus) |
+| **Zweck** | Dokumentenarchiv mit OCR (Paperless-ngx), eingebauter KI (Vorschläge + Chat) und paperless-ai (füllt die Custom Fields) |
 | **Adresse** | `https://docs.lab.appsfab.org`, `https://docs-ai.lab.appsfab.org` |
 | **Login** | Paperless: Keycloak (OIDC, Client `paperless`) auf das eigene Paperless-Konto, siehe [Keycloak-Login](#keycloak-login); paperless-ai: `sso-admin@docker` (nur `lab-admins`) |
 | **Daten** | `data/paperless/{media,consume,export}`, `fast/appdata/paperless/{db,redis,data}`, `fast/appdata/paperless-ai` |
@@ -41,8 +41,8 @@ flowchart LR
 
 | Art | Inhalt |
 |---|---|
-| **Custom Fields** | `Betrag` (EUR), `Fällig am`, `Bezahlt` (Ja/Nein), `Vertragsende`, `Kündigen bis`, `Steuerjahr` |
-| **Tags** | `Rechnung`, `Vertrag`, `Versicherung`, `Steuer`, `Haushalt` (Auto-Zuordnung über Stichwörter), `E-Mail`. Ohne Besitzer, damit alle Konten sie sehen; die Dokumente bleiben trotzdem privat |
+| **Custom Fields** | `Betrag` (EUR), `Fällig am`, `Bezahlt` (Ja/Nein), `Vertragsende`, `Kündigen bis`, `Steuerjahr`, `Garantie bis` |
+| **Tags** | `Rechnung`, `Vertrag`, `Versicherung`, `Steuer`, `Haushalt` (Auto-Zuordnung über Stichwörter), `E-Mail` und die Lebensbereiche `Haus`, `Finanzen`, `Vorsorge`, `Gesundheit`, `Auto`, `Arbeit`, `Kinder`, `Technik`, `Freizeit` (ohne Stichwörter, höchstens einer pro Dokument; was es ist und von wem, sagen Dokumenttyp und Korrespondent). Ohne Besitzer, damit alle Konten sie sehen; die Dokumente bleiben trotzdem privat |
 | **Workflows** | siehe unten |
 | **Ansichten** | *Rechnungen offen* (nach Fälligkeit), *Verträge mit Frist* (nach „Kündigen bis“), *Steuer &lt;Jahr&gt;* (Vorjahr + laufendes Jahr), *Steuer: ohne Steuerjahr*. Geteilt mit `haushalt` |
 | **Benutzer `n8n`** | nur Lese-Rechte, sieht nur Rechnungen, Verträge, Versicherungen und Steuer (per Workflow freigegeben) |
@@ -54,8 +54,8 @@ Workflows (die Reihenfolge zählt, spätere Zuweisungen gewinnen):
 | Consume-Ordner: Besitzer christian | Datei in `consume/` | Besitzer `christian` (sonst hätte der Scan keinen Besitzer und alle sähen ihn) |
 | Consume-Ordner gisa/ | Datei in `consume/gisa/` | Besitzer `gisa` |
 | Consume-Ordner haushalt/ | Datei in `consume/haushalt/` | Besitzer `christian` + Tag `Haushalt` |
-| Gemeinsam: mit haushalt teilen | Tag `Haushalt`, `Vertrag`, `Versicherung` oder `Steuer` | Ansehen + Bearbeiten für `haushalt` ([Rechtekonzept](../sicherheit/rechtekonzept.md#paperless-private-und-gemeinsame-dokumente)) |
-| Rechnung: Felder | Tag `Rechnung` | Felder Betrag, Fällig am, Bezahlt + Leserecht `n8n` |
+| Gemeinsam: mit haushalt teilen | Tag `Haushalt`, `Vertrag`, `Versicherung`, `Steuer`, `Haus` oder `Kinder` | Ansehen + Bearbeiten für `haushalt` ([Rechtekonzept](../sicherheit/rechtekonzept.md#paperless-private-und-gemeinsame-dokumente)) |
+| Rechnung: Felder | Tag `Rechnung` | Felder Betrag, Fällig am, Bezahlt, Garantie bis + Leserecht `n8n` |
 | Vertrag: Felder | Tag `Vertrag` oder `Versicherung` | Felder Vertragsende, Kündigen bis + Leserecht `n8n` |
 | Steuer: Feld Steuerjahr | Tag `Steuer` | Feld Steuerjahr + Leserecht `n8n` |
 
@@ -64,14 +64,29 @@ Paperless-KI an), zählen sie in Workflows, Ansichten und Backfill wie der deuts
 Entscheidung 2026-11-28: beide Sprachen akzeptieren). Kommt ein neuer englischer Tag dazu: Skript mit
 `--update --backfill` erneut laufen lassen.
 
+**Positivliste für Tags:** Die Tags in `TAGS` (Skript) plus `ai-verarbeitet` sind die einzigen, die bleiben sollen.
+Die KI erfindet sonst laufend neue (`inventory`, `2026`, `kaufbeleg`, ...). Bewusst nicht dabei: `Wichtig` (vergibt die KI wahllos), `Behörde` (steht im Korrespondenten), `Garantie` (dafür das Feld *Garantie bis*). Aufräumen:
+
+```bash
+python3 stacks/11-paperless/setup/paperless-setup.py --tags-aufraeumen --dry-run   # zeigt die Liste
+python3 stacks/11-paperless/setup/paperless-setup.py --tags-aufraeumen --update --backfill
+```
+
+Tags aus `TAG_MERGE` gehen im Ziel auf (die Dokumente bekommen z. B. `Steuer` statt `steuerrelevant`), andere
+Schreibweisen (`wohnung`) werden zusammengelegt oder umbenannt, alles Übrige wird gelöscht. Die Dokumente bleiben,
+nur der Tag verschwindet. Posteingangs-Tags bleiben. `--update --backfill` danach, damit Workflows und Ansichten
+keine gelöschten Tags mehr enthalten und die neu getaggten Dokumente Felder und Freigaben bekommen.
+In paperless-ai unter *Einstellungen → Verarbeitung* *Restrict to existing tags* einschalten, sonst wächst die
+Liste wieder. Neuer Tag gewünscht: in `TAGS` eintragen, nicht in der UI anlegen.
+
 **Reihenfolge mit der KI:** Der UI-Workflow „AI Kategorisierung“ (*Apply AI Suggestions*) muss eine **kleinere**
 Sortierung haben als die Workflows hier (z. B. 5), sonst prüfen diese die Tags, bevor die KI sie setzt.
 
 Die Tag-Workflows laufen beim Hinzufügen **und** beim Bearbeiten, also auch, wenn paperless-ai oder jemand von Hand
-später den Tag setzt. Vorhandene Werte in Feldern überschreiben sie nicht. Die Felder füllt man von Hand (oder
-paperless-ai schlägt sie vor); Fälligkeit und „Kündigen bis“ sind die Grundlage für die Telegram-Erinnerungen.
+später den Tag setzt. Vorhandene Werte in Feldern überschreiben sie nicht. Die Felder füllt paperless-ai
+(*Einstellungen → Custom Fields*, Funktion muss eingeschaltet sein) oder man selbst; Fälligkeit und „Kündigen bis“ sind die Grundlage für die Telegram-Erinnerungen.
 
-**Hinweis:** Auch Dokumente der Kinder mit Tag `Vertrag`, `Versicherung` oder `Steuer` werden mit `haushalt` (den
+**Hinweis:** Auch Dokumente der Kinder mit Tag `Vertrag`, `Versicherung`, `Steuer` oder `Kinder` werden mit `haushalt` (den
 Eltern) geteilt.
 
 ### Einrichten
@@ -139,8 +154,8 @@ Sie lesen über `https://docs.lab.appsfab.org/api` mit dem Token des Benutzers `
 
 ## Eingebaute KI
 
-Seit 3.0 hat Paperless eine eigene KI. Sie soll paperless-ai ablösen: erst laufen beide parallel, wenn die
-eingebaute reicht, fliegt paperless-ai samt `docs-ai`-Router, API-Token und `fast/appdata/paperless-ai` raus.
+Seit 3.0 hat Paperless eine eigene KI für Vorschläge und Chat. paperless-ai bleibt trotzdem, weil nur es die
+Custom Fields (Betrag, Fällig am, Vertragsende, ...) aus dem Text füllt (Entscheidung 2026-11-28).
 
 - **Konfiguration** im `compose.yaml` (`PAPERLESS_AI_*`): Backend Ollama, Modell `qwen2.5:14b`, Embeddings
   `nomic-embed-text`, beides auf dem Mac Studio. Werte, die in der UI unter Einstellungen gespeichert sind,

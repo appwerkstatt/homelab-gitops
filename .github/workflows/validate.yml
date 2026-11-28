@@ -123,7 +123,7 @@ jobs:
         # Startet Paperless aus stacks/11-paperless/compose.yaml frisch und prüft setup/paperless-setup.py samt
         # Consume-Workflows, Rechten und den Abfragen der n8n-Workflows. Nur wenn sich daran etwas ändert.
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ] && git diff --quiet "origin/${{ github.base_ref }}" -- stacks/11-paperless scripts/check-paperless-setup.sh scripts/check-paperless-setup.py stacks/13-n8n/workflows/paperless-fristen.json stacks/13-n8n/workflows/paperless-monatsbericht.json; then
+          if [ "${{ github.event_name }}" = "pull_request" ] && git diff --quiet "origin/${{ github.base_ref }}" -- stacks/11-paperless scripts/check-paperless-setup.sh scripts/check-paperless-setup.py stacks/13-n8n/workflows/paperless-fristen.json stacks/13-n8n/workflows/paperless-monatsbericht.json stacks/13-n8n/workflows/paperless-felder-ki.json; then
             echo "Paperless und Setup unverändert, übersprungen"; exit 0
           fi
           scripts/check-paperless-setup.sh

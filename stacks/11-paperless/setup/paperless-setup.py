@@ -41,7 +41,11 @@ DEFAULT_OWNER = "christian"          # Besitzer für Scans im Consume-Ordner ohn
 CONSUME_OWNERS = {"christian": "christian", "gisa": "gisa"}   # Unterordner -> Benutzer
 SHARE_GROUP = "haushalt"             # gemeinsame Dokumente (nur Christian + Gisa)
 N8N_USER = "n8n"
-N8N_PERMISSIONS = ["view_document", "view_tag", "view_customfield", "view_correspondent", "view_documenttype"]
+# change_document: der Workflow "Felder per KI" trägt leere Felder ein. Objektrechte bekommt n8n nur auf Dokumente
+# mit Tag Rechnung/Vertrag/Versicherung/Steuer (Workflows unten), alles andere sieht es nicht.
+N8N_PERMISSIONS = ["view_document", "change_document", "view_tag", "view_customfield", "view_correspondent",
+                   "view_documenttype"]
+KI_TAG = "KI-Felder"   # setzt der n8n-Workflow paperless-felder-ki.json nach dem Auslesen (nicht doppelt laufen)
 
 # --- Custom Fields (Name, Typ, extra_data) ---
 FIELDS = [
@@ -63,6 +67,7 @@ TAGS = [
     ("Haushalt", "#9c36b5", "Stadtwerke Stromrechnung Gasrechnung Abschlag Rundfunkbeitrag Grundsteuer "
                             "Nebenkostenabrechnung Müllgebühren Wasserversorgung"),
     ("E-Mail", "#868e96", None),
+    (KI_TAG, "#adb5bd", None),
 ]
 SHARED_TAGS = ["Haushalt", "Vertrag", "Versicherung", "Steuer"]   # -> Gruppe haushalt (Rechtekonzept)
 # Englische Tags, die KI-Vorschläge (paperless-ai, Paperless-KI) anlegen. Gibt es sie, zählen sie in Workflows,
@@ -214,6 +219,11 @@ def ensure_n8n_user(api, create):
     cur = users.get(N8N_USER)
     if cur:
         print(f"Benutzer {N8N_USER}: vorhanden (Token steht in 1Password homelab-paperless/n8n-api-token)")
+        have = set(api.request("GET", f"/users/{cur['id']}/").get("user_permissions") or [])
+        if not set(N8N_PERMISSIONS) <= have:
+            api.write("PATCH", f"/users/{cur['id']}/", {"user_permissions": sorted(have | set(N8N_PERMISSIONS))},
+                      "Rechte ergänzen")
+            print(f"  + Rechte ergänzt: {', '.join(sorted(set(N8N_PERMISSIONS) - have))}")
         return cur["id"]
     if not create:
         print(f"Benutzer {N8N_USER}: fehlt, Leserecht für n8n wird ausgelassen (mit --n8n-user anlegen)")
@@ -261,11 +271,11 @@ def workflows_spec(f, t, users, share_gid, n8n_uid):
         on_tags(f"Gemeinsam: mit {SHARE_GROUP} teilen", 20, SHARED_TAGS,
                 {"assign_view_groups": [share_gid], "assign_change_groups": [share_gid]}),
         on_tags("Rechnung: Felder Betrag/Fällig/Bezahlt", 30, ["Rechnung"],
-                {"assign_custom_fields": [f["Betrag"], f["Fällig am"], f["Bezahlt"]], "assign_view_users": viewers}),
+                {"assign_custom_fields": [f["Betrag"], f["Fällig am"], f["Bezahlt"]], "assign_view_users": viewers, "assign_change_users": viewers}),
         on_tags("Vertrag: Felder Vertragsende/Kündigen bis", 31, ["Vertrag", "Versicherung"],
-                {"assign_custom_fields": [f["Vertragsende"], f["Kündigen bis"]], "assign_view_users": viewers}),
+                {"assign_custom_fields": [f["Vertragsende"], f["Kündigen bis"]], "assign_view_users": viewers, "assign_change_users": viewers}),
         on_tags("Steuer: Feld Steuerjahr", 32, ["Steuer"],
-                {"assign_custom_fields": [f["Steuerjahr"]], "assign_view_users": viewers}),
+                {"assign_custom_fields": [f["Steuerjahr"]], "assign_view_users": viewers, "assign_change_users": viewers}),
     ]
     return specs
 
@@ -359,9 +369,9 @@ def backfill(api, f, t, share_gid, n8n_uid):
                   f"{what} ({len(ids)} Dokumente)")
         print(f"  + {what}: {len(ids)} Dokumente")
 
-    def perms(view_users=(), view_groups=(), change_groups=()):
+    def perms(view_users=(), view_groups=(), change_groups=(), change_users=()):
         return {"set_permissions": {"view": {"users": list(view_users), "groups": list(view_groups)},
-                                    "change": {"users": [], "groups": list(change_groups)}},
+                                    "change": {"users": list(change_users), "groups": list(change_groups)}},
                 "merge": True}   # merge: Besitzer und bestehende Rechte bleiben
 
     bulk(docs(SHARED_TAGS, lacks=("change", "groups", share_gid)), "set_permissions", perms(view_groups=[share_gid], change_groups=[share_gid]),
@@ -371,7 +381,8 @@ def backfill(api, f, t, share_gid, n8n_uid):
               (["Steuer"], ["Steuerjahr"])]
     for tags, fields in groups:
         if n8n_uid:
-            bulk(docs(tags, lacks=("view", "users", n8n_uid)), "set_permissions", perms(view_users=[n8n_uid]), f"{'/'.join(tags)}: n8n darf lesen")
+            bulk(docs(tags, lacks=("change", "users", n8n_uid)), "set_permissions",
+                 perms(view_users=[n8n_uid], change_users=[n8n_uid]), f"{'/'.join(tags)}: n8n darf lesen + Felder füllen")
         for name in fields:
             # nur Dokumente OHNE das Feld: bulk_edit würde vorhandene Werte sonst auf leer setzen.
             # Die Workflows mit Auslöser "aktualisiert" ergänzen Felder oft schon beim Rechte-Schritt oben.

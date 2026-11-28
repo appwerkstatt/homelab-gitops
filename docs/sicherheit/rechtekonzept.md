@@ -95,7 +95,7 @@ Paperless hat eigene Konten und Rechte pro Dokument:
 - Scans aus dem Consume-Ordner haben keine hochladende Person: Workflows setzen den Besitzer nach Unterordner
   (`christian/`, `gisa/`, `haushalt/`, sonst Christian). Dokumente mit Tag `Haushalt`, `Vertrag`, `Versicherung` oder
   `Steuer` werden automatisch mit `haushalt` geteilt ([Automatisierung](../dienste/paperless.md#automatisierung)).
-- Der Paperless-Benutzer `n8n` (nur Lesen) sieht nur Rechnungen, Verträge, Versicherungen und Steuer.
+- Der Paperless-Benutzer `n8n` sieht und ändert nur Rechnungen, Verträge, Versicherungen und Steuer (füllt leere Felder per KI); andere Dokumente sieht er nicht.
 
 **Wichtig:** Dokumente **ohne** Besitzer sieht jeder Benutzer. Vor dem ersten weiteren Konto alle Dokumente
 ohne Besitzer einem Besitzer zuweisen (Dokumente → Filter „Besitzer: keiner“ → Massenbearbeitung → Rechte).

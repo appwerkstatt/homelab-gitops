@@ -45,7 +45,7 @@ flowchart LR
 | **Tags** | `Rechnung`, `Vertrag`, `Versicherung`, `Steuer`, `Haushalt` (Auto-Zuordnung über Stichwörter), `E-Mail`. Ohne Besitzer, damit alle Konten sie sehen; die Dokumente bleiben trotzdem privat |
 | **Workflows** | siehe unten |
 | **Ansichten** | *Rechnungen offen* (nach Fälligkeit), *Verträge mit Frist* (nach „Kündigen bis“), *Steuer &lt;Jahr&gt;* (Vorjahr + laufendes Jahr), *Steuer: ohne Steuerjahr*. Geteilt mit `haushalt` |
-| **Benutzer `n8n`** | nur Lese-Rechte, sieht nur Rechnungen, Verträge, Versicherungen und Steuer (per Workflow freigegeben) |
+| **Benutzer `n8n`** | sieht und ändert nur Rechnungen, Verträge, Versicherungen und Steuer (per Workflow freigegeben), um leere Felder zu füllen |
 
 Workflows (die Reihenfolge zählt, spätere Zuweisungen gewinnen):
 
@@ -68,8 +68,9 @@ Entscheidung 2026-11-28: beide Sprachen akzeptieren). Kommt ein neuer englischer
 Sortierung haben als die Workflows hier (z. B. 5), sonst prüfen diese die Tags, bevor die KI sie setzt.
 
 Die Tag-Workflows laufen beim Hinzufügen **und** beim Bearbeiten, also auch, wenn paperless-ai oder jemand von Hand
-später den Tag setzt. Vorhandene Werte in Feldern überschreiben sie nicht. Die Felder füllt man von Hand (oder
-paperless-ai schlägt sie vor); Fälligkeit und „Kündigen bis“ sind die Grundlage für die Telegram-Erinnerungen.
+später den Tag setzt. Vorhandene Werte in Feldern überschreiben sie nicht. Leere Felder füllt der n8n-Workflow
+`paperless-felder-ki.json` per Ollama aus (Tag **KI-Felder** danach; die eingebaute Paperless-KI kann keine Custom
+Fields), von Hand geht es immer; Fälligkeit und „Kündigen bis“ sind die Grundlage für die Telegram-Erinnerungen.
 
 **Hinweis:** Auch Dokumente der Kinder mit Tag `Vertrag`, `Versicherung` oder `Steuer` werden mit `haushalt` (den
 Eltern) geteilt.

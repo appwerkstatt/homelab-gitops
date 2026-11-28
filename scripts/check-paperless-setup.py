@@ -202,6 +202,20 @@ def main():
     check(call("GET", f"/documents/{b['id']}/", n8n_tok, ok="any")[0] == 404, "n8n sieht brief nicht")
     check(len(get("/custom_fields/", n8n_tok)["results"]) >= 6, "n8n sieht Custom Fields")
 
+    print("n8n darf Felder füllen (paperless-felder-ki.json), aber nur bei Rechnung/Vertrag/Steuer")
+    ki = next(t["id"] for t in get("/tags/", n8n_tok, page_size=100)["results"] if t["name"] == "KI-Felder")
+    leer = ["OR", [["AND", [[F[n], "exists", True], [F[n], "isnull", True]]]
+                   for n in ["Betrag", "Fällig am", "Vertragsende", "Kündigen bis", "Steuerjahr"]]]
+    found = cfq(n8n_tok, leer, tags__id__none=ki)
+    check({"rechnung", "alt"} <= found and "brief" not in found, f"KI-Abfrage findet leere Felder ({sorted(found)})")
+    rd = get(f"/documents/{r['id']}/", n8n_tok)
+    st, _ = call("PATCH", f"/documents/{r['id']}/", n8n_tok, {"custom_fields": rd["custom_fields"],
+                                                             "tags": rd["tags"] + [ki]}, ok="any")
+    check(st == 200, f"n8n kann Rechnung ändern (HTTP {st})")
+    check(call("PATCH", f"/documents/{b['id']}/", n8n_tok, {"title": "x"}, ok="any")[0] == 404,
+          "n8n kann brief nicht ändern")
+    call("PATCH", f"/documents/{r['id']}/", tok, {"tags": [x for x in rd["tags"] if x != ki]})
+
     print("Abfragen der n8n-Workflows (als n8n)")
     call("PATCH", f"/documents/{r['id']}/", tok, {"custom_fields": [
         {"field": F["Betrag"], "value": "EUR49.90"}, {"field": F["Fällig am"], "value": (today + datetime.timedelta(days=3)).isoformat()},

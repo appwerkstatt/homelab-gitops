@@ -109,6 +109,24 @@ Einrichtung nach dem Import:
    die `chatId`.
 4. Einmal *Execute workflow* (bei den Fristen kommt nur eine Nachricht, wenn etwas ansteht), dann **Active**.
 
+## paperless-felder-ki.json: Zusatzfelder per KI füllen (Ollama)
+
+Alle 15 Minuten holt der Workflow bis zu 5 Dokumente, bei denen eins der Felder *Betrag*, *Fällig am*,
+*Vertragsende*, *Kündigen bis* oder *Steuerjahr* dranhängt, aber leer ist, und die noch keinen Tag **KI-Felder**
+haben. Ollama auf dem Mac Studio (`qwen2.5:14b`, strukturierte JSON-Antwort, Temperatur 0) liest die Werte aus dem
+OCR-Text. Der Workflow trägt nur **leere** Felder ein (prüft Datum/Betrag/Jahr), setzt den Tag *KI-Felder* und
+fasst das Dokument danach nicht mehr an. Erneut auslesen: Tag *KI-Felder* entfernen.
+
+Ist der Mac Studio aus, schlägt nur der Ollama-Node fehl; das Dokument bekommt keinen Tag und kommt im nächsten Lauf
+wieder dran. Bezahlt-Status füllt die KI bewusst nicht.
+
+Rechte: Der Paperless-Benutzer `n8n` hat `change_document`, aber Objektrechte nur auf Dokumente mit Tag Rechnung,
+Vertrag, Versicherung, Steuer (bzw. englische Aliase), vergeben von den Workflows aus `paperless-setup.py`.
+
+Einrichtung: `paperless-setup.py --update --backfill` (ergänzt Rechte und Tag), Workflow importieren, in den
+Paperless-Nodes (Felder, Tag KI-Felder, Dokumente, Speichern) das Credential **Paperless lesen** wählen, einmal
+*Execute workflow*, dann **Active**. Der Node *Ollama* braucht kein Credential.
+
 ## Zugriff auf Metriken und Logs
 
 VictoriaMetrics, Loki und Alertmanager hängen nicht im Netz `edge-n8n`. n8n liest Metriken und Logs nur über

@@ -92,6 +92,10 @@ Paperless hat eigene Konten und Rechte pro Dokument:
   **`haushalt`** (Ansehen + Bearbeiten). Mitglieder: **nur Christian und seine Frau**. Sohn und Tochter sehen
   nur ihre eigenen Dokumente (Entscheidung 2026-11-27).
 - Ein Workflow „Dokument hinzugefügt → Besitzer = hochladende Person“ sorgt dafür, dass neue Uploads nicht offen sind.
+- Scans aus dem Consume-Ordner haben keine hochladende Person: Workflows setzen den Besitzer nach Unterordner
+  (`christian/`, `gisa/`, `haushalt/`, sonst Christian). Dokumente mit Tag `Haushalt`, `Vertrag`, `Versicherung` oder
+  `Steuer` werden automatisch mit `haushalt` geteilt ([Automatisierung](../dienste/paperless.md#automatisierung)).
+- Der Paperless-Benutzer `n8n` (nur Lesen) sieht nur Rechnungen, Verträge, Versicherungen und Steuer.
 
 **Wichtig:** Dokumente **ohne** Besitzer sieht jeder Benutzer. Vor dem ersten weiteren Konto alle Dokumente
 ohne Besitzer einem Besitzer zuweisen (Dokumente → Filter „Besitzer: keiner“ → Massenbearbeitung → Rechte).

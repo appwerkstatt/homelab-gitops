@@ -7,7 +7,7 @@
 | **Login** | `sso-devs@docker` (Gruppe `devs`, siehe [Rechtekonzept](../sicherheit/rechtekonzept.md)), danach automatisch im n8n-Konto mit derselben E-Mail ([Keycloak-Login](#keycloak-login)) |
 | **Daten** | `fast/appdata/n8n/{data,db}` |
 | **Backup** | Tier 2 + `pg_dump` offsite |
-| **Abhängig von** | Mac Studio (Ollama `:11434`, LM Studio `:1234`), VM `n8n-sandbox`, vmauth (Metriken/Logs lesen, nur mit Token) |
+| **Abhängig von** | Mac Studio (Ollama `:11434`, LM Studio `:1234`), VM `n8n-sandbox`, vmauth (Metriken/Logs lesen, nur mit Token), Paperless-API (Benutzer `n8n`, nur Lesen) |
 | **Quelle** | [`stacks/13-n8n/`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/13-n8n) |
 
 ## Bausteine
@@ -85,6 +85,8 @@ Arcane deployt sie nicht. Einrichtung steht im [README](https://github.com/appwe
 | `tagesbericht.json` | 07:30 Telegram-Bericht: Alarme der letzten 24 h + Renovate-Status |
 | `github-prs.json` | meldet neue PRs in `homelab-gitops` nach Telegram |
 | `alert-erklaerer.json` | holt bei jedem Alarm die Logs aus Loki und lässt LM Studio erklären, Antwort als zweite Telegram-Nachricht |
+| `paperless-fristen.json` | 08:00 Telegram: fällige/überfällige Rechnungen (7 Tage) und Vertragsfristen aus Paperless, nur wenn etwas ansteht |
+| `paperless-monatsbericht.json` | am 1. um 08:15: Rechnungen des Vormonats mit Summe, offene Rechnungen, Fristen in 90 Tagen, Steuer-Stand |
 
 ## Stolperfallen
 

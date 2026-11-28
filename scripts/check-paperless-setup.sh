@@ -30,12 +30,13 @@ docker run -d --name pl-check --network pl-check -p 127.0.0.1:8000:8000 \
   -e PAPERLESS_REDIS=redis://pl-check-redis:6379 \
   -e PAPERLESS_ADMIN_USER=admin -e PAPERLESS_ADMIN_PASSWORD="$pw" \
   -e PAPERLESS_OCR_LANGUAGE="$ocr" -e PAPERLESS_CONSUMER_RECURSIVE=true -e PAPERLESS_CONSUMER_POLLING=2 \
-  -e PAPERLESS_TIME_ZONE=Europe/Berlin \
+  -e PAPERLESS_TIME_ZONE=Europe/Berlin -e PAPERLESS_SECRET_KEY="$(openssl rand -hex 32)" \
   -v "$tmp/consume:/usr/src/paperless/consume" "$image" >/dev/null
 
 echo "Warte auf $image (OCR: $ocr)"
 for _ in $(seq 1 120); do
   curl -sf -u "admin:$pw" http://127.0.0.1:8000/api/profile/ >/dev/null 2>&1 && break
+  [ "$(docker inspect -f {{.State.Running}} pl-check)" = true ] || break
   sleep 3
 done
 if ! curl -sf -u "admin:$pw" http://127.0.0.1:8000/api/profile/ >/dev/null; then

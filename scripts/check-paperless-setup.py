@@ -233,7 +233,8 @@ def main():
     print("Tags aufräumen (Positivliste)")
     junk = {n: call("POST", "/tags/", tok, {"name": n, "matching_algorithm": 0})[1]["id"]
             for n in ["kaufbeleg", "2026", "wohnung", "ai-verarbeitet", "ungenutzt"]}
-    call("PATCH", f"/documents/{r['id']}/", tok, {"tags": r["tags"] + [junk["kaufbeleg"], junk["2026"], junk["ai-verarbeitet"]]})
+    call("PATCH", f"/documents/{r['id']}/", tok, {"tags": r["tags"] + [junk["2026"], junk["ai-verarbeitet"]]})
+    call("PATCH", f"/documents/{b['id']}/", tok, {"tags": [junk["kaufbeleg"]]})   # brief hat sonst keinen Tag
     call("PATCH", f"/documents/{s['id']}/", tok, {"tags": s["tags"] + [junk["wohnung"]]})
     before = {t["name"] for t in get("/tags/", tok, page_size=200)["results"]}
     run_setup(tok, "--dry-run", "--tags-aufraeumen")
@@ -243,7 +244,8 @@ def main():
     check(not {"kaufbeleg", "2026", "wohnung", "ungenutzt", "invoice"} & set(T), f"Fremd-Tags weg ({sorted(T)})")
     check({"Rechnung", "Haus", "Kinder", "Technik", "E-Mail", "ai-verarbeitet"} <= set(T), "Positivliste + ai-verarbeitet bleiben")
     rt = set(get(f"/documents/{r['id']}/", tok)["tags"])
-    check({T["Rechnung"], T["ai-verarbeitet"]} <= rt and not {junk["kaufbeleg"], junk["2026"]} & rt, "kaufbeleg -> Rechnung")
+    check(T["ai-verarbeitet"] in rt and junk["2026"] not in rt, "ai-verarbeitet bleibt, 2026 weg")
+    check(get(f"/documents/{b['id']}/", tok)["tags"] == [T["Rechnung"]], "kaufbeleg -> Rechnung")
     check(T["Haus"] in get(f"/documents/{s['id']}/", tok)["tags"], "wohnung -> Haus")
     rw = get(f"/workflows/{wf['Rechnung: Felder Betrag/Fällig/Bezahlt']['id']}/", tok)["triggers"][0]["filter_has_tags"]
     check(set(rw) == {T["Rechnung"]}, f"Workflow ohne gelöschten invoice-Tag ({rw})")

@@ -75,7 +75,14 @@ services:
       edge-keycloak: { aliases: *traefik_aliases }
       edge-sso: { aliases: *traefik_aliases }
       edge-paperless: { aliases: *traefik_aliases }
-      edge-n8n: { aliases: *traefik_aliases }
+      # edge-n8n zusätzlich docs.lab: die Paperless-Workflows (Fristen, Monatsbericht) lesen die Paperless-API über
+      # Traefik (Benutzer n8n, nur Lesen). Ohne Alias zeigt docs.lab auf .48 -> Hairpin -> "host unreachable".
+      edge-n8n:
+        aliases:
+          - traefik
+          - auth.${LAB_DOMAIN}
+          - auth.appsfab.org
+          - docs.${LAB_DOMAIN}
       # edge-plane: die Plane-API holt Token und Benutzer des Keycloak-Logins serverseitig über auth.appsfab.org.
       edge-plane: { aliases: *traefik_aliases }
       edge-doku: { aliases: *traefik_aliases }

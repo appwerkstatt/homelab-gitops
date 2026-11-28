@@ -127,7 +127,7 @@ Neues Jahr: `paperless-setup.py` erneut laufen lassen (legt *Steuer &lt;Jahr&gt;
 `paperless-fristen.json` (täglich 08:00, nur wenn etwas ansteht) und `paperless-monatsbericht.json` (am 1., 08:15)
 in [`stacks/13-n8n/workflows/`](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/13-n8n/workflows),
 Einrichtung im [README](https://github.com/appwerkstatt/homelab-gitops/blob/main/stacks/13-n8n/workflows/README.md).
-Sie lesen über `https://docs.lab.appsfab.org/api` mit dem Token des Benutzers `n8n`.
+Sie lesen über `https://docs.lab.appsfab.org/api` mit dem Token des Benutzers `n8n` (im Netz `edge-n8n` über den Traefik-Alias `docs.lab`, sonst Hairpin).
 
 ## Eingebaute KI
 

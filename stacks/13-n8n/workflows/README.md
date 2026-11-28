@@ -92,6 +92,9 @@ docker exec "$(docker ps -qf name=n8n-n8n)" wget -qO- --header "Authorization: B
   größten, offene Rechnungen, Vertragsfristen in 90 Tagen, Zahl der Steuerdokumente fürs Vorjahr und wie viele noch
   kein Steuerjahr haben.
 
+n8n erreicht `https://docs.lab.appsfab.org` über den Traefik-Alias `docs.lab` im Netz `edge-n8n`
+(`stacks/00-traefik/compose.yaml`); fehlt er, meldet der HTTP-Node „The host is unreachable“.
+
 Beide lesen nur die Custom Fields aus `stacks/11-paperless/setup/paperless-setup.py`. Der Paperless-Benutzer `n8n`
 sieht nur Dokumente mit Tag Rechnung, Vertrag, Versicherung oder Steuer (Handbuch: Dienste → Paperless →
 Automatisierung). Die Abfragen prüft die CI gegen ein echtes Paperless (`scripts/check-paperless-setup.py`,

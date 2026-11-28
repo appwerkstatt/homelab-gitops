@@ -121,6 +121,7 @@ def main():
     print("Bestand vor dem Setup: Tag Vertrag + Feld Vertragsende gibt es schon, ein Vertrag mit Wert")
     vertrag = call("POST", "/tags/", tok, {"name": "Vertrag", "matching_algorithm": 0})[1]["id"]
     ende = call("POST", "/custom_fields/", tok, {"name": "Vertragsende", "data_type": "date"})[1]["id"]
+    invoice = call("POST", "/tags/", tok, {"name": "invoice", "matching_algorithm": 0})[1]["id"]   # wie von der KI
     (CONSUME / "alt.txt").write_text("Alter Mobilfunk-Kram ohne Schlagwort\n")
     alt = wait_docs(tok, 1)["alt"]
     call("PATCH", f"/documents/{alt['id']}/", tok, {"tags": [vertrag], "owner": christian,
@@ -152,6 +153,10 @@ def main():
     check(len(rules) == 1 and rules[0]["action_parameter"] == "Paperless-Erledigt", "Mail-Regel")
     check(F["Vertragsende"] == ende and T["Vertrag"] == vertrag, "vorhandenes Feld/Tag wiederverwendet")
 
+    wf = {w["name"]: w for w in get("/workflows/", tok, page_size=100)["results"]}
+    rw = wf["Rechnung: Felder Betrag/Fällig/Bezahlt"]["triggers"][0]["filter_has_tags"]
+    check(set(rw) == {T["Rechnung"], invoice}, f"Rechnung-Workflow gilt auch für invoice ({rw})")
+
     print("Backfill am alten Vertrag")
     d = get(f"/documents/{alt['id']}/", tok, full_perms="true")
     cf = {c["field"]: c["value"] for c in d["custom_fields"]}
@@ -181,6 +186,14 @@ def main():
     check(haushalt in s["permissions"]["view"]["groups"] and haushalt in s["permissions"]["change"]["groups"],
           "haushalt/ -> mit haushalt geteilt")
     check(b["owner"] == christian and not b["permissions"]["view"]["groups"], "Wurzel -> christian, privat")
+
+    print("KI setzt englischen Tag invoice nachträglich")
+    call("PATCH", f"/documents/{b['id']}/", tok, {"tags": [invoice]})
+    bi = get(f"/documents/{b['id']}/", tok, full_perms="true")
+    check(F["Fällig am"] in {c["field"] for c in bi["custom_fields"]}, "invoice -> Felder (Workflow aktualisiert)")
+    check(users["n8n"] in bi["permissions"]["view"]["users"], "invoice -> n8n darf lesen")
+    call("PATCH", f"/documents/{b['id']}/", tok, {"tags": [], "custom_fields": [], "set_permissions": {
+        "view": {"users": [], "groups": []}, "change": {"users": [], "groups": []}}})
 
     print("Gisa sieht Gemeinsames, n8n nur Rechnungen/Verträge")
     check(call("GET", f"/documents/{s['id']}/", gisa_tok, ok="any")[0] == 200, "gisa sieht strom")

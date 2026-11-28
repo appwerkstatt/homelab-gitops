@@ -34,6 +34,7 @@ import json
 import os
 import secrets
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -180,6 +181,29 @@ class Api:
             return {"id": self.fake_id, **(data if isinstance(data, dict) else {})}
         return self.request(method, path, data)
 
+    def bulk_edit(self, docs, method, parameters, what):
+        """bulk_edit läuft in Paperless 3.x als Hintergrund-Task: auf das Ergebnis warten, bevor es weitergeht
+        (sonst löscht das Aufräumen einen Tag, bevor seine Dokumente den neuen haben)."""
+        res = self.write("POST", "/documents/bulk_edit/", {"documents": docs, "method": method,
+                                                            "parameters": parameters}, what)
+        task = (res or {}).get("task_id")
+        if self.dry_run or not task:
+            return
+        for i in range(200):
+            found = self.request("GET", "/tasks/?" + urllib.parse.urlencode({"task_id": task}))
+            found = found.get("results", []) if isinstance(found, dict) else found
+            status = str(found[0].get("status") if found else "").upper()
+            if status == "SUCCESS":
+                return
+            if status in ("FAILURE", "REVOKED"):
+                sys.exit(f"FEHLER: {what}: Paperless-Task {task} {status}: {found[0]}")
+            if not found and i >= 20:
+                print(f"  ! Task {task} taucht in /tasks/ nicht auf, 10 s Puffer")
+                time.sleep(10)
+                return
+            time.sleep(1.5)
+        sys.exit(f"FEHLER: {what}: Paperless-Task {task} nach 5 Minuten nicht fertig")
+
     def all(self, path, **params):
         params.setdefault("page_size", 1000)
         url = self.base + path + "?" + urllib.parse.urlencode(params)
@@ -262,8 +286,7 @@ def tidy_tags(api, t):
         target = target_of.get(name.casefold())
         if target and n:
             docs = [d["id"] for d in api.all("/documents/", tags__id__all=tid, fields="id")]
-            api.write("POST", "/documents/bulk_edit/", {"documents": docs, "method": "add_tag",
-                                                       "parameters": {"tag": t[target]}}, f"{target} an {len(docs)} Dokumente")
+            api.bulk_edit(docs, "add_tag", {"tag": t[target]}, f"{target} an {len(docs)} Dokumente")
         api.write("DELETE", f"/tags/{tid}/", None, f"Tag {name} löschen")
         deleted.add(tid)
         print(f"  - {name} ({n})" + (f" -> {target}" if target else " gelöscht"))
@@ -430,8 +453,7 @@ def backfill(api, f, t, share_gid, n8n_uid):
         if not ids:
             print(f"  = {what}: nichts zu tun")
             return
-        api.write("POST", "/documents/bulk_edit/", {"documents": ids, "method": method, "parameters": parameters},
-                  f"{what} ({len(ids)} Dokumente)")
+        api.bulk_edit(ids, method, parameters, f"{what} ({len(ids)} Dokumente)")
         print(f"  + {what}: {len(ids)} Dokumente")
 
     def perms(view_users=(), view_groups=(), change_groups=()):

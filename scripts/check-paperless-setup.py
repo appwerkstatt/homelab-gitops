@@ -141,7 +141,7 @@ def main():
     out2 = run_setup(tok, "--n8n-user", "--backfill", "--mail", env_extra=mail_env)
     added = [line for line in out2.splitlines() if line.startswith("  + ")]
     check(not added, f"zweiter Lauf idempotent {added or ''}")
-    run_setup(tok, "--update")   # überschreiben muss die API auch annehmen
+    run_setup(tok, "--update", "--mail", env_extra=mail_env)   # überschreiben muss die API auch annehmen
 
     F = {f["name"]: f["id"] for f in get("/custom_fields/", tok, page_size=100)["results"]}
     T = {t["name"]: t["id"] for t in get("/tags/", tok, page_size=100)["results"]}
@@ -152,6 +152,8 @@ def main():
           f"Ansichten {sorted(views)}")
     rules = get("/mail_rules/", tok)["results"]
     check(len(rules) == 1 and rules[0]["action_parameter"] == "Paperless-Erledigt", "Mail-Regel")
+    check(rules[0]["attachment_type"] == 2 and rules[0]["filter_attachment_filename_include"] == "*.pdf",
+          "Mail-Regel nimmt Inline-PDFs (weitergeleitet aus Apple Mail)")
     check(F["Vertragsende"] == ende and T["Vertrag"] == vertrag, "vorhandenes Feld/Tag wiederverwendet")
 
     wf = {w["name"]: w for w in get("/workflows/", tok, page_size=100)["results"]}

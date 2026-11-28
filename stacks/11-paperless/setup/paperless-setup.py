@@ -65,13 +65,31 @@ TAGS = [
     ("E-Mail", "#868e96", None),
 ]
 SHARED_TAGS = ["Haushalt", "Vertrag", "Versicherung", "Steuer"]   # -> Gruppe haushalt (Rechtekonzept)
+# Englische Tags, die KI-Vorschläge (paperless-ai, Paperless-KI) anlegen. Gibt es sie, zählen sie in Workflows,
+# Ansichten und Backfill wie der deutsche Tag (Entscheidung Christian 2026-11-28: beide Sprachen akzeptieren).
+TAG_ALIASES = {
+    "Rechnung": ["invoice", "invoices", "bill", "bills"],
+    "Vertrag": ["contract", "contracts", "agreement"],
+    "Versicherung": ["insurance"],
+    "Steuer": ["tax", "taxes"],
+    "Haushalt": ["household"],
+}
+ALIAS_IDS = {}   # deutscher Name -> IDs vorhandener Alias-Tags (füllt ensure_tags)
+
+
+def tag_ids(t, names):
+    """IDs der deutschen Tags plus ihrer vorhandenen englischen Aliase."""
+    out = []
+    for name in names:
+        out += [t[name], *ALIAS_IDS.get(name, [])]
+    return out
 
 # Paperless-Konstanten (documents/models.py, src-ui filter-rule-type.ts)
 MATCH_NONE, MATCH_ANY = 0, 1
 TRIGGER_CONSUMPTION, TRIGGER_ADDED, TRIGGER_UPDATED = 1, 2, 3
 SOURCE_CONSUME_FOLDER, SOURCE_API, SOURCE_MAIL = 1, 2, 3
 ACTION_ASSIGNMENT = 1
-RULE_HAS_TAGS_ALL, RULE_HAS_TAGS_ANY, RULE_CUSTOM_FIELD_QUERY = 6, 22, 42
+RULE_HAS_TAGS_ANY, RULE_CUSTOM_FIELD_QUERY = 22, 42
 
 
 class Api:
@@ -172,6 +190,11 @@ def ensure_tags(api):
                 "matching_algorithm": MATCH_ANY if words else MATCH_NONE, "match": words or ""}
         ids[name] = api.write("POST", "/tags/", data, f"Tag {name}")["id"]
         print(f"  + {name}")
+    for name, aliases in TAG_ALIASES.items():
+        found = [existing[a.casefold()] for a in aliases if a.casefold() in existing]
+        ALIAS_IDS[name] = [x["id"] for x in found if x["id"] != ids[name]]
+        if found:
+            print(f"  = {name} gilt auch für: {', '.join(x['name'] for x in found)}")
     return ids
 
 
@@ -222,7 +245,7 @@ def workflows_spec(f, t, users, share_gid, n8n_uid):
 
     def on_tags(name, order, tags, action):
         trig = [{"type": typ, "sources": [SOURCE_CONSUME_FOLDER, SOURCE_API, SOURCE_MAIL],
-                 "filter_has_tags": [t[x] for x in tags], "matching_algorithm": MATCH_NONE}
+                 "filter_has_tags": tag_ids(t, tags), "matching_algorithm": MATCH_NONE}
                 for typ in (TRIGGER_ADDED, TRIGGER_UPDATED)]
         return {"name": name, "order": order, "enabled": True, "triggers": trig,
                 "actions": [dict(type=ACTION_ASSIGNMENT, **action)]}
@@ -270,6 +293,9 @@ def views_spec(f, t, share_gid, years):
     share = {"view": {"users": [], "groups": [share_gid]}, "change": {"users": [], "groups": []}}
     cf = lambda name: f"custom_field_{f[name]}"  # noqa: E731
 
+    def any_tag(*names):   # "hat einen dieser Tags" (deutsch + Aliase)
+        return [{"rule_type": RULE_HAS_TAGS_ANY, "value": str(i)} for i in tag_ids(t, names)]
+
     def view(name, rules, sort, cols, dashboard=True, reverse=False):
         return {"name": name, "show_on_dashboard": dashboard, "show_in_sidebar": True,
                 "sort_field": sort, "sort_reverse": reverse, "display_mode": "table",
@@ -278,23 +304,22 @@ def views_spec(f, t, share_gid, years):
 
     specs = [
         view("Rechnungen offen",
-             [{"rule_type": RULE_HAS_TAGS_ALL, "value": str(t["Rechnung"])},
+             [*any_tag("Rechnung"),
               {"rule_type": RULE_CUSTOM_FIELD_QUERY, "value": q(["NOT", [f["Bezahlt"], "exact", True]])}],
              cf("Fällig am"), [cf("Fällig am"), cf("Betrag"), cf("Bezahlt")]),
         view("Verträge mit Frist",
-             [{"rule_type": RULE_HAS_TAGS_ANY, "value": str(t["Vertrag"])},
-              {"rule_type": RULE_HAS_TAGS_ANY, "value": str(t["Versicherung"])},
+             [*any_tag("Vertrag", "Versicherung"),
               {"rule_type": RULE_CUSTOM_FIELD_QUERY,
                "value": q(["OR", [[f["Kündigen bis"], "isnull", False], [f["Vertragsende"], "isnull", False]]])}],
              cf("Kündigen bis"), [cf("Kündigen bis"), cf("Vertragsende")]),
         view("Steuer: ohne Steuerjahr",
-             [{"rule_type": RULE_HAS_TAGS_ALL, "value": str(t["Steuer"])},
+             [*any_tag("Steuer"),
               {"rule_type": RULE_CUSTOM_FIELD_QUERY, "value": q(["NOT", [f["Steuerjahr"], "isnull", False]])}],
              "created", ["created"], dashboard=False, reverse=True),
     ]
     for year in years:
         specs.append(view(f"Steuer {year}",
-                          [{"rule_type": RULE_HAS_TAGS_ALL, "value": str(t["Steuer"])},
+                          [*any_tag("Steuer"),
                            {"rule_type": RULE_CUSTOM_FIELD_QUERY, "value": q([f["Steuerjahr"], "exact", year])}],
                           "created", ["created", cf("Betrag")], dashboard=False))
     return specs
@@ -309,11 +334,11 @@ def backfill(api, f, t, share_gid, n8n_uid):
     def docs(tags, field_missing=None, lacks=None):
         """IDs der Dokumente mit einem der Tags, denen das Feld bzw. das Recht noch fehlt (Filter in Python,
         damit ein zweiter Lauf nichts mehr anfasst)."""
-        if any(t[x] < 0 for x in tags):
+        if any(i < 0 for i in tag_ids(t, tags)):
             return []   # dry-run: Tag gäbe es erst nach dem echten Lauf
         key = tuple(tags)
         if key not in cache:
-            cache[key] = api.all("/documents/", tags__id__in=",".join(str(t[x]) for x in tags),
+            cache[key] = api.all("/documents/", tags__id__in=",".join(str(i) for i in tag_ids(t, tags)),
                                  fields="id,custom_fields,permissions", full_perms="true")
         out = []
         for d in cache[key]:

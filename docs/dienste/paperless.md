@@ -59,6 +59,14 @@ Workflows (die Reihenfolge zählt, spätere Zuweisungen gewinnen):
 | Vertrag: Felder | Tag `Vertrag` oder `Versicherung` | Felder Vertragsende, Kündigen bis + Leserecht `n8n` |
 | Steuer: Feld Steuerjahr | Tag `Steuer` | Feld Steuerjahr + Leserecht `n8n` |
 
+**Englische KI-Tags:** Gibt es Tags wie `invoice`, `contract`, `insurance`, `tax` (legen paperless-ai bzw. die
+Paperless-KI an), zählen sie in Workflows, Ansichten und Backfill wie der deutsche Tag (`TAG_ALIASES` im Skript;
+Entscheidung 2026-11-28: beide Sprachen akzeptieren). Kommt ein neuer englischer Tag dazu: Skript mit
+`--update --backfill` erneut laufen lassen.
+
+**Reihenfolge mit der KI:** Der UI-Workflow „AI Kategorisierung“ (*Apply AI Suggestions*) muss eine **kleinere**
+Sortierung haben als die Workflows hier (z. B. 5), sonst prüfen diese die Tags, bevor die KI sie setzt.
+
 Die Tag-Workflows laufen beim Hinzufügen **und** beim Bearbeiten, also auch, wenn paperless-ai oder jemand von Hand
 später den Tag setzt. Vorhandene Werte in Feldern überschreiben sie nicht. Die Felder füllt man von Hand (oder
 paperless-ai schlägt sie vor); Fälligkeit und „Kündigen bis“ sind die Grundlage für die Telegram-Erinnerungen.

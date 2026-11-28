@@ -304,13 +304,27 @@ def backfill(api, f, t, share_gid, n8n_uid):
     """Wie die Workflows, nur für schon vorhandene Dokumente. Werte vorhandener Felder bleiben unangetastet."""
     print("Backfill vorhandener Dokumente")
 
-    def docs(tags, field_missing=None):
-        if any(t[x] < 0 for x in tags) or (field_missing and f[field_missing] < 0):
-            return []   # dry-run: Tag/Feld gäbe es erst nach dem echten Lauf
-        params = {"tags__id__in": ",".join(str(t[x]) for x in tags), "fields": "id"}
-        if field_missing:
-            params["custom_field_query"] = q(["NOT", [f[field_missing], "exists", True]])
-        return [d["id"] for d in api.all("/documents/", **params)]
+    cache = {}
+
+    def docs(tags, field_missing=None, lacks=None):
+        """IDs der Dokumente mit einem der Tags, denen das Feld bzw. das Recht noch fehlt (Filter in Python,
+        damit ein zweiter Lauf nichts mehr anfasst)."""
+        if any(t[x] < 0 for x in tags):
+            return []   # dry-run: Tag gäbe es erst nach dem echten Lauf
+        key = tuple(tags)
+        if key not in cache:
+            cache[key] = api.all("/documents/", tags__id__in=",".join(str(t[x]) for x in tags),
+                                 fields="id,custom_fields,permissions", full_perms="true")
+        out = []
+        for d in cache[key]:
+            if field_missing and f[field_missing] in {c["field"] for c in d.get("custom_fields", [])}:
+                continue
+            if lacks:
+                kind, who, pid = lacks          # z. B. ("view", "groups", 3)
+                if pid in (d.get("permissions") or {}).get(kind, {}).get(who, []):
+                    continue
+            out.append(d["id"])
+        return out
 
     def bulk(ids, method, parameters, what):
         if not ids:
@@ -325,16 +339,17 @@ def backfill(api, f, t, share_gid, n8n_uid):
                                     "change": {"users": [], "groups": list(change_groups)}},
                 "merge": True}   # merge: Besitzer und bestehende Rechte bleiben
 
-    bulk(docs(SHARED_TAGS), "set_permissions", perms(view_groups=[share_gid], change_groups=[share_gid]),
+    bulk(docs(SHARED_TAGS, lacks=("change", "groups", share_gid)), "set_permissions", perms(view_groups=[share_gid], change_groups=[share_gid]),
          f"mit {SHARE_GROUP} teilen")
     groups = [(["Rechnung"], ["Betrag", "Fällig am", "Bezahlt"]),
               (["Vertrag", "Versicherung"], ["Vertragsende", "Kündigen bis"]),
               (["Steuer"], ["Steuerjahr"])]
     for tags, fields in groups:
         if n8n_uid:
-            bulk(docs(tags), "set_permissions", perms(view_users=[n8n_uid]), f"{'/'.join(tags)}: n8n darf lesen")
+            bulk(docs(tags, lacks=("view", "users", n8n_uid)), "set_permissions", perms(view_users=[n8n_uid]), f"{'/'.join(tags)}: n8n darf lesen")
         for name in fields:
-            # nur Dokumente OHNE das Feld: bulk_edit würde vorhandene Werte sonst auf leer setzen
+            # nur Dokumente OHNE das Feld: bulk_edit würde vorhandene Werte sonst auf leer setzen.
+            # Die Workflows mit Auslöser "aktualisiert" ergänzen Felder oft schon beim Rechte-Schritt oben.
             bulk(docs(tags, field_missing=name), "modify_custom_fields",
                  {"add_custom_fields": [f[name]], "remove_custom_fields": []}, f"{'/'.join(tags)}: Feld {name}")
 

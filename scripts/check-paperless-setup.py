@@ -166,6 +166,7 @@ def main():
                             ("haushalt", "strom", "Stadtwerke Musterstadt\nAbschlag Strom Dezember\n"),
                             ("", "brief", "Hallo, nur ein Brief.\n")]:
         (CONSUME / sub).mkdir(exist_ok=True)
+        (CONSUME / sub).chmod(0o777)   # Container-Benutzer muss die Datei nach dem Import löschen dürfen
         (CONSUME / sub / f"{name}.txt").write_text(text)
     docs = wait_docs(tok, 4)
     full = {k: get(f"/documents/{v['id']}/", tok, full_perms="true") for k, v in docs.items()}

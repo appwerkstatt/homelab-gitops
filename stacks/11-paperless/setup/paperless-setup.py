@@ -476,7 +476,7 @@ def backfill(api, f, t, share_gid, n8n_uid):
                  {"add_custom_fields": [f[name]], "remove_custom_fields": []}, f"{'/'.join(tags)}: Feld {name}")
 
 
-def ensure_mail(api, t, users):
+def ensure_mail(api, t, users, update):
     env = os.environ
     user, password = env.get("PAPERLESS_MAIL_USER"), env.get("PAPERLESS_MAIL_PASSWORD")
     if not user or not password:
@@ -506,11 +506,17 @@ def ensure_mail(api, t, users):
         print(f"  + Konto {account['name']}")
     rule = {"name": f"Belege aus {folder}", "account": acc_id, "enabled": True, "folder": folder, "order": 10,
             "maximum_age": 90, "action": 2, "action_parameter": done,   # 2 = in Ordner verschieben
-            "attachment_type": 1, "consumption_scope": 1,                # nur Anhänge (Belege, keine Signaturbilder)
+            # 2 = auch Inline-Anhänge: Apple Mail markiert weitergeleitete PDFs als "inline", mit 1 würden sie
+            # übersprungen. Nur PDFs, damit Logos und Signaturbilder nicht als Dokument landen.
+            "attachment_type": 2, "consumption_scope": 1, "filter_attachment_filename_include": "*.pdf",
             "assign_title_from": 2, "assign_correspondent_from": 1,     # Titel = Dateiname, Korrespondent: Auto-Zuordnung
             "assign_tags": [t["E-Mail"]], "assign_owner_from_rule": True, "owner": users[owner.casefold()]}
     rules = by_name(api.all("/mail_rules/"))
-    if rule["name"].casefold() in rules:
+    cur = rules.get(rule["name"].casefold())
+    if cur and update:
+        api.write("PUT", f"/mail_rules/{cur['id']}/", rule, f"Regel {rule['name']} überschreiben")
+        print(f"  ~ Regel {rule['name']} (überschrieben)")
+    elif cur:
         print(f"  = Regel {rule['name']}")
     else:
         api.write("POST", "/mail_rules/", rule, f"Regel {rule['name']}")
@@ -552,7 +558,7 @@ def main():
     if a.backfill:
         backfill(api, f, t, share_gid, n8n_uid)
     if a.mail:
-        ensure_mail(api, t, users)
+        ensure_mail(api, t, users, a.update)
     print("\nFertig.")
 
 

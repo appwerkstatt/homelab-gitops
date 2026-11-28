@@ -120,7 +120,9 @@ Eltern) geteilt.
 
 Paperless holt alle 10 Minuten die **Anhänge** aus dem iCloud-Ordner `Paperless`, legt sie mit Tag `E-Mail` und
 Besitzer Christian ab und verschiebt die Mail danach nach `Paperless-Erledigt`. Mails älter als 90 Tage bleiben
-liegen.
+liegen. Es zählen nur **PDF**-Anhänge, auch „inline“ eingebettete: Apple Mail markiert PDFs in weitergeleiteten
+Mails so, und mit „nur Anhänge“ übersprang Paperless sie (`Skipping attachment ... with content disposition inline`
+in `data/log/mail.log`). Eine schon einmal gelesene Mail fasst Paperless nicht noch einmal an: neu weiterleiten.
 
 1. In iCloud Mail (icloud.com oder Mail-App) die Ordner **`Paperless`** und **`Paperless-Erledigt`** anlegen.
    Belege dorthin ziehen oder eine Regel anlegen (icloud.com → Mail → Einstellungen → Regeln), z. B. alles an eine

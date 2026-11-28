@@ -305,6 +305,8 @@ def backfill(api, f, t, share_gid, n8n_uid):
     print("Backfill vorhandener Dokumente")
 
     def docs(tags, field_missing=None):
+        if any(t[x] < 0 for x in tags) or (field_missing and f[field_missing] < 0):
+            return []   # dry-run: Tag/Feld gäbe es erst nach dem echten Lauf
         params = {"tags__id__in": ",".join(str(t[x]) for x in tags), "fields": "id"}
         if field_missing:
             params["custom_field_query"] = q(["NOT", [f[field_missing], "exists", True]])
@@ -396,7 +398,8 @@ def main():
     api = Api(a.url, token, a.dry_run)
     version = api.probe_version()
     me = api.request("GET", "/profile/")
-    print(f"Paperless {a.url} (API v{version}) als {me.get('username', '?')}{' (dry-run)' if a.dry_run else ''}\n")
+    who = me.get("username") or me.get("email") or me.get("first_name") or "?"
+    print(f"Paperless {a.url} (API v{version}) als {who}{' (dry-run)' if a.dry_run else ''}\n")
     users, share_gid = lookup_principals(api)
     f = ensure_fields(api)
     t = ensure_tags(api)
